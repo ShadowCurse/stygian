@@ -1,24 +1,24 @@
 const std = @import("std");
+const Memory = @import("memory.zig");
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var memory = try Memory.init();
+    defer memory.deinit();
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    {
+        const game_alloc = memory.game_alloc();
+        const buf = try game_alloc.alloc(u8, 1024);
+        defer game_alloc.free(buf);
+        std.log.info("game: alloc {} bytes. game requested bytes: {}", .{ buf.len, memory.game_allocator.total_requested_bytes });
+    }
+    std.log.info("game: game requested bytes after: {}", .{memory.game_allocator.total_requested_bytes});
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    {
+        const frame_alloc = memory.frame_alloc();
+        defer memory.reset_frame();
+        const buf = try frame_alloc.alloc(u8, 1024);
+        defer frame_alloc.free(buf);
+        std.log.info("frame: alloc {} bytes. frame alloc end index: {}", .{ buf.len, memory.frame_allocator.end_index });
+    }
+    std.log.info("frame alloc end index after: {}", .{memory.frame_allocator.end_index});
 }
