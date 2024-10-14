@@ -1,6 +1,21 @@
 #version 450
 
+#extension GL_EXT_buffer_reference : require
+
 layout (location = 0) out vec3 outColor;
+
+struct TriangleInfo {
+    vec3 offset; 
+    float _;
+};
+
+layout(buffer_reference, std430) readonly buffer TriangleInfos { 
+    TriangleInfo infos[];
+};
+
+layout(push_constant) uniform constants {
+    TriangleInfos instance_infos;
+} PushConstants;
 
 struct Vertex {
     vec3 position;
@@ -25,7 +40,8 @@ Vertex[] vertices = {
 
 void main() {
     Vertex v = vertices[gl_VertexIndex];
+    TriangleInfo ti = PushConstants.instance_infos.infos[gl_InstanceIndex];
 
-    gl_Position = vec4(v.position, 1.0f);
+    gl_Position = vec4(v.position + ti.offset, 1.0f);
     outColor = v.color.xyz;
 }

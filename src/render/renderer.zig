@@ -6,12 +6,14 @@ const _image = @import("image.zig");
 
 const Memory = @import("../memory.zig");
 const AllocatedImage = @import("../render/image.zig").AllocatedImage;
+const AllocatedBuffer = @import("../render/buffer.zig").AllocatedBuffer;
 const Pipeline = @import("../render/pipeline.zig").Pipeline;
 
 const Allocator = std.mem.Allocator;
 
 pub const CommandIdx = usize;
 pub const PipelineIdx = usize;
+pub const BufferIdx = usize;
 
 const TIMEOUT = std.math.maxInt(u64);
 const WIDTH = 1280;
@@ -35,6 +37,7 @@ depth_image: AllocatedImage,
 descriptor_pool: DescriptorPool,
 commands: Commands,
 pipelines: std.ArrayListUnmanaged(Pipeline),
+buffers: std.ArrayListUnmanaged(AllocatedBuffer),
 
 pub fn init(memory: *Memory) !Self {
     const game_allocator = memory.game_alloc();
@@ -145,6 +148,7 @@ pub fn init(memory: *Memory) !Self {
         .descriptor_pool = descriptor_pool,
         .commands = commands,
         .pipelines = .{},
+        .buffers = .{},
     };
 }
 
@@ -152,6 +156,10 @@ pub fn deinit(self: *Self) void {
     const game_allocator = self.memory.game_alloc();
 
     _ = vk.vkDeviceWaitIdle(self.logical_device.device);
+    for (self.buffers.items) |*b| {
+        b.deinit(self.vma_allocator);
+    }
+    self.buffers.deinit(game_allocator);
     for (self.pipelines.items) |*p| {
         p.deinit(self.logical_device.device);
     }
@@ -194,6 +202,17 @@ pub fn create_pipeline(
     );
     const idx = self.pipelines.items.len;
     try self.pipelines.append(self.memory.game_alloc(), pipeline);
+    return idx;
+}
+
+pub fn create_buffer(
+    self: *Self,
+    size: u64,
+    usage: vk.VkBufferUsageFlags,
+    memory_usage: vk.VmaMemoryUsage,
+) !BufferIdx {
+    const idx = self.buffers.items.len;
+    try self.buffers.append(self.memory.game_alloc(), try AllocatedBuffer.init(self.vma_allocator, size, usage, memory_usage));
     return idx;
 }
 

@@ -5,6 +5,16 @@ const sdl = @import("sdl.zig");
 
 const Memory = @import("memory.zig");
 const Renderer = @import("render/renderer.zig");
+const _buffer = @import("render/buffer.zig");
+
+const TrianglePushConstant = extern struct {
+    buffer_address: vk.VkDeviceAddress,
+};
+const TriangleInfo = extern struct {
+    offset: [3]f32,
+    _: f32 = 0,
+};
+const NUM_TRIANGLES = 5;
 
 pub fn main() !void {
     var memory = try Memory.init();
@@ -37,11 +47,39 @@ pub fn main() !void {
 
     const pipeline_idx = try renderer.create_pipeline(
         &.{},
-        &.{},
+        &.{
+            vk.VkPushConstantRange{
+                .offset = 0,
+                .size = @sizeOf(TrianglePushConstant),
+                .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+            },
+        },
         "mesh_vert.spv",
         "mesh_frag.spv",
         vk.VK_FORMAT_R16G16B16A16_SFLOAT,
     );
+
+    const buffer_idx = try renderer.create_buffer(
+        @sizeOf(TriangleInfo) * NUM_TRIANGLES,
+        vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
+    );
+    const buffer = &renderer.buffers.items[buffer_idx];
+    var triangle_offsets: []TriangleInfo = undefined;
+    triangle_offsets.ptr = @alignCast(@ptrCast(buffer.allocation_info.pMappedData));
+    triangle_offsets.len = NUM_TRIANGLES;
+    for (triangle_offsets, 0..) |*ti, i| {
+        ti.* = .{
+            .offset = .{
+                0.0 + 0.1 * @as(f32, @floatFromInt(i)),
+                0.0 + 0.1 * @as(f32, @floatFromInt(i)),
+                0.0 + 0.1 * @as(f32, @floatFromInt(i)),
+            },
+        };
+    }
+    const push_constants: TrianglePushConstant = .{
+        .buffer_address = _buffer.get_buffer_address(buffer, renderer.logical_device.device),
+    };
 
     var current_framme_idx: usize = 0;
     const command_idx = [_]Renderer.CommandIdx{
@@ -74,7 +112,15 @@ pub fn main() !void {
             0,
             null,
         );
-        vk.vkCmdDraw(command[0].buffer, 3, 1, 0, 0);
+        vk.vkCmdPushConstants(
+            command[0].buffer,
+            pipeline.pipeline_layout,
+            vk.VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            @sizeOf(TrianglePushConstant),
+            &push_constants,
+        );
+        vk.vkCmdDraw(command[0].buffer, 3, NUM_TRIANGLES, 0, 0);
 
         try renderer.finish_command(command);
         current_framme_idx +%= 1;
