@@ -7,7 +7,13 @@ const Memory = @import("memory.zig");
 const Renderer = @import("render/renderer.zig");
 const _buffer = @import("render/buffer.zig");
 
+const _math = @import("math.zig");
+const Mat4 = _math.Mat4;
+
+const CameraController = @import("camera.zig").CameraController;
+
 const TrianglePushConstant = extern struct {
+    view_proj: Mat4,
     buffer_address: vk.VkDeviceAddress,
 };
 const TriangleInfo = extern struct {
@@ -77,7 +83,8 @@ pub fn main() !void {
             },
         };
     }
-    const push_constants: TrianglePushConstant = .{
+    var push_constants: TrianglePushConstant = .{
+        .view_proj = undefined,
         .buffer_address = _buffer.get_buffer_address(buffer, renderer.logical_device.device),
     };
 
@@ -87,19 +94,39 @@ pub fn main() !void {
         try renderer.create_command(),
     };
 
+    var camera_controller = CameraController{};
+
     var stop = false;
+    var t = std.time.nanoTimestamp();
     while (!stop) {
+        const new_t = std.time.nanoTimestamp();
+        const dt = @as(f32, @floatFromInt(new_t - t)) / 1000_000_000.0;
+        t = new_t;
+
         var sdl_event: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&sdl_event) != 0) {
             if (sdl_event.type == sdl.SDL_QUIT) {
                 stop = true;
                 break;
             }
+            camera_controller.process_input(&sdl_event, dt);
         }
+        camera_controller.update(dt);
 
         const current_command_idx = command_idx[current_framme_idx % command_idx.len];
         const command = try renderer.start_command(current_command_idx);
         const pipeline = &renderer.pipelines.items[pipeline_idx];
+
+        const view = camera_controller.view_matrix();
+        var projection = Mat4.perspective(
+            std.math.degreesToRadians(70.0),
+            @as(f32, @floatFromInt(renderer.draw_image.extent.width)) /
+                @as(f32, @floatFromInt(renderer.draw_image.extent.height)),
+            10000.0,
+            0.1,
+        );
+        projection.j.y *= -1.0;
+        push_constants.view_proj = view.mul(projection);
 
         vk.vkCmdBindPipeline(command[0].buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
         vk.vkCmdBindDescriptorSets(

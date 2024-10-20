@@ -14,6 +14,7 @@ layout(buffer_reference, std430) readonly buffer TriangleInfos {
 };
 
 layout(push_constant) uniform constants {
+    mat4 view_proj;
     TriangleInfos instance_infos;
 } PushConstants;
 
@@ -42,6 +43,6 @@ void main() {
     Vertex v = vertices[gl_VertexIndex];
     TriangleInfo ti = PushConstants.instance_infos.infos[gl_InstanceIndex];
 
-    gl_Position = vec4(v.position + ti.offset, 1.0f);
+    gl_Position = PushConstants.view_proj * vec4(v.position + ti.offset, 1.0f);
     outColor = v.color.xyz;
 }
