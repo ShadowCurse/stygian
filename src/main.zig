@@ -51,7 +51,7 @@ pub fn main() !void {
     var renderer = try Renderer.init(&memory);
     defer renderer.deinit();
 
-    const pipeline_idx = try renderer.create_pipeline(
+    const pipeline = try renderer.create_pipeline(
         &.{},
         &.{
             vk.VkPushConstantRange{
@@ -64,13 +64,15 @@ pub fn main() !void {
         "mesh_frag.spv",
         vk.VK_FORMAT_R16G16B16A16_SFLOAT,
     );
+    defer pipeline.deinit(renderer.logical_device.device);
 
-    const buffer_idx = try renderer.create_buffer(
+    const buffer = try renderer.create_buffer(
         @sizeOf(TriangleInfo) * NUM_TRIANGLES,
         vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
     );
-    const buffer = &renderer.buffers.items[buffer_idx];
+    defer buffer.deinit(renderer.vma_allocator);
+
     var triangle_offsets: []TriangleInfo = undefined;
     triangle_offsets.ptr = @alignCast(@ptrCast(buffer.allocation_info.pMappedData));
     triangle_offsets.len = NUM_TRIANGLES;
@@ -89,10 +91,14 @@ pub fn main() !void {
     };
 
     var current_framme_idx: usize = 0;
-    const command_idx = [_]Renderer.CommandIdx{
+    const commands = [_]Renderer.Command{
         try renderer.create_command(),
         try renderer.create_command(),
     };
+    defer {
+        commands[0].deinit(renderer.logical_device.device);
+        commands[1].deinit(renderer.logical_device.device);
+    }
 
     var camera_controller = CameraController{};
 
@@ -113,9 +119,8 @@ pub fn main() !void {
         }
         camera_controller.update(dt);
 
-        const current_command_idx = command_idx[current_framme_idx % command_idx.len];
-        const command = try renderer.start_command(current_command_idx);
-        const pipeline = &renderer.pipelines.items[pipeline_idx];
+        const current_command = &commands[current_framme_idx % commands.len];
+        const command = try renderer.start_command(current_command);
 
         const view = camera_controller.view_matrix();
         var projection = Mat4.perspective(
@@ -153,5 +158,6 @@ pub fn main() !void {
         current_framme_idx +%= 1;
     }
 
+    renderer.wait_idle();
     log.info(@src(), "Exiting", .{});
 }
