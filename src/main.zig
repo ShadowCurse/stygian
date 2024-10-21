@@ -85,7 +85,7 @@ pub fn main() !void {
     }
     var push_constants: TrianglePushConstant = .{
         .view_proj = undefined,
-        .buffer_address = _buffer.get_buffer_address(buffer, renderer.logical_device.device),
+        .buffer_address = buffer.get_device_address(renderer.logical_device.device),
     };
 
     var current_framme_idx: usize = 0;

@@ -35,12 +35,12 @@ pub const AllocatedBuffer = struct {
     pub fn deinit(self: *const AllocatedBuffer, vma_allocator: vk.VmaAllocator) void {
         vk.vmaDestroyBuffer(vma_allocator, self.buffer, self.allocation);
     }
-};
 
-pub fn get_buffer_address(buffer: *const AllocatedBuffer, device: vk.VkDevice) vk.VkDeviceAddress {
-    const device_address_info = vk.VkBufferDeviceAddressInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-        .buffer = buffer.buffer,
-    };
-    return vk.vkGetBufferDeviceAddress(device, &device_address_info);
-}
+    pub fn get_device_address(buffer: *const AllocatedBuffer, device: vk.VkDevice) vk.VkDeviceAddress {
+        const device_address_info = vk.VkBufferDeviceAddressInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+            .buffer = buffer.buffer,
+        };
+        return vk.vkGetBufferDeviceAddress(device, &device_address_info);
+    }
+};

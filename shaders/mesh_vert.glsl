@@ -36,7 +36,6 @@ Vertex[] vertices = {
     vec3(-1.0, 1.0, 1.0),
     vec4(0.0, 0.0, 1.0, 1.0),
   },
-
 };
 
 void main() {
