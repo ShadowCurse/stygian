@@ -266,22 +266,22 @@ pub fn start_command(self: *const Self, command: *const RenderCommand) !struct {
         &image_index,
     ));
 
-    try vk.check_result(vk.vkResetCommandBuffer(command.buffer, 0));
+    try vk.check_result(vk.vkResetCommandBuffer(command.cmd, 0));
     const begin_info = vk.VkCommandBufferBeginInfo{
         .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
-    try vk.check_result(vk.vkBeginCommandBuffer(command.buffer, &begin_info));
+    try vk.check_result(vk.vkBeginCommandBuffer(command.cmd, &begin_info));
 
     _image.transition_image(
-        command.buffer,
+        command.cmd,
         self.draw_image.image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
     );
 
     _image.transition_image(
-        command.buffer,
+        command.cmd,
         self.depth_image.image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
@@ -315,7 +315,7 @@ pub fn start_command(self: *const Self, command: *const RenderCommand) !struct {
         } },
         .layerCount = 1,
     };
-    vk.vkCmdBeginRendering(command.buffer, &render_info);
+    vk.vkCmdBeginRendering(command.cmd, &render_info);
 
     const viewport = vk.VkViewport{
         .x = 0.0,
@@ -325,7 +325,7 @@ pub fn start_command(self: *const Self, command: *const RenderCommand) !struct {
         .minDepth = 0.0,
         .maxDepth = 1.0,
     };
-    vk.vkCmdSetViewport(command.buffer, 0, 1, &viewport);
+    vk.vkCmdSetViewport(command.cmd, 0, 1, &viewport);
     const scissor = vk.VkRect2D{ .offset = .{
         .x = 0.0,
         .y = 0.0,
@@ -333,7 +333,7 @@ pub fn start_command(self: *const Self, command: *const RenderCommand) !struct {
         .width = self.draw_image.extent.width,
         .height = self.draw_image.extent.height,
     } };
-    vk.vkCmdSetScissor(command.buffer, 0, 1, &scissor);
+    vk.vkCmdSetScissor(command.cmd, 0, 1, &scissor);
 
     return .{
         command,
@@ -345,22 +345,22 @@ pub fn finish_command(self: *const Self, command_context: struct { *const Render
     const command = command_context[0];
     const image_index = command_context[1];
 
-    vk.vkCmdEndRendering(command.buffer);
+    vk.vkCmdEndRendering(command.cmd);
 
     _image.transition_image(
-        command.buffer,
+        command.cmd,
         self.draw_image.image,
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
         vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     );
     _image.transition_image(
-        command.buffer,
+        command.cmd,
         self.swap_chain.images[image_index],
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
     );
     _image.copy_image_to_image(
-        command.buffer,
+        command.cmd,
         self.draw_image.image,
         .{
             .width = self.draw_image.extent.width,
@@ -370,18 +370,18 @@ pub fn finish_command(self: *const Self, command_context: struct { *const Render
         self.swap_chain.extent,
     );
     _image.transition_image(
-        command.buffer,
+        command.cmd,
         self.swap_chain.images[image_index],
         vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     );
 
-    try vk.check_result(vk.vkEndCommandBuffer(command.buffer));
+    try vk.check_result(vk.vkEndCommandBuffer(command.cmd));
 
     // Submit commands
     const buffer_submit_info = vk.VkCommandBufferSubmitInfo{
         .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-        .commandBuffer = command.buffer,
+        .commandBuffer = command.cmd,
         .deviceMask = 0,
     };
     const wait_semaphore_info = vk.VkSemaphoreSubmitInfo{
@@ -944,7 +944,7 @@ const DescriptorPool = struct {
 };
 
 pub const RenderCommand = struct {
-    buffer: vk.VkCommandBuffer,
+    cmd: vk.VkCommandBuffer,
     swap_chain_semaphore: vk.VkSemaphore,
     render_semaphore: vk.VkSemaphore,
     render_fence: vk.VkFence,
@@ -957,7 +957,7 @@ pub const RenderCommand = struct {
 };
 
 pub const ImmediateCommand = struct {
-    buffer: vk.VkCommandBuffer,
+    cmd: vk.VkCommandBuffer,
     fence: vk.VkFence,
 
     pub fn deinit(self: *const ImmediateCommand, device: vk.VkDevice) void {
@@ -966,13 +966,13 @@ pub const ImmediateCommand = struct {
 
     pub fn begin(self: *const ImmediateCommand, device: vk.VkDevice) !void {
         try vk.check_result(vk.vkResetFences(device, 1, &self.fence));
-        try vk.check_result(vk.vkResetCommandBuffer(self.buffer, 0));
+        try vk.check_result(vk.vkResetCommandBuffer(self.cmd, 0));
 
         const begin_info = vk.VkCommandBufferBeginInfo{
             .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
-        try vk.check_result(vk.vkBeginCommandBuffer(self.buffer, &begin_info));
+        try vk.check_result(vk.vkBeginCommandBuffer(self.cmd, &begin_info));
     }
 
     pub fn end(
@@ -980,11 +980,11 @@ pub const ImmediateCommand = struct {
         device: vk.VkDevice,
         queue: vk.VkQueue,
     ) !void {
-        try vk.check_result(vk.vkEndCommandBuffer(self.buffer));
+        try vk.check_result(vk.vkEndCommandBuffer(self.cmd));
 
         const buffer_submit_info = vk.VkCommandBufferSubmitInfo{
             .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-            .commandBuffer = self.buffer,
+            .commandBuffer = self.cmd,
             .deviceMask = 0,
         };
         const submit_info = vk.VkSubmitInfo2{
@@ -1036,8 +1036,8 @@ const Commands = struct {
             .level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1,
         };
-        var buffer: vk.VkCommandBuffer = undefined;
-        try vk.check_result(vk.vkAllocateCommandBuffers(device, &allocate_info, &buffer));
+        var cmd: vk.VkCommandBuffer = undefined;
+        try vk.check_result(vk.vkAllocateCommandBuffers(device, &allocate_info, &cmd));
 
         const create_info = vk.VkFenceCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -1047,7 +1047,7 @@ const Commands = struct {
         try vk.check_result(vk.vkCreateFence(device, &create_info, null, &fence));
 
         return .{
-            .buffer = buffer,
+            .cmd = cmd,
             .fence = fence,
         };
     }
@@ -1059,8 +1059,8 @@ const Commands = struct {
             .level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1,
         };
-        var buffer: vk.VkCommandBuffer = undefined;
-        try vk.check_result(vk.vkAllocateCommandBuffers(device, &allocate_info, &buffer));
+        var cmd: vk.VkCommandBuffer = undefined;
+        try vk.check_result(vk.vkAllocateCommandBuffers(device, &allocate_info, &cmd));
 
         const fence_create_info = vk.VkFenceCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -1078,7 +1078,7 @@ const Commands = struct {
         try vk.check_result(vk.vkCreateSemaphore(device, &semaphore_creaet_info, null, &swap_chain_semaphore));
 
         return .{
-            .buffer = buffer,
+            .cmd = cmd,
             .swap_chain_semaphore = swap_chain_semaphore,
             .render_semaphore = render_semaphore,
             .render_fence = render_fence,

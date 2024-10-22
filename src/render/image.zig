@@ -79,7 +79,7 @@ pub const AllocatedImage = struct {
 };
 
 pub fn transition_image(
-    buffer: vk.VkCommandBuffer,
+    cmd: vk.VkCommandBuffer,
     image: vk.VkImage,
     source_layout: vk.VkImageLayout,
     target_layout: vk.VkImageLayout,
@@ -113,7 +113,7 @@ pub fn transition_image(
         .imageMemoryBarrierCount = 1,
     };
 
-    vk.vkCmdPipelineBarrier2(buffer, &dependency);
+    vk.vkCmdPipelineBarrier2(cmd, &dependency);
 }
 
 pub fn copy_image_to_image(

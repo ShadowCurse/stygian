@@ -204,7 +204,7 @@ pub fn main() !void {
         defer immediate_command.end(renderer.logical_device.device, renderer.logical_device.graphics_queue) catch @panic("immediate_command error");
 
         _image.copy_buffer_to_image(
-            immediate_command.buffer,
+            immediate_command.cmd,
             staging_buffer.buffer,
             debug_texture.image,
             .{
@@ -270,9 +270,9 @@ pub fn main() !void {
         triangle_push_constants.view_proj = view.mul(projection);
         mesh_push_constants.view_proj = view.mul(projection);
 
-        vk.vkCmdBindPipeline(command[0].buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, triangle_pipeline.pipeline);
+        vk.vkCmdBindPipeline(command[0].cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, triangle_pipeline.pipeline);
         vk.vkCmdBindDescriptorSets(
-            command[0].buffer,
+            command[0].cmd,
             vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
             triangle_pipeline.pipeline_layout,
             0,
@@ -282,18 +282,18 @@ pub fn main() !void {
             null,
         );
         vk.vkCmdPushConstants(
-            command[0].buffer,
+            command[0].cmd,
             triangle_pipeline.pipeline_layout,
             vk.VK_SHADER_STAGE_VERTEX_BIT,
             0,
             @sizeOf(TrianglePushConstant),
             &triangle_push_constants,
         );
-        vk.vkCmdDraw(command[0].buffer, 3, NUM_TRIANGLES, 0, 0);
+        vk.vkCmdDraw(command[0].cmd, 3, NUM_TRIANGLES, 0, 0);
 
-        vk.vkCmdBindPipeline(command[0].buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pipeline.pipeline);
+        vk.vkCmdBindPipeline(command[0].cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pipeline.pipeline);
         vk.vkCmdBindDescriptorSets(
-            command[0].buffer,
+            command[0].cmd,
             vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
             mesh_pipeline.pipeline_layout,
             0,
@@ -303,15 +303,15 @@ pub fn main() !void {
             null,
         );
         vk.vkCmdPushConstants(
-            command[0].buffer,
+            command[0].cmd,
             mesh_pipeline.pipeline_layout,
             vk.VK_SHADER_STAGE_VERTEX_BIT,
             0,
             @sizeOf(MeshPushConstant),
             &mesh_push_constants,
         );
-        vk.vkCmdBindIndexBuffer(command[0].buffer, cube_index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
-        vk.vkCmdDrawIndexed(command[0].buffer, CubeMesh.indices.len, 1, 0, 0, 0);
+        vk.vkCmdBindIndexBuffer(command[0].cmd, cube_index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
+        vk.vkCmdDrawIndexed(command[0].cmd, CubeMesh.indices.len, 1, 0, 0, 0);
 
         try renderer.finish_command(command);
         current_framme_idx +%= 1;
