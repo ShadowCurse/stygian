@@ -117,7 +117,7 @@ pub fn transition_image(
 }
 
 pub fn copy_image_to_image(
-    buffer: vk.VkCommandBuffer,
+    cmd: vk.VkCommandBuffer,
     src: vk.VkImage,
     src_size: vk.VkExtent2D,
     dst: vk.VkImage,
@@ -163,5 +163,43 @@ pub fn copy_image_to_image(
         .regionCount = 1,
         .pRegions = &blit_region,
     };
-    vk.vkCmdBlitImage2(buffer, &blit_info);
+    vk.vkCmdBlitImage2(cmd, &blit_info);
+}
+
+pub fn copy_buffer_to_image(
+    cmd: vk.VkCommandBuffer,
+    buffer: vk.VkBuffer,
+    image: vk.VkImage,
+    extent: vk.VkExtent3D,
+) void {
+    transition_image(
+        cmd,
+        image,
+        vk.VK_IMAGE_LAYOUT_UNDEFINED,
+        vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    );
+
+    const copy_region = vk.VkBufferImageCopy{
+        .imageExtent = extent,
+        .imageSubresource = .{
+            .layerCount = 1,
+            .aspectMask = vk.VK_IMAGE_ASPECT_COLOR_BIT,
+        },
+    };
+
+    vk.vkCmdCopyBufferToImage(
+        cmd,
+        buffer,
+        image,
+        vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &copy_region,
+    );
+
+    transition_image(
+        cmd,
+        image,
+        vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    );
 }

@@ -3,6 +3,7 @@
 #extension GL_EXT_buffer_reference : require
 
 layout (location = 0) out vec3 outColor;
+layout (location = 1) out vec2 outUV;
 
 struct Vertex {
     vec3 position;
@@ -25,4 +26,5 @@ void main() {
     Vertex v = PushConstants.vertices.vertices[gl_VertexIndex];
     gl_Position = PushConstants.view_proj * vec4(v.position, 1.0f);
     outColor = vec3(1.0);
+    outUV = vec2(v.uv_x, v.uv_y);
 }

@@ -7,6 +7,8 @@ const Memory = @import("memory.zig");
 const Renderer = @import("render/renderer.zig");
 const _buffer = @import("render/buffer.zig");
 
+const _image = @import("render/image.zig");
+
 const _math = @import("math.zig");
 const Mat4 = _math.Mat4;
 
@@ -15,6 +17,17 @@ const DefaultVertex = _mesh.DefaultVertex;
 const CubeMesh = _mesh.CubeMesh;
 
 const CameraController = @import("camera.zig").CameraController;
+
+const Color = extern struct {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+
+    pub const BLACK = Color{ .r = 0, .g = 0, .b = 0, .a = 255 };
+    pub const GREY = Color{ .r = 69, .g = 69, .b = 69, .a = 255 };
+    pub const MAGENTA = Color{ .r = 255, .g = 0, .b = 255, .a = 255 };
+};
 
 const TrianglePushConstant = extern struct {
     view_proj: Mat4,
@@ -60,6 +73,19 @@ pub fn main() !void {
     var renderer = try Renderer.init(&memory);
     defer renderer.deinit();
 
+    var current_framme_idx: usize = 0;
+    const commands = [_]Renderer.RenderCommand{
+        try renderer.create_render_command(),
+        try renderer.create_render_command(),
+    };
+    defer {
+        commands[0].deinit(renderer.logical_device.device);
+        commands[1].deinit(renderer.logical_device.device);
+    }
+
+    const immediate_command = try renderer.create_immediate_command();
+    defer immediate_command.deinit(renderer.logical_device.device);
+
     const triangle_pipeline = try renderer.create_pipeline(
         &.{},
         &.{
@@ -70,13 +96,20 @@ pub fn main() !void {
             },
         },
         "triangle_mesh_vert.spv",
-        "mesh_frag.spv",
+        "triangle_mesh_frag.spv",
         vk.VK_FORMAT_R16G16B16A16_SFLOAT,
     );
     defer triangle_pipeline.deinit(renderer.logical_device.device);
 
     const mesh_pipeline = try renderer.create_pipeline(
-        &.{},
+        &.{
+            .{
+                .binding = 0,
+                .descriptorCount = 1,
+                .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+            },
+        },
         &.{
             vk.VkPushConstantRange{
                 .offset = 0,
@@ -141,15 +174,66 @@ pub fn main() !void {
         .buffer_address = cube_vertex_buffer.get_device_address(renderer.logical_device.device),
     };
 
-    var current_framme_idx: usize = 0;
-    const commands = [_]Renderer.Command{
-        try renderer.create_command(),
-        try renderer.create_command(),
-    };
-    defer {
-        commands[0].deinit(renderer.logical_device.device);
-        commands[1].deinit(renderer.logical_device.device);
+    const debug_texture = try renderer.create_image(
+        16,
+        16,
+        vk.VK_FORMAT_B8G8R8A8_UNORM,
+        vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | vk.VK_IMAGE_USAGE_SAMPLED_BIT,
+    );
+    defer debug_texture.deinit(renderer.logical_device.device, renderer.vma_allocator);
+
+    {
+        const staging_buffer = try renderer.create_buffer(
+            16 * 16 * @sizeOf(Color),
+            vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
+        );
+        defer staging_buffer.deinit(renderer.vma_allocator);
+
+        var buffer_slice: []Color = undefined;
+        buffer_slice.ptr = @alignCast(@ptrCast(staging_buffer.allocation_info.pMappedData));
+        buffer_slice.len = 16 * 16;
+
+        for (0..16) |x| {
+            for (0..16) |y| {
+                buffer_slice[y * 16 + x] = if ((x % 2) ^ (y % 2) != 0) Color.MAGENTA else Color.GREY;
+            }
+        }
+
+        try immediate_command.begin(renderer.logical_device.device);
+        defer immediate_command.end(renderer.logical_device.device, renderer.logical_device.graphics_queue) catch @panic("immediate_command error");
+
+        _image.copy_buffer_to_image(
+            immediate_command.buffer,
+            staging_buffer.buffer,
+            debug_texture.image,
+            .{
+                .height = 16,
+                .width = 16,
+                .depth = 1,
+            },
+        );
     }
+
+    const nearest_sampler = try renderer.create_sampler(vk.VK_FILTER_NEAREST, vk.VK_FILTER_NEAREST);
+    defer vk.vkDestroySampler(renderer.logical_device.device, nearest_sampler, null);
+
+    // update descriptor set
+    const desc_image_info = vk.VkDescriptorImageInfo{
+        .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .imageView = debug_texture.view,
+        .sampler = nearest_sampler,
+    };
+    const desc_image_write = vk.VkWriteDescriptorSet{
+        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstBinding = 0,
+        .dstSet = mesh_pipeline.descriptor_set,
+        .descriptorCount = 1,
+        .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &desc_image_info,
+    };
+    const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
+    vk.vkUpdateDescriptorSets(renderer.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
 
     var camera_controller = CameraController{};
     camera_controller.position.z = -5.0;

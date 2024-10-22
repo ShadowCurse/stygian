@@ -36,6 +36,7 @@ draw_image: AllocatedImage,
 depth_image: AllocatedImage,
 descriptor_pool: DescriptorPool,
 commands: Commands,
+immediate_commands: Commands,
 
 pub fn init(memory: *Memory) !Self {
     const game_allocator = memory.game_alloc();
@@ -130,6 +131,7 @@ pub fn init(memory: *Memory) !Self {
     });
 
     const commands = try Commands.init(logical_device.device, physical_device.graphics_queue_family);
+    const immediate_commands = try Commands.init(logical_device.device, physical_device.graphics_queue_family);
 
     return .{
         .memory = memory,
@@ -145,6 +147,7 @@ pub fn init(memory: *Memory) !Self {
         .depth_image = depth_image,
         .descriptor_pool = descriptor_pool,
         .commands = commands,
+        .immediate_commands = immediate_commands,
     };
 }
 
@@ -152,6 +155,7 @@ pub fn deinit(self: *Self) void {
     const game_allocator = self.memory.game_alloc();
 
     self.descriptor_pool.deinit(self.logical_device.device);
+    self.immediate_commands.deinit(self.logical_device.device);
     self.commands.deinit(self.logical_device.device);
     self.depth_image.deinit(self.logical_device.device, self.vma_allocator);
     self.draw_image.deinit(self.logical_device.device, self.vma_allocator);
@@ -202,11 +206,47 @@ pub fn create_buffer(
     return try AllocatedBuffer.init(self.vma_allocator, size, usage, memory_usage);
 }
 
-pub fn create_command(self: *Self) !Command {
-    return self.commands.create_command(self.logical_device.device);
+pub fn create_image(
+    self: *Self,
+    width: u32,
+    height: u32,
+    format: vk.VkFormat,
+    usage: u32,
+) !AllocatedImage {
+    return AllocatedImage.init(
+        self.vma_allocator,
+        self.logical_device.device,
+        width,
+        height,
+        format,
+        usage,
+    );
 }
 
-pub fn start_command(self: *const Self, command: *const Command) !struct { *const Command, u32 } {
+pub fn create_sampler(
+    self: *Self,
+    mag_filter: vk.VkFilter,
+    min_filter: vk.VkFilter,
+) !vk.VkSampler {
+    const create_info = vk.VkSamplerCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = mag_filter,
+        .minFilter = min_filter,
+    };
+    var sampler: vk.VkSampler = undefined;
+    try vk.check_result(vk.vkCreateSampler(self.logical_device.device, &create_info, null, &sampler));
+    return sampler;
+}
+
+pub fn create_immediate_command(self: *Self) !ImmediateCommand {
+    return self.commands.create_immediate_command(self.logical_device.device);
+}
+
+pub fn create_render_command(self: *Self) !RenderCommand {
+    return self.commands.create_render_command(self.logical_device.device);
+}
+
+pub fn start_command(self: *const Self, command: *const RenderCommand) !struct { *const RenderCommand, u32 } {
     try vk.check_result(vk.vkWaitForFences(
         self.logical_device.device,
         1,
@@ -301,7 +341,7 @@ pub fn start_command(self: *const Self, command: *const Command) !struct { *cons
     };
 }
 
-pub fn finish_command(self: *const Self, command_context: struct { *const Command, u32 }) !void {
+pub fn finish_command(self: *const Self, command_context: struct { *const RenderCommand, u32 }) !void {
     const command = command_context[0];
     const image_index = command_context[1];
 
@@ -903,16 +943,69 @@ const DescriptorPool = struct {
     }
 };
 
-pub const Command = struct {
+pub const RenderCommand = struct {
     buffer: vk.VkCommandBuffer,
     swap_chain_semaphore: vk.VkSemaphore,
     render_semaphore: vk.VkSemaphore,
     render_fence: vk.VkFence,
 
-    pub fn deinit(self: *const Command, device: vk.VkDevice) void {
+    pub fn deinit(self: *const RenderCommand, device: vk.VkDevice) void {
         vk.vkDestroyFence(device, self.render_fence, null);
         vk.vkDestroySemaphore(device, self.render_semaphore, null);
         vk.vkDestroySemaphore(device, self.swap_chain_semaphore, null);
+    }
+};
+
+pub const ImmediateCommand = struct {
+    buffer: vk.VkCommandBuffer,
+    fence: vk.VkFence,
+
+    pub fn deinit(self: *const ImmediateCommand, device: vk.VkDevice) void {
+        vk.vkDestroyFence(device, self.fence, null);
+    }
+
+    pub fn begin(self: *const ImmediateCommand, device: vk.VkDevice) !void {
+        try vk.check_result(vk.vkResetFences(device, 1, &self.fence));
+        try vk.check_result(vk.vkResetCommandBuffer(self.buffer, 0));
+
+        const begin_info = vk.VkCommandBufferBeginInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        };
+        try vk.check_result(vk.vkBeginCommandBuffer(self.buffer, &begin_info));
+    }
+
+    pub fn end(
+        self: *const ImmediateCommand,
+        device: vk.VkDevice,
+        queue: vk.VkQueue,
+    ) !void {
+        try vk.check_result(vk.vkEndCommandBuffer(self.buffer));
+
+        const buffer_submit_info = vk.VkCommandBufferSubmitInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+            .commandBuffer = self.buffer,
+            .deviceMask = 0,
+        };
+        const submit_info = vk.VkSubmitInfo2{
+            .sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+            .pCommandBufferInfos = &buffer_submit_info,
+            .commandBufferInfoCount = 1,
+        };
+        try vk.check_result(vk.vkQueueSubmit2(
+            queue,
+            1,
+            &submit_info,
+            self.fence,
+        ));
+
+        try vk.check_result(vk.vkWaitForFences(
+            device,
+            1,
+            &self.fence,
+            vk.VK_TRUE,
+            TIMEOUT,
+        ));
     }
 };
 
@@ -936,7 +1029,30 @@ const Commands = struct {
         vk.vkDestroyCommandPool(device, self.pool, null);
     }
 
-    pub fn create_command(self: *Commands, device: vk.VkDevice) !Command {
+    pub fn create_immediate_command(self: *Commands, device: vk.VkDevice) !ImmediateCommand {
+        const allocate_info = vk.VkCommandBufferAllocateInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = self.pool,
+            .level = vk.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+        };
+        var buffer: vk.VkCommandBuffer = undefined;
+        try vk.check_result(vk.vkAllocateCommandBuffers(device, &allocate_info, &buffer));
+
+        const create_info = vk.VkFenceCreateInfo{
+            .sType = vk.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = vk.VK_FENCE_CREATE_SIGNALED_BIT,
+        };
+        var fence: vk.VkFence = undefined;
+        try vk.check_result(vk.vkCreateFence(device, &create_info, null, &fence));
+
+        return .{
+            .buffer = buffer,
+            .fence = fence,
+        };
+    }
+
+    pub fn create_render_command(self: *Commands, device: vk.VkDevice) !RenderCommand {
         const allocate_info = vk.VkCommandBufferAllocateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool = self.pool,
