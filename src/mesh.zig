@@ -13,7 +13,7 @@ pub const DefaultVertex = extern struct {
 pub const CubeMesh = struct {
     pub var indices = [_]u32{
         1,
-        15,
+        14,
         20,
         1,
         20,
@@ -57,7 +57,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 0e0, .y = 0e0, .z = -1e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = 1e0, .z = -1e0 },
             .normal = Vec3{ .x = 0e0, .y = 1e0, .z = -0e0 },
@@ -65,7 +64,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 0e0, .y = 1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = 1e0, .z = -1e0 },
             .normal = Vec3{ .x = 1e0, .y = 0e0, .z = -0e0 },
@@ -73,7 +71,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = -1e0, .z = -1e0 },
             .normal = Vec3{ .x = 0e0, .y = -1e0, .z = -0e0 },
@@ -81,7 +78,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 0e0, .y = -1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = -1e0, .z = -1e0 },
             .normal = Vec3{ .x = 0e0, .y = 0e0, .z = -1e0 },
@@ -89,7 +85,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 0e0, .y = 0e0, .z = -1e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = -1e0, .z = -1e0 },
             .normal = Vec3{ .x = 1e0, .y = 0e0, .z = -0e0 },
@@ -97,7 +92,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = 1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = 0e0, .z = 1e0 },
@@ -105,7 +99,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 0e0, .y = 0e0, .z = 1e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = 1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = 1e0, .z = -0e0 },
@@ -113,7 +106,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 0e0, .y = 1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = 1e0, .z = 1e0 },
             .normal = Vec3{ .x = 1e0, .y = 0e0, .z = -0e0 },
@@ -121,7 +113,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = -1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = -1e0, .z = -0e0 },
@@ -129,7 +120,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 0e0, .y = -1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = -1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = 0e0, .z = 1e0 },
@@ -137,7 +127,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 0e0, .y = 0e0, .z = 1e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = 1e0, .y = -1e0, .z = 1e0 },
             .normal = Vec3{ .x = 1e0, .y = 0e0, .z = -0e0 },
@@ -145,7 +134,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = 1e0, .z = -1e0 },
             .normal = Vec3{ .x = -1e0, .y = 0e0, .z = -0e0 },
@@ -153,7 +141,6 @@ pub const CubeMesh = struct {
             .uv_y = 7.5e-1,
             .color = Vec4{ .x = -1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = 1e0, .z = -1e0 },
             .normal = Vec3{ .x = 0e0, .y = 0e0, .z = -1e0 },
@@ -161,7 +148,6 @@ pub const CubeMesh = struct {
             .uv_y = 7.5e-1,
             .color = Vec4{ .x = 0e0, .y = 0e0, .z = -1e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = 1e0, .z = -1e0 },
             .normal = Vec3{ .x = 0e0, .y = 1e0, .z = -0e0 },
@@ -169,7 +155,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 0e0, .y = 1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = -1e0, .z = -1e0 },
             .normal = Vec3{ .x = -1e0, .y = 0e0, .z = -0e0 },
@@ -177,7 +162,6 @@ pub const CubeMesh = struct {
             .uv_y = 7.5e-1,
             .color = Vec4{ .x = -1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = -1e0, .z = -1e0 },
             .normal = Vec3{ .x = 0e0, .y = -1e0, .z = -0e0 },
@@ -185,7 +169,6 @@ pub const CubeMesh = struct {
             .uv_y = 5e-1,
             .color = Vec4{ .x = 0e0, .y = -1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = -1e0, .z = -1e0 },
             .normal = Vec3{ .x = 0e0, .y = 0e0, .z = -1e0 },
@@ -193,7 +176,6 @@ pub const CubeMesh = struct {
             .uv_y = 7.5e-1,
             .color = Vec4{ .x = 0e0, .y = 0e0, .z = -1e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = 1e0, .z = 1e0 },
             .normal = Vec3{ .x = -1e0, .y = 0e0, .z = -0e0 },
@@ -201,7 +183,6 @@ pub const CubeMesh = struct {
             .uv_y = 1e0,
             .color = Vec4{ .x = -1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = 1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = 0e0, .z = 1e0 },
@@ -209,7 +190,6 @@ pub const CubeMesh = struct {
             .uv_y = 0e0,
             .color = Vec4{ .x = 0e0, .y = 0e0, .z = 1e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = 1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = 1e0, .z = -0e0 },
@@ -217,7 +197,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 0e0, .y = 1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = -1e0, .z = 1e0 },
             .normal = Vec3{ .x = -1e0, .y = 0e0, .z = -0e0 },
@@ -225,7 +204,6 @@ pub const CubeMesh = struct {
             .uv_y = 1e0,
             .color = Vec4{ .x = -1e0, .y = 0e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = -1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = -1e0, .z = -0e0 },
@@ -233,7 +211,6 @@ pub const CubeMesh = struct {
             .uv_y = 2.5e-1,
             .color = Vec4{ .x = 0e0, .y = -1e0, .z = -0e0, .w = 1e0 },
         },
-
         .{
             .position = Vec3{ .x = -1e0, .y = -1e0, .z = 1e0 },
             .normal = Vec3{ .x = 0e0, .y = 0e0, .z = 1e0 },
