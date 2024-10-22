@@ -6,7 +6,7 @@ const Mat4 = _math.Mat4;
 
 pub const CameraController = struct {
     velocity: Vec3 = .{},
-    position: Vec3 = .{ .x = 0.0, .y = 0.0, .z = -5.0 },
+    position: Vec3 = .{ .x = 0.0, .y = 0.0, .z = 0.0 },
     pitch: f32 = 0.0,
     yaw: f32 = 0.0,
     active: bool = false,

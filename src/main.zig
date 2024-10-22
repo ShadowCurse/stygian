@@ -10,6 +10,10 @@ const _buffer = @import("render/buffer.zig");
 const _math = @import("math.zig");
 const Mat4 = _math.Mat4;
 
+const _mesh = @import("mesh.zig");
+const DefaultVertex = _mesh.DefaultVertex;
+const CubeMesh = _mesh.CubeMesh;
+
 const CameraController = @import("camera.zig").CameraController;
 
 const TrianglePushConstant = extern struct {
@@ -21,6 +25,11 @@ const TriangleInfo = extern struct {
     _: f32 = 0,
 };
 const NUM_TRIANGLES = 5;
+
+const MeshPushConstant = extern struct {
+    view_proj: Mat4,
+    buffer_address: vk.VkDeviceAddress,
+};
 
 pub fn main() !void {
     var memory = try Memory.init();
@@ -51,7 +60,7 @@ pub fn main() !void {
     var renderer = try Renderer.init(&memory);
     defer renderer.deinit();
 
-    const pipeline = try renderer.create_pipeline(
+    const triangle_pipeline = try renderer.create_pipeline(
         &.{},
         &.{
             vk.VkPushConstantRange{
@@ -60,11 +69,26 @@ pub fn main() !void {
                 .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
             },
         },
+        "triangle_mesh_vert.spv",
+        "mesh_frag.spv",
+        vk.VK_FORMAT_R16G16B16A16_SFLOAT,
+    );
+    defer triangle_pipeline.deinit(renderer.logical_device.device);
+
+    const mesh_pipeline = try renderer.create_pipeline(
+        &.{},
+        &.{
+            vk.VkPushConstantRange{
+                .offset = 0,
+                .size = @sizeOf(MeshPushConstant),
+                .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+            },
+        },
         "mesh_vert.spv",
         "mesh_frag.spv",
         vk.VK_FORMAT_R16G16B16A16_SFLOAT,
     );
-    defer pipeline.deinit(renderer.logical_device.device);
+    defer mesh_pipeline.deinit(renderer.logical_device.device);
 
     const buffer = try renderer.create_buffer(
         @sizeOf(TriangleInfo) * NUM_TRIANGLES,
@@ -80,14 +104,41 @@ pub fn main() !void {
         ti.* = .{
             .offset = .{
                 0.0 + 0.1 * @as(f32, @floatFromInt(i)),
-                0.0 + 0.1 * @as(f32, @floatFromInt(i)),
+                3.0 + 0.1 * @as(f32, @floatFromInt(i)),
                 0.0 + 0.1 * @as(f32, @floatFromInt(i)),
             },
         };
     }
-    var push_constants: TrianglePushConstant = .{
+    var triangle_push_constants: TrianglePushConstant = .{
         .view_proj = undefined,
         .buffer_address = buffer.get_device_address(renderer.logical_device.device),
+    };
+
+    const cube_vertex_buffer = try renderer.create_buffer(
+        @sizeOf(DefaultVertex) * CubeMesh.vertices.len,
+        vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
+    );
+    defer cube_vertex_buffer.deinit(renderer.vma_allocator);
+    var cube_vertex_slice: []DefaultVertex = undefined;
+    cube_vertex_slice.ptr = @alignCast(@ptrCast(cube_vertex_buffer.allocation_info.pMappedData));
+    cube_vertex_slice.len = CubeMesh.vertices.len;
+    @memcpy(cube_vertex_slice, &CubeMesh.vertices);
+
+    const cube_index_buffer = try renderer.create_buffer(
+        @sizeOf(u32) * CubeMesh.indices.len,
+        vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
+    );
+    defer cube_index_buffer.deinit(renderer.vma_allocator);
+    var cube_index_slice: []u32 = undefined;
+    cube_index_slice.ptr = @alignCast(@ptrCast(cube_index_buffer.allocation_info.pMappedData));
+    cube_index_slice.len = CubeMesh.indices.len;
+    @memcpy(cube_index_slice, &CubeMesh.indices);
+
+    var mesh_push_constants: MeshPushConstant = .{
+        .view_proj = undefined,
+        .buffer_address = cube_vertex_buffer.get_device_address(renderer.logical_device.device),
     };
 
     var current_framme_idx: usize = 0;
@@ -101,6 +152,7 @@ pub fn main() !void {
     }
 
     var camera_controller = CameraController{};
+    camera_controller.position.z = -5.0;
 
     var stop = false;
     var t = std.time.nanoTimestamp();
@@ -131,28 +183,51 @@ pub fn main() !void {
             0.1,
         );
         projection.j.y *= -1.0;
-        push_constants.view_proj = view.mul(projection);
+        triangle_push_constants.view_proj = view.mul(projection);
+        mesh_push_constants.view_proj = view.mul(projection);
 
-        vk.vkCmdBindPipeline(command[0].buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+        vk.vkCmdBindPipeline(command[0].buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, triangle_pipeline.pipeline);
         vk.vkCmdBindDescriptorSets(
             command[0].buffer,
             vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipeline.pipeline_layout,
+            triangle_pipeline.pipeline_layout,
             0,
             1,
-            &pipeline.descriptor_set,
+            &triangle_pipeline.descriptor_set,
             0,
             null,
         );
         vk.vkCmdPushConstants(
             command[0].buffer,
-            pipeline.pipeline_layout,
+            triangle_pipeline.pipeline_layout,
             vk.VK_SHADER_STAGE_VERTEX_BIT,
             0,
             @sizeOf(TrianglePushConstant),
-            &push_constants,
+            &triangle_push_constants,
         );
         vk.vkCmdDraw(command[0].buffer, 3, NUM_TRIANGLES, 0, 0);
+
+        vk.vkCmdBindPipeline(command[0].buffer, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pipeline.pipeline);
+        vk.vkCmdBindDescriptorSets(
+            command[0].buffer,
+            vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            mesh_pipeline.pipeline_layout,
+            0,
+            1,
+            &mesh_pipeline.descriptor_set,
+            0,
+            null,
+        );
+        vk.vkCmdPushConstants(
+            command[0].buffer,
+            mesh_pipeline.pipeline_layout,
+            vk.VK_SHADER_STAGE_VERTEX_BIT,
+            0,
+            @sizeOf(MeshPushConstant),
+            &mesh_push_constants,
+        );
+        vk.vkCmdBindIndexBuffer(command[0].buffer, cube_index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
+        vk.vkCmdDrawIndexed(command[0].buffer, CubeMesh.indices.len, 1, 0, 0, 0);
 
         try renderer.finish_command(command);
         current_framme_idx +%= 1;
