@@ -16,8 +16,6 @@ pub const PipelineIdx = usize;
 pub const BufferIdx = usize;
 
 const TIMEOUT = std.math.maxInt(u64);
-const WIDTH = 1280;
-const HEIGHT = 720;
 const VK_VALIDATION_LAYERS_NAMES = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
 const VK_ADDITIONAL_EXTENSIONS_NAMES = [_][]const u8{"VK_EXT_debug_utils"};
 const VK_PHYSICAL_DEVICE_EXTENSION_NAMES = [_][]const u8{"VK_KHR_swapchain"};
@@ -38,7 +36,11 @@ descriptor_pool: DescriptorPool,
 commands: Commands,
 immediate_commands: Commands,
 
-pub fn init(memory: *Memory) !Self {
+pub fn init(
+    memory: *Memory,
+    width: i32,
+    height: i32,
+) !Self {
     const game_allocator = memory.game_alloc();
     const frame_allocator = memory.frame_alloc();
     defer memory.reset_frame();
@@ -50,8 +52,8 @@ pub fn init(memory: *Memory) !Self {
         "stygian",
         sdl.SDL_WINDOWPOS_UNDEFINED,
         sdl.SDL_WINDOWPOS_UNDEFINED,
-        WIDTH,
-        HEIGHT,
+        width,
+        height,
         sdl.SDL_WINDOW_VULKAN,
     ) orelse {
         return error.SDLCreateWindow;

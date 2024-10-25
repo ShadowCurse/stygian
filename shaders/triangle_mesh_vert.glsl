@@ -4,18 +4,16 @@
 
 layout (location = 0) out vec3 outColor;
 
-struct TriangleInfo {
-    vec3 offset; 
-    float _;
+struct QuadInfo {
+    mat4 transform;
 };
 
-layout(buffer_reference, std430) readonly buffer TriangleInfos { 
-    TriangleInfo infos[];
+layout(buffer_reference, std430) readonly buffer QuadInfos { 
+    QuadInfo infos[];
 };
 
 layout(push_constant) uniform constants {
-    mat4 view_proj;
-    TriangleInfos instance_infos;
+    QuadInfos instance_infos;
 } PushConstants;
 
 struct Vertex {
@@ -25,18 +23,35 @@ struct Vertex {
 }; 
 
 Vertex[] vertices = {
+  // Top
   {
     vec3(1.0, 1.0, 0.0),
     0.0,
     vec4(1.0, 0.0, 0.0, 1.0),
   },
   {
-    vec3(0.0, -1.0, 1.0),
+    vec3(1.0, -1.0, 0.0),
     0.0,
     vec4(0.0, 1.0, 0.0, 1.0),
   },
   {
-    vec3(-1.0, 1.0, 1.0),
+    vec3(-1.0, -1.0, 0.0),
+    0.0,
+    vec4(0.0, 0.0, 1.0, 1.0),
+  },
+  // Bottom
+  {
+    vec3(-1.0, -1.0, 0.0),
+    0.0,
+    vec4(0.0, 0.0, 1.0, 1.0),
+  },
+  {
+    vec3(-1.0, 1.0, 0.0),
+    0.0,
+    vec4(0.0, 1.0, 0.0, 1.0),
+  },
+  {
+    vec3(1.0, 1.0, 0.0),
     0.0,
     vec4(0.0, 0.0, 1.0, 1.0),
   },
@@ -44,8 +59,10 @@ Vertex[] vertices = {
 
 void main() {
     Vertex v = vertices[gl_VertexIndex];
-    TriangleInfo ti = PushConstants.instance_infos.infos[gl_InstanceIndex];
+    QuadInfo qi = PushConstants.instance_infos.infos[gl_InstanceIndex];
 
-    gl_Position = PushConstants.view_proj * vec4(v.position + ti.offset, 1.0f);
+    vec4 new_position = qi.transform * vec4(v.position, 1.0);
+    gl_Position = vec4(new_position.xy, 1.0, 1.0);
+
     outColor = v.color.xyz;
 }

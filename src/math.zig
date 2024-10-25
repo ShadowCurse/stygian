@@ -115,7 +115,7 @@ pub const Mat4 = extern struct {
 
     pub inline fn translate(self: Mat4, v: Vec3) Mat4 {
         var tmp = self;
-        tmp.t = tmp.t.add(v.extend(0));
+        tmp.t = tmp.t.add(v.extend(0.0));
         return tmp;
     }
 
@@ -160,6 +160,15 @@ pub const Mat4 = extern struct {
             .y = self.j.dot(v),
             .z = self.k.dot(v),
             .w = self.t.dot(v),
+        };
+    }
+
+    pub inline fn mul_f32(self: Mat4, v: f32) Mat4 {
+        return .{
+            .i = self.i.mul(v),
+            .j = self.j.mul(v),
+            .k = self.k.mul(v),
+            .t = self.t.mul(v),
         };
     }
 

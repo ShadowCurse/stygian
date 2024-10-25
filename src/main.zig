@@ -29,20 +29,23 @@ const Color = extern struct {
     pub const MAGENTA = Color{ .r = 255, .g = 0, .b = 255, .a = 255 };
 };
 
-const TrianglePushConstant = extern struct {
-    view_proj: Mat4,
+const QuadPushConstant = extern struct {
     buffer_address: vk.VkDeviceAddress,
 };
-const TriangleInfo = extern struct {
-    offset: [3]f32,
-    _: f32 = 0,
+const QuadInfo = extern struct {
+    transform: Mat4,
 };
-const NUM_TRIANGLES = 5;
+const NUM_QUADS = 3;
+const QUAD_WIDTH = 100;
+const QUAD_HEIGHT = 100;
 
 const MeshPushConstant = extern struct {
     view_proj: Mat4,
     buffer_address: vk.VkDeviceAddress,
 };
+
+const WINDOW_WIDTH = 1280;
+const WINDOW_HEIGHT = 720;
 
 pub fn main() !void {
     var memory = try Memory.init();
@@ -70,7 +73,7 @@ pub fn main() !void {
     log.warn(@src(), "warn log", .{});
     log.err(@src(), "err log", .{});
 
-    var renderer = try Renderer.init(&memory);
+    var renderer = try Renderer.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
     defer renderer.deinit();
 
     var current_framme_idx: usize = 0;
@@ -91,7 +94,7 @@ pub fn main() !void {
         &.{
             vk.VkPushConstantRange{
                 .offset = 0,
-                .size = @sizeOf(TrianglePushConstant),
+                .size = @sizeOf(QuadPushConstant),
                 .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
             },
         },
@@ -123,28 +126,35 @@ pub fn main() !void {
     );
     defer mesh_pipeline.deinit(renderer.logical_device.device);
 
-    const buffer = try renderer.create_buffer(
-        @sizeOf(TriangleInfo) * NUM_TRIANGLES,
+    const quad_buffer = try renderer.create_buffer(
+        @sizeOf(QuadInfo) * NUM_QUADS,
         vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
     );
-    defer buffer.deinit(renderer.vma_allocator);
+    defer quad_buffer.deinit(renderer.vma_allocator);
 
-    var triangle_offsets: []TriangleInfo = undefined;
-    triangle_offsets.ptr = @alignCast(@ptrCast(buffer.allocation_info.pMappedData));
-    triangle_offsets.len = NUM_TRIANGLES;
-    for (triangle_offsets, 0..) |*ti, i| {
-        ti.* = .{
-            .offset = .{
-                0.0 + 0.1 * @as(f32, @floatFromInt(i)),
-                3.0 + 0.1 * @as(f32, @floatFromInt(i)),
-                0.0 + 0.1 * @as(f32, @floatFromInt(i)),
-            },
+    var quad_infos: []QuadInfo = undefined;
+    quad_infos.ptr = @alignCast(@ptrCast(quad_buffer.allocation_info.pMappedData));
+    quad_infos.len = NUM_QUADS;
+    for (quad_infos, 0..) |*qi, i| {
+        const t_pos: _math.Vec3 = .{
+            .x = -WINDOW_WIDTH / 2.0 + QUAD_WIDTH / 2.0 + @as(f32, @floatFromInt(i)) * QUAD_WIDTH,
+            .y = -WINDOW_HEIGHT / 2.0 + QUAD_HEIGHT / 2.0,
+            .z = 0.0,
         };
+        const t_size: _math.Vec2 = .{ .x = QUAD_WIDTH, .y = QUAD_HEIGHT };
+        var transform = Mat4.IDENDITY;
+        transform.i.x = t_size.x / WINDOW_WIDTH;
+        transform.j.y = t_size.y / WINDOW_HEIGHT;
+        transform = transform.translate(.{
+            .x = t_pos.x / (WINDOW_WIDTH / 2.0),
+            .y = t_pos.y / (WINDOW_HEIGHT / 2.0),
+            .z = 0.0,
+        });
+        qi.*.transform = transform;
     }
-    var triangle_push_constants: TrianglePushConstant = .{
-        .view_proj = undefined,
-        .buffer_address = buffer.get_device_address(renderer.logical_device.device),
+    var quad_push_constants: QuadPushConstant = .{
+        .buffer_address = quad_buffer.get_device_address(renderer.logical_device.device),
     };
 
     const cube_vertex_buffer = try renderer.create_buffer(
@@ -267,7 +277,7 @@ pub fn main() !void {
             0.1,
         );
         projection.j.y *= -1.0;
-        triangle_push_constants.view_proj = view.mul(projection);
+
         mesh_push_constants.view_proj = view.mul(projection);
 
         vk.vkCmdBindPipeline(command[0].cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, triangle_pipeline.pipeline);
@@ -286,10 +296,10 @@ pub fn main() !void {
             triangle_pipeline.pipeline_layout,
             vk.VK_SHADER_STAGE_VERTEX_BIT,
             0,
-            @sizeOf(TrianglePushConstant),
-            &triangle_push_constants,
+            @sizeOf(QuadPushConstant),
+            &quad_push_constants,
         );
-        vk.vkCmdDraw(command[0].cmd, 3, NUM_TRIANGLES, 0, 0);
+        vk.vkCmdDraw(command[0].cmd, 6, NUM_QUADS, 0, 0);
 
         vk.vkCmdBindPipeline(command[0].cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, mesh_pipeline.pipeline);
         vk.vkCmdBindDescriptorSets(
