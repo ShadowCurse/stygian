@@ -5,15 +5,11 @@ const vk = @import("../vulkan.zig");
 const _image = @import("image.zig");
 
 const Memory = @import("../memory.zig");
-const AllocatedImage = @import("../render/image.zig").AllocatedImage;
-const AllocatedBuffer = @import("../render/buffer.zig").AllocatedBuffer;
-const Pipeline = @import("../render/pipeline.zig").Pipeline;
+const AllocatedImage = @import("image.zig").AllocatedImage;
+const AllocatedBuffer = @import("buffer.zig").AllocatedBuffer;
+const Pipeline = @import("pipeline.zig").Pipeline;
 
 const Allocator = std.mem.Allocator;
-
-pub const CommandIdx = usize;
-pub const PipelineIdx = usize;
-pub const BufferIdx = usize;
 
 const TIMEOUT = std.math.maxInt(u64);
 const VK_VALIDATION_LAYERS_NAMES = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
@@ -38,8 +34,8 @@ immediate_commands: Commands,
 
 pub fn init(
     memory: *Memory,
-    width: i32,
-    height: i32,
+    width: u32,
+    height: u32,
 ) !Self {
     const game_allocator = memory.game_alloc();
     const frame_allocator = memory.frame_alloc();
@@ -52,8 +48,8 @@ pub fn init(
         "stygian",
         sdl.SDL_WINDOWPOS_UNDEFINED,
         sdl.SDL_WINDOWPOS_UNDEFINED,
-        width,
-        height,
+        @intCast(width),
+        @intCast(height),
         sdl.SDL_WINDOW_VULKAN,
     ) orelse {
         return error.SDLCreateWindow;
