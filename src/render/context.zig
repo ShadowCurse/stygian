@@ -24,10 +24,10 @@ const _math = @import("../math.zig");
 const Mat4 = _math.Mat4;
 const Vec2 = _math.Vec2;
 
-const QuadPushConstant = extern struct {
+const UiQuadPushConstant = extern struct {
     buffer_address: vk.VkDeviceAddress,
 };
-const QuadInfo = extern struct {
+const UiQuadInfo = extern struct {
     transform: Mat4,
 };
 
@@ -47,7 +47,7 @@ current_framme_idx: usize,
 commands: [FRAMES]RenderCommand,
 immediate_command: ImmediateCommand,
 
-quad_pipeline: Pipeline,
+ui_quad_pipeline: Pipeline,
 mesh_pipeline: Pipeline,
 
 debug_texture: AllocatedImage,
@@ -67,17 +67,17 @@ pub fn init(
 
     const immediate_command = try renderer.create_immediate_command();
 
-    const quad_pipeline = try renderer.create_pipeline(
+    const ui_quad_pipeline = try renderer.create_pipeline(
         &.{},
         &.{
             vk.VkPushConstantRange{
                 .offset = 0,
-                .size = @sizeOf(QuadPushConstant),
+                .size = @sizeOf(UiQuadPushConstant),
                 .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
             },
         },
-        "triangle_mesh_vert.spv",
-        "triangle_mesh_frag.spv",
+        "ui_quad_vert.spv",
+        "ui_quad_frag.spv",
         vk.VK_FORMAT_R16G16B16A16_SFLOAT,
     );
 
@@ -169,7 +169,7 @@ pub fn init(
         .current_framme_idx = 0,
         .commands = commands,
         .immediate_command = immediate_command,
-        .quad_pipeline = quad_pipeline,
+        .ui_quad_pipeline = ui_quad_pipeline,
         .mesh_pipeline = mesh_pipeline,
         .debug_texture = debug_texture,
         .debug_sampler = debug_sampler,
@@ -181,7 +181,7 @@ pub fn deinit(self: *Self) void {
     self.debug_texture.deinit(self.renderer.logical_device.device, self.renderer.vma_allocator);
 
     self.mesh_pipeline.deinit(self.renderer.logical_device.device);
-    self.quad_pipeline.deinit(self.renderer.logical_device.device);
+    self.ui_quad_pipeline.deinit(self.renderer.logical_device.device);
 
     self.immediate_command.deinit(self.renderer.logical_device.device);
     for (&self.commands) |*c| {
@@ -239,21 +239,21 @@ pub fn delete_mesh(self: *Self, render_mesh_info: *const RenderMeshInfo) void {
     render_mesh_info.vertex_buffer.deinit(self.renderer.vma_allocator);
 }
 
-pub const RenderQuadInfo = struct {
+pub const RenderUiQuadInfo = struct {
     buffer: AllocatedBuffer,
-    push_constants: QuadPushConstant,
+    push_constants: UiQuadPushConstant,
 };
 
-pub fn create_ui_quad(self: *Self, size: Vec2, pos: Vec2) !RenderQuadInfo {
+pub fn create_ui_quad(self: *Self, size: Vec2, pos: Vec2) !RenderUiQuadInfo {
     const buffer = try self.renderer.create_buffer(
-        @sizeOf(QuadInfo),
+        @sizeOf(UiQuadInfo),
         vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
     );
 
-    var quad_infos: []QuadInfo = undefined;
-    quad_infos.ptr = @alignCast(@ptrCast(buffer.allocation_info.pMappedData));
-    quad_infos.len = 1;
+    var ui_quad_infos: []UiQuadInfo = undefined;
+    ui_quad_infos.ptr = @alignCast(@ptrCast(buffer.allocation_info.pMappedData));
+    ui_quad_infos.len = 1;
 
     var transform = Mat4.IDENDITY;
     transform.i.x = size.x / @as(f32, @floatFromInt(self.window_width));
@@ -264,8 +264,8 @@ pub fn create_ui_quad(self: *Self, size: Vec2, pos: Vec2) !RenderQuadInfo {
         .z = 0.0,
     });
 
-    quad_infos[0].transform = transform;
-    const push_constants: QuadPushConstant = .{
+    ui_quad_infos[0].transform = transform;
+    const push_constants: UiQuadPushConstant = .{
         .buffer_address = buffer.get_device_address(self.renderer.logical_device.device),
     };
 
@@ -275,11 +275,9 @@ pub fn create_ui_quad(self: *Self, size: Vec2, pos: Vec2) !RenderQuadInfo {
     };
 }
 
-pub fn delete_ui_quad(self: *Self, render_quad_info: *const RenderQuadInfo) void {
-    render_quad_info.buffer.deinit(self.renderer.vma_allocator);
+pub fn delete_ui_quad(self: *Self, render_ui_quad_info: *const RenderUiQuadInfo) void {
+    render_ui_quad_info.buffer.deinit(self.renderer.vma_allocator);
 }
-
-pub const FrameContext = struct {};
 
 pub fn start_rendering(self: *Self) !struct { *const RenderCommand, u32 } {
     const current_command = &self.commands[self.current_framme_idx % self.commands.len];
@@ -320,29 +318,29 @@ pub fn render_mesh(
     vk.vkCmdDrawIndexed(command[0].cmd, render_mesh_info.num_indices, 1, 0, 0, 0);
 }
 
-pub fn render_quad(
+pub fn render_ui_quad(
     self: *Self,
     command: struct { *const RenderCommand, u32 },
-    render_quad_info: *const RenderQuadInfo,
+    render_ui_quad_info: *const RenderUiQuadInfo,
 ) !void {
-    vk.vkCmdBindPipeline(command[0].cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.quad_pipeline.pipeline);
+    vk.vkCmdBindPipeline(command[0].cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.ui_quad_pipeline.pipeline);
     vk.vkCmdBindDescriptorSets(
         command[0].cmd,
         vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-        self.quad_pipeline.pipeline_layout,
+        self.ui_quad_pipeline.pipeline_layout,
         0,
         1,
-        &self.quad_pipeline.descriptor_set,
+        &self.ui_quad_pipeline.descriptor_set,
         0,
         null,
     );
     vk.vkCmdPushConstants(
         command[0].cmd,
-        self.quad_pipeline.pipeline_layout,
+        self.ui_quad_pipeline.pipeline_layout,
         vk.VK_SHADER_STAGE_VERTEX_BIT,
         0,
-        @sizeOf(QuadPushConstant),
-        &render_quad_info.push_constants,
+        @sizeOf(UiQuadPushConstant),
+        &render_ui_quad_info.push_constants,
     );
     vk.vkCmdDraw(command[0].cmd, 6, 1, 0, 0);
 }

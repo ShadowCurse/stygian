@@ -107,8 +107,8 @@ pub fn main() !void {
 
         const frame_context = try context.start_rendering();
         try context.render_mesh(frame_context, &cube_mesh);
-        try context.render_quad(frame_context, &screen_quad);
-        try context.render_quad(frame_context, &screen_quad_2);
+        try context.render_ui_quad(frame_context, &screen_quad);
+        try context.render_ui_quad(frame_context, &screen_quad_2);
         try context.end_rendering(frame_context);
     }
 
