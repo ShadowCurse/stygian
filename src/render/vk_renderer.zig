@@ -6,9 +6,9 @@ const sdl = @import("../sdl.zig");
 const Color = @import("../color.zig").Color;
 const Memory = @import("../memory.zig");
 
-const Renderer = @import("renderer.zig");
-const RenderCommand = Renderer.RenderCommand;
-const ImmediateCommand = Renderer.ImmediateCommand;
+const VkContext = @import("vk_context.zig");
+const RenderCommand = VkContext.RenderCommand;
+const ImmediateCommand = VkContext.ImmediateCommand;
 
 const AllocatedImage = @import("image.zig").AllocatedImage;
 const AllocatedBuffer = @import("buffer.zig").AllocatedBuffer;
@@ -41,7 +41,7 @@ const FRAMES = 2;
 const Self = @This();
 window_width: u32,
 window_height: u32,
-renderer: Renderer,
+renderer: VkContext,
 
 current_framme_idx: usize,
 commands: [FRAMES]RenderCommand,
@@ -58,9 +58,9 @@ pub fn init(
     width: u32,
     height: u32,
 ) !Self {
-    var renderer = try Renderer.init(memory, width, height);
+    var renderer = try VkContext.init(memory, width, height);
 
-    const commands = [_]Renderer.RenderCommand{
+    const commands = [_]RenderCommand{
         try renderer.create_render_command(),
         try renderer.create_render_command(),
     };

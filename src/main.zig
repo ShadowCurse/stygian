@@ -4,8 +4,7 @@ const vk = @import("vulkan.zig");
 const sdl = @import("sdl.zig");
 
 const Memory = @import("memory.zig");
-
-const RenderContext = @import("render/context.zig");
+const VkRenderer = @import("render/vk_renderer.zig");
 
 const _math = @import("math.zig");
 const Mat4 = _math.Mat4;
@@ -44,13 +43,13 @@ pub fn main() !void {
     log.warn(@src(), "warn log", .{});
     log.err(@src(), "err log", .{});
 
-    var context = try RenderContext.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
-    defer context.deinit();
+    var renderer = try VkRenderer.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
+    defer renderer.deinit();
 
-    var cube_mesh = try context.create_mesh(&CubeMesh.indices, &CubeMesh.vertices);
-    defer context.delete_mesh(&cube_mesh);
+    var cube_mesh = try renderer.create_mesh(&CubeMesh.indices, &CubeMesh.vertices);
+    defer renderer.delete_mesh(&cube_mesh);
 
-    const screen_quad = try context.create_ui_quad(
+    const screen_quad = try renderer.create_ui_quad(
         .{
             .x = 200.0,
             .y = 200.0,
@@ -60,9 +59,9 @@ pub fn main() !void {
             .y = -WINDOW_HEIGHT / 2.0 + 100.0,
         },
     );
-    defer context.delete_ui_quad(&screen_quad);
+    defer renderer.delete_ui_quad(&screen_quad);
 
-    const screen_quad_2 = try context.create_ui_quad(
+    const screen_quad_2 = try renderer.create_ui_quad(
         .{
             .x = 100.0,
             .y = 100.0,
@@ -72,7 +71,7 @@ pub fn main() !void {
             .y = -WINDOW_HEIGHT / 2.0 + 300.0,
         },
     );
-    defer context.delete_ui_quad(&screen_quad_2);
+    defer renderer.delete_ui_quad(&screen_quad_2);
 
     var camera_controller = CameraController{};
     camera_controller.position.z = -5.0;
@@ -97,21 +96,21 @@ pub fn main() !void {
         const view = camera_controller.view_matrix();
         var projection = Mat4.perspective(
             std.math.degreesToRadians(70.0),
-            @as(f32, @floatFromInt(context.renderer.draw_image.extent.width)) /
-                @as(f32, @floatFromInt(context.renderer.draw_image.extent.height)),
+            @as(f32, @floatFromInt(renderer.renderer.draw_image.extent.width)) /
+                @as(f32, @floatFromInt(renderer.renderer.draw_image.extent.height)),
             10000.0,
             0.1,
         );
         projection.j.y *= -1.0;
         cube_mesh.push_constants.view_proj = view.mul(projection);
 
-        const frame_context = try context.start_rendering();
-        try context.render_mesh(frame_context, &cube_mesh);
-        try context.render_ui_quad(frame_context, &screen_quad);
-        try context.render_ui_quad(frame_context, &screen_quad_2);
-        try context.end_rendering(frame_context);
+        const frame_context = try renderer.start_rendering();
+        try renderer.render_mesh(frame_context, &cube_mesh);
+        try renderer.render_ui_quad(frame_context, &screen_quad);
+        try renderer.render_ui_quad(frame_context, &screen_quad_2);
+        try renderer.end_rendering(frame_context);
     }
 
-    context.renderer.wait_idle();
+    renderer.renderer.wait_idle();
     log.info(@src(), "Exiting", .{});
 }
