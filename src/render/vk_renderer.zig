@@ -231,7 +231,6 @@ pub fn create_mesh(self: *Self, indices: []const u32, vertices: []const DefaultV
         vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
     );
-    // defer vertex_buffer.deinit(renderer.vma_allocator);
     var vertex_slice: []DefaultVertex = undefined;
     vertex_slice.ptr = @alignCast(@ptrCast(vertex_buffer.allocation_info.pMappedData));
     vertex_slice.len = vertices.len;
@@ -242,7 +241,6 @@ pub fn create_mesh(self: *Self, indices: []const u32, vertices: []const DefaultV
         vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
     );
-    // defer index_buffer.deinit(renderer.vma_allocator);
     var index_slice: []u32 = undefined;
     index_slice.ptr = @alignCast(@ptrCast(index_buffer.allocation_info.pMappedData));
     index_slice.len = indices.len;

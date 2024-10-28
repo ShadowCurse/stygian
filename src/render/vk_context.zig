@@ -26,8 +26,6 @@ debug_messanger: DebugMessanger,
 physical_device: PhysicalDevice,
 logical_device: LogicalDevice,
 swap_chain: Swapchain,
-// draw_image: AllocatedImage,
-// depth_image: AllocatedImage,
 descriptor_pool: DescriptorPool,
 commands: CommandPool,
 immediate_commands: CommandPool,
@@ -92,27 +90,6 @@ pub fn init(
 
     const swap_chain = try Swapchain.init(frame_allocator, game_allocator, &logical_device, &physical_device, surface, window);
 
-    // const draw_image = try AllocatedImage.init(
-    //     vma_allocator,
-    //     logical_device.device,
-    //     swap_chain.extent.width,
-    //     swap_chain.extent.height,
-    //     vk.VK_FORMAT_R16G16B16A16_SFLOAT,
-    //     vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-    //         vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-    //         vk.VK_IMAGE_USAGE_STORAGE_BIT |
-    //         vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-    // );
-    //
-    // const depth_image = try AllocatedImage.init(
-    //     vma_allocator,
-    //     logical_device.device,
-    //     swap_chain.extent.width,
-    //     swap_chain.extent.height,
-    //     vk.VK_FORMAT_D32_SFLOAT,
-    //     vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-    // );
-
     const descriptor_pool = try DescriptorPool.init(logical_device.device, &.{
         .{
             .type = vk.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -141,8 +118,6 @@ pub fn init(
         .physical_device = physical_device,
         .logical_device = logical_device,
         .swap_chain = swap_chain,
-        // .draw_image = draw_image,
-        // .depth_image = depth_image,
         .descriptor_pool = descriptor_pool,
         .commands = commands,
         .immediate_commands = immediate_commands,
@@ -155,8 +130,6 @@ pub fn deinit(self: *Self) void {
     self.descriptor_pool.deinit(self.logical_device.device);
     self.immediate_commands.deinit(self.logical_device.device);
     self.commands.deinit(self.logical_device.device);
-    // self.depth_image.deinit(self.logical_device.device, self.vma_allocator);
-    // self.draw_image.deinit(self.logical_device.device, self.vma_allocator);
     vk.vmaDestroyAllocator(self.vma_allocator);
     self.swap_chain.deinit(self.logical_device.device, game_allocator);
     self.logical_device.deinit();
@@ -393,7 +366,6 @@ pub fn get_vk_func(comptime Fn: type, instance: vk.VkInstance, name: [*c]const u
             return error.VKGetInstanceProcAddr;
         }
     } else {
-        log.err(@src(), "Cound not create debug messanger", .{});
         return error.SDLGetInstanceProcAddr;
     }
 }
