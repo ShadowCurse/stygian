@@ -24,16 +24,20 @@ const _math = @import("../math.zig");
 const Mat4 = _math.Mat4;
 const Vec2 = _math.Vec2;
 
-const UiQuadPushConstant = extern struct {
+pub const UiQuadPushConstant = extern struct {
     buffer_address: vk.VkDeviceAddress,
 };
-const UiQuadInfo = extern struct {
+pub const UiQuadInfo = extern struct {
     transform: Mat4,
 };
 
-const MeshPushConstant = extern struct {
+pub const MeshPushConstant = extern struct {
     view_proj: Mat4,
-    buffer_address: vk.VkDeviceAddress,
+    vertex_buffer_address: vk.VkDeviceAddress,
+    instance_info_buffer_address: vk.VkDeviceAddress,
+};
+pub const MeshInfo = extern struct {
+    transform: Mat4,
 };
 
 const FRAMES = 2;
@@ -221,11 +225,20 @@ pub fn deinit(self: *Self) void {
 pub const RenderMeshInfo = struct {
     vertex_buffer: AllocatedBuffer,
     index_buffer: AllocatedBuffer,
+    instance_info_buffer: AllocatedBuffer,
+    num_instances: u32,
     num_indices: u32,
     push_constants: MeshPushConstant,
+
+    pub fn set_instance_info(self: *const RenderMeshInfo, index: u32, info: MeshInfo) void {
+        var info_slice: []MeshInfo = undefined;
+        info_slice.ptr = @alignCast(@ptrCast(self.instance_info_buffer.allocation_info.pMappedData));
+        info_slice.len = self.num_instances;
+        info_slice[index] = info;
+    }
 };
 
-pub fn create_mesh(self: *Self, indices: []const u32, vertices: []const DefaultVertex) !RenderMeshInfo {
+pub fn create_mesh(self: *Self, indices: []const u32, vertices: []const DefaultVertex, instances: u32) !RenderMeshInfo {
     const vertex_buffer = try self.vk_context.create_buffer(
         @sizeOf(DefaultVertex) * vertices.len,
         vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -246,20 +259,30 @@ pub fn create_mesh(self: *Self, indices: []const u32, vertices: []const DefaultV
     index_slice.len = indices.len;
     @memcpy(index_slice, indices);
 
+    const instance_info_buffer = try self.vk_context.create_buffer(
+        @sizeOf(MeshInfo) * instances,
+        vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
+    );
+
     const push_constants: MeshPushConstant = .{
         .view_proj = undefined,
-        .buffer_address = vertex_buffer.get_device_address(self.vk_context.logical_device.device),
+        .vertex_buffer_address = vertex_buffer.get_device_address(self.vk_context.logical_device.device),
+        .instance_info_buffer_address = instance_info_buffer.get_device_address(self.vk_context.logical_device.device),
     };
 
     return .{
         .vertex_buffer = vertex_buffer,
         .index_buffer = index_buffer,
+        .instance_info_buffer = instance_info_buffer,
+        .num_instances = instances,
         .num_indices = @intCast(indices.len),
         .push_constants = push_constants,
     };
 }
 
 pub fn delete_mesh(self: *Self, render_mesh_info: *const RenderMeshInfo) void {
+    render_mesh_info.instance_info_buffer.deinit(self.vk_context.vma_allocator);
     render_mesh_info.index_buffer.deinit(self.vk_context.vma_allocator);
     render_mesh_info.vertex_buffer.deinit(self.vk_context.vma_allocator);
 }
@@ -474,6 +497,7 @@ pub fn render_mesh(
     self: *Self,
     frame_context: *const FrameContext,
     render_mesh_info: *const RenderMeshInfo,
+    instances: u32,
 ) !void {
     vk.vkCmdBindPipeline(frame_context.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.mesh_pipeline.pipeline);
     vk.vkCmdBindDescriptorSets(
@@ -495,7 +519,7 @@ pub fn render_mesh(
         &render_mesh_info.push_constants,
     );
     vk.vkCmdBindIndexBuffer(frame_context.command.cmd, render_mesh_info.index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
-    vk.vkCmdDrawIndexed(frame_context.command.cmd, render_mesh_info.num_indices, 1, 0, 0, 0);
+    vk.vkCmdDrawIndexed(frame_context.command.cmd, render_mesh_info.num_indices, instances, 0, 0, 0);
 }
 
 pub fn render_ui_quad(

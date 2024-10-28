@@ -18,6 +18,10 @@ pub const Vec3 = extern struct {
     y: f32 = 0.0,
     z: f32 = 0.0,
 
+    pub const X: Vec3 = .{ .x = 1.0 };
+    pub const Y: Vec3 = .{ .y = 1.0 };
+    pub const Z: Vec3 = .{ .z = 1.0 };
+
     pub inline fn extend(self: Vec3, w: f32) Vec4 {
         return .{ .x = self.x, .y = self.y, .z = self.z, .w = w };
     }

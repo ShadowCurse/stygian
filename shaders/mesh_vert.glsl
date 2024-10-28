@@ -17,14 +17,25 @@ layout(buffer_reference, std430) readonly buffer Vertices {
     Vertex vertices[];
 };
 
+struct MeshInfo {
+  mat4 transform;
+};
+
+layout(buffer_reference, std430) readonly buffer MeshInfos { 
+    MeshInfo infos[];
+};
+
 layout(push_constant) uniform constants {
     mat4 view_proj;
     Vertices vertices;
+    MeshInfos mesh_infos;
 } PushConstants;
 
 void main() {
     Vertex v = PushConstants.vertices.vertices[gl_VertexIndex];
-    gl_Position = PushConstants.view_proj * vec4(v.position, 1.0f);
+    mat4 transform = PushConstants.mesh_infos.infos[gl_InstanceIndex].transform;
+
+    gl_Position = PushConstants.view_proj * transform * vec4(v.position, 1.0f);
     outColor = vec3(1.0);
     outUV = vec2(v.uv_x, v.uv_y);
 }

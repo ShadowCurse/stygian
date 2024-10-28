@@ -7,6 +7,7 @@ const Memory = @import("memory.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
 
 const _math = @import("math.zig");
+const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
 
 const _mesh = @import("mesh.zig");
@@ -46,7 +47,7 @@ pub fn main() !void {
     var renderer = try VkRenderer.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
     defer renderer.deinit();
 
-    var cube_mesh = try renderer.create_mesh(&CubeMesh.indices, &CubeMesh.vertices);
+    var cube_mesh = try renderer.create_mesh(&CubeMesh.indices, &CubeMesh.vertices, 2);
     defer renderer.delete_mesh(&cube_mesh);
 
     const screen_quad = try renderer.create_ui_quad(
@@ -103,8 +104,22 @@ pub fn main() !void {
         projection.j.y *= -1.0;
         cube_mesh.push_constants.view_proj = view.mul(projection);
 
+        const A = struct {
+            var a: f32 = 0.0;
+        };
+        A.a += dt;
+        cube_mesh.set_instance_info(0, .{
+            .transform = Mat4.rotation(
+                Vec3.Y,
+                A.a,
+            ),
+        });
+        cube_mesh.set_instance_info(1, .{
+            .transform = Mat4.IDENDITY.translate(.{ .y = 2.0 }),
+        });
+
         const frame_context = try renderer.start_rendering();
-        try renderer.render_mesh(&frame_context, &cube_mesh);
+        try renderer.render_mesh(&frame_context, &cube_mesh, 2);
         try renderer.render_ui_quad(&frame_context, &screen_quad);
         try renderer.render_ui_quad(&frame_context, &screen_quad_2);
         try renderer.end_rendering(frame_context);
