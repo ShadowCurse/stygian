@@ -96,8 +96,7 @@ pub fn main() !void {
         const view = camera_controller.view_matrix();
         var projection = Mat4.perspective(
             std.math.degreesToRadians(70.0),
-            @as(f32, @floatFromInt(renderer.renderer.draw_image.extent.width)) /
-                @as(f32, @floatFromInt(renderer.renderer.draw_image.extent.height)),
+            @as(f32, WINDOW_WIDTH) / @as(f32, WINDOW_HEIGHT),
             10000.0,
             0.1,
         );
@@ -105,12 +104,12 @@ pub fn main() !void {
         cube_mesh.push_constants.view_proj = view.mul(projection);
 
         const frame_context = try renderer.start_rendering();
-        try renderer.render_mesh(frame_context, &cube_mesh);
-        try renderer.render_ui_quad(frame_context, &screen_quad);
-        try renderer.render_ui_quad(frame_context, &screen_quad_2);
+        try renderer.render_mesh(&frame_context, &cube_mesh);
+        try renderer.render_ui_quad(&frame_context, &screen_quad);
+        try renderer.render_ui_quad(&frame_context, &screen_quad_2);
         try renderer.end_rendering(frame_context);
     }
 
-    renderer.renderer.wait_idle();
+    renderer.vk_context.wait_idle();
     log.info(@src(), "Exiting", .{});
 }

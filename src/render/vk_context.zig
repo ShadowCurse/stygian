@@ -11,7 +11,7 @@ const Pipeline = @import("pipeline.zig").Pipeline;
 
 const Allocator = std.mem.Allocator;
 
-const TIMEOUT = std.math.maxInt(u64);
+pub const TIMEOUT = std.math.maxInt(u64);
 const VK_VALIDATION_LAYERS_NAMES = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
 const VK_ADDITIONAL_EXTENSIONS_NAMES = [_][]const u8{"VK_EXT_debug_utils"};
 const VK_PHYSICAL_DEVICE_EXTENSION_NAMES = [_][]const u8{"VK_KHR_swapchain"};
@@ -26,11 +26,11 @@ debug_messanger: DebugMessanger,
 physical_device: PhysicalDevice,
 logical_device: LogicalDevice,
 swap_chain: Swapchain,
-draw_image: AllocatedImage,
-depth_image: AllocatedImage,
+// draw_image: AllocatedImage,
+// depth_image: AllocatedImage,
 descriptor_pool: DescriptorPool,
-commands: Commands,
-immediate_commands: Commands,
+commands: CommandPool,
+immediate_commands: CommandPool,
 
 pub fn init(
     memory: *Memory,
@@ -92,26 +92,26 @@ pub fn init(
 
     const swap_chain = try Swapchain.init(frame_allocator, game_allocator, &logical_device, &physical_device, surface, window);
 
-    const draw_image = try AllocatedImage.init(
-        vma_allocator,
-        logical_device.device,
-        swap_chain.extent.width,
-        swap_chain.extent.height,
-        vk.VK_FORMAT_R16G16B16A16_SFLOAT,
-        vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-            vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-            vk.VK_IMAGE_USAGE_STORAGE_BIT |
-            vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-    );
-
-    const depth_image = try AllocatedImage.init(
-        vma_allocator,
-        logical_device.device,
-        swap_chain.extent.width,
-        swap_chain.extent.height,
-        vk.VK_FORMAT_D32_SFLOAT,
-        vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-    );
+    // const draw_image = try AllocatedImage.init(
+    //     vma_allocator,
+    //     logical_device.device,
+    //     swap_chain.extent.width,
+    //     swap_chain.extent.height,
+    //     vk.VK_FORMAT_R16G16B16A16_SFLOAT,
+    //     vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    //         vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+    //         vk.VK_IMAGE_USAGE_STORAGE_BIT |
+    //         vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+    // );
+    //
+    // const depth_image = try AllocatedImage.init(
+    //     vma_allocator,
+    //     logical_device.device,
+    //     swap_chain.extent.width,
+    //     swap_chain.extent.height,
+    //     vk.VK_FORMAT_D32_SFLOAT,
+    //     vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+    // );
 
     const descriptor_pool = try DescriptorPool.init(logical_device.device, &.{
         .{
@@ -128,8 +128,8 @@ pub fn init(
         },
     });
 
-    const commands = try Commands.init(logical_device.device, physical_device.graphics_queue_family);
-    const immediate_commands = try Commands.init(logical_device.device, physical_device.graphics_queue_family);
+    const commands = try CommandPool.init(logical_device.device, physical_device.graphics_queue_family);
+    const immediate_commands = try CommandPool.init(logical_device.device, physical_device.graphics_queue_family);
 
     return .{
         .memory = memory,
@@ -141,8 +141,8 @@ pub fn init(
         .physical_device = physical_device,
         .logical_device = logical_device,
         .swap_chain = swap_chain,
-        .draw_image = draw_image,
-        .depth_image = depth_image,
+        // .draw_image = draw_image,
+        // .depth_image = depth_image,
         .descriptor_pool = descriptor_pool,
         .commands = commands,
         .immediate_commands = immediate_commands,
@@ -155,8 +155,8 @@ pub fn deinit(self: *Self) void {
     self.descriptor_pool.deinit(self.logical_device.device);
     self.immediate_commands.deinit(self.logical_device.device);
     self.commands.deinit(self.logical_device.device);
-    self.depth_image.deinit(self.logical_device.device, self.vma_allocator);
-    self.draw_image.deinit(self.logical_device.device, self.vma_allocator);
+    // self.depth_image.deinit(self.logical_device.device, self.vma_allocator);
+    // self.draw_image.deinit(self.logical_device.device, self.vma_allocator);
     vk.vmaDestroyAllocator(self.vma_allocator);
     self.swap_chain.deinit(self.logical_device.device, game_allocator);
     self.logical_device.deinit();
@@ -172,6 +172,46 @@ pub fn wait_idle(self: *const Self) void {
     _ = vk.vkDeviceWaitIdle(self.logical_device.device);
 }
 
+pub fn wait_for_fence(self: *const Self, fence: vk.VkFence) !void {
+    return vk.check_result(vk.vkWaitForFences(
+        self.logical_device.device,
+        1,
+        &fence,
+        vk.VK_TRUE,
+        TIMEOUT,
+    ));
+}
+
+pub fn reset_fence(self: *const Self, fence: vk.VkFence) !void {
+    return vk.check_result(vk.vkResetFences(self.logical_device.device, 1, &fence));
+}
+
+pub fn acquire_next_image(self: *const Self, semaphore: vk.VkSemaphore) !u32 {
+    var image_index: u32 = 0;
+    try vk.check_result(vk.vkAcquireNextImageKHR(
+        self.logical_device.device,
+        self.swap_chain.swap_chain,
+        TIMEOUT,
+        semaphore,
+        null,
+        &image_index,
+    ));
+    return image_index;
+}
+
+pub fn queue_submit_2(self: *const Self, submit_info: *const vk.VkSubmitInfo2, fence: vk.VkFence) !void {
+    return vk.check_result(vk.vkQueueSubmit2(
+        self.logical_device.graphics_queue,
+        1,
+        submit_info,
+        fence,
+    ));
+}
+
+pub fn queue_present(self: *const Self, present_info: *const vk.VkPresentInfoKHR) !void {
+    return vk.check_result(vk.vkQueuePresentKHR(self.logical_device.graphics_queue, present_info));
+}
+
 pub fn create_pipeline(
     self: *Self,
     bindings: []const vk.VkDescriptorSetLayoutBinding,
@@ -179,6 +219,7 @@ pub fn create_pipeline(
     vertex_shader_path: [:0]const u8,
     fragment_shader_path: [:0]const u8,
     image_format: vk.VkFormat,
+    depth_format: vk.VkFormat,
 ) !Pipeline {
     const frame_allocator = self.memory.frame_alloc();
     defer self.memory.reset_frame();
@@ -191,7 +232,7 @@ pub fn create_pipeline(
         vertex_shader_path,
         fragment_shader_path,
         image_format,
-        self.depth_image.format,
+        depth_format,
     );
 }
 
@@ -242,182 +283,6 @@ pub fn create_immediate_command(self: *Self) !ImmediateCommand {
 
 pub fn create_render_command(self: *Self) !RenderCommand {
     return self.commands.create_render_command(self.logical_device.device);
-}
-
-pub fn start_command(self: *const Self, command: *const RenderCommand) !struct { *const RenderCommand, u32 } {
-    try vk.check_result(vk.vkWaitForFences(
-        self.logical_device.device,
-        1,
-        &command.render_fence,
-        vk.VK_TRUE,
-        TIMEOUT,
-    ));
-    try vk.check_result(vk.vkResetFences(self.logical_device.device, 1, &command.render_fence));
-
-    var image_index: u32 = 0;
-    try vk.check_result(vk.vkAcquireNextImageKHR(
-        self.logical_device.device,
-        self.swap_chain.swap_chain,
-        TIMEOUT,
-        command.swap_chain_semaphore,
-        null,
-        &image_index,
-    ));
-
-    try vk.check_result(vk.vkResetCommandBuffer(command.cmd, 0));
-    const begin_info = vk.VkCommandBufferBeginInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = vk.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-    try vk.check_result(vk.vkBeginCommandBuffer(command.cmd, &begin_info));
-
-    _image.transition_image(
-        command.cmd,
-        self.draw_image.image,
-        vk.VK_IMAGE_LAYOUT_UNDEFINED,
-        vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-    );
-
-    _image.transition_image(
-        command.cmd,
-        self.depth_image.image,
-        vk.VK_IMAGE_LAYOUT_UNDEFINED,
-        vk.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-    );
-
-    const color_attachment = vk.VkRenderingAttachmentInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = self.draw_image.view,
-        .imageLayout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .clearValue = .{ .color = .{ .float32 = .{ 0.0, 0.0, 0.0, 0.0 } } },
-        .storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    const depth_attachment = vk.VkRenderingAttachmentInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = self.depth_image.view,
-        .imageLayout = vk.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-        .loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
-        .storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
-        .clearValue = .{ .depthStencil = .{ .depth = 0.0 } },
-    };
-
-    const render_info = vk.VkRenderingInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .pColorAttachments = &color_attachment,
-        .colorAttachmentCount = 1,
-        .pDepthAttachment = &depth_attachment,
-        .renderArea = .{ .extent = .{
-            .width = self.draw_image.extent.width,
-            .height = self.draw_image.extent.height,
-        } },
-        .layerCount = 1,
-    };
-    vk.vkCmdBeginRendering(command.cmd, &render_info);
-
-    const viewport = vk.VkViewport{
-        .x = 0.0,
-        .y = 0.0,
-        .width = @floatFromInt(self.draw_image.extent.width),
-        .height = @floatFromInt(self.draw_image.extent.height),
-        .minDepth = 0.0,
-        .maxDepth = 1.0,
-    };
-    vk.vkCmdSetViewport(command.cmd, 0, 1, &viewport);
-    const scissor = vk.VkRect2D{ .offset = .{
-        .x = 0.0,
-        .y = 0.0,
-    }, .extent = .{
-        .width = self.draw_image.extent.width,
-        .height = self.draw_image.extent.height,
-    } };
-    vk.vkCmdSetScissor(command.cmd, 0, 1, &scissor);
-
-    return .{
-        command,
-        image_index,
-    };
-}
-
-pub fn finish_command(self: *const Self, command_context: struct { *const RenderCommand, u32 }) !void {
-    const command = command_context[0];
-    const image_index = command_context[1];
-
-    vk.vkCmdEndRendering(command.cmd);
-
-    _image.transition_image(
-        command.cmd,
-        self.draw_image.image,
-        vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-        vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    );
-    _image.transition_image(
-        command.cmd,
-        self.swap_chain.images[image_index],
-        vk.VK_IMAGE_LAYOUT_UNDEFINED,
-        vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    );
-    _image.copy_image_to_image(
-        command.cmd,
-        self.draw_image.image,
-        .{
-            .width = self.draw_image.extent.width,
-            .height = self.draw_image.extent.height,
-        },
-        self.swap_chain.images[image_index],
-        self.swap_chain.extent,
-    );
-    _image.transition_image(
-        command.cmd,
-        self.swap_chain.images[image_index],
-        vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-    );
-
-    try vk.check_result(vk.vkEndCommandBuffer(command.cmd));
-
-    // Submit commands
-    const buffer_submit_info = vk.VkCommandBufferSubmitInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-        .commandBuffer = command.cmd,
-        .deviceMask = 0,
-    };
-    const wait_semaphore_info = vk.VkSemaphoreSubmitInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = command.swap_chain_semaphore,
-        .stageMask = vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-    };
-    const signal_semaphore_info = vk.VkSemaphoreSubmitInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = command.render_semaphore,
-        .stageMask = vk.VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-    };
-    const submit_info = vk.VkSubmitInfo2{
-        .sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        .pWaitSemaphoreInfos = &wait_semaphore_info,
-        .waitSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos = &signal_semaphore_info,
-        .signalSemaphoreInfoCount = 1,
-        .pCommandBufferInfos = &buffer_submit_info,
-        .commandBufferInfoCount = 1,
-    };
-    try vk.check_result(vk.vkQueueSubmit2(
-        self.logical_device.graphics_queue,
-        1,
-        &submit_info,
-        command.render_fence,
-    ));
-
-    // Present image in the screen
-    const present_info = vk.VkPresentInfoKHR{
-        .sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pSwapchains = &self.swap_chain.swap_chain,
-        .swapchainCount = 1,
-        .pWaitSemaphores = &command.render_semaphore,
-        .waitSemaphoreCount = 1,
-        .pImageIndices = &image_index,
-    };
-    try vk.check_result(vk.vkQueuePresentKHR(self.logical_device.graphics_queue, &present_info));
 }
 
 const Instance = struct {
@@ -1007,10 +872,10 @@ pub const ImmediateCommand = struct {
     }
 };
 
-const Commands = struct {
+const CommandPool = struct {
     pool: vk.VkCommandPool,
 
-    pub fn init(device: vk.VkDevice, queue_family_index: u32) !Commands {
+    pub fn init(device: vk.VkDevice, queue_family_index: u32) !CommandPool {
         const pool_create_info = vk.VkCommandPoolCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .flags = vk.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -1023,11 +888,11 @@ const Commands = struct {
         };
     }
 
-    pub fn deinit(self: *Commands, device: vk.VkDevice) void {
+    pub fn deinit(self: *CommandPool, device: vk.VkDevice) void {
         vk.vkDestroyCommandPool(device, self.pool, null);
     }
 
-    pub fn create_immediate_command(self: *Commands, device: vk.VkDevice) !ImmediateCommand {
+    pub fn create_immediate_command(self: *CommandPool, device: vk.VkDevice) !ImmediateCommand {
         const allocate_info = vk.VkCommandBufferAllocateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool = self.pool,
@@ -1050,7 +915,7 @@ const Commands = struct {
         };
     }
 
-    pub fn create_render_command(self: *Commands, device: vk.VkDevice) !RenderCommand {
+    pub fn create_render_command(self: *CommandPool, device: vk.VkDevice) !RenderCommand {
         const allocate_info = vk.VkCommandBufferAllocateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
             .commandPool = self.pool,
