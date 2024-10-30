@@ -6,6 +6,9 @@ const sdl = @import("sdl.zig");
 const Memory = @import("memory.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
 
+const _color = @import("color.zig");
+const Color = _color.Color;
+
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
@@ -116,7 +119,7 @@ pub fn main() !void {
                 .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
                 .z = 0.0,
             });
-            screen_quad.set_instance_info(0, .{ .transform = transform });
+            screen_quad.set_instance_info(0, .{ .transform = transform, .color = Color.GREY.to_vec3(), .type = .VertColor });
         }
 
         {
@@ -137,7 +140,7 @@ pub fn main() !void {
                 .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
                 .z = 0.0,
             });
-            screen_quad.set_instance_info(1, .{ .transform = transform });
+            screen_quad.set_instance_info(1, .{ .transform = transform, .color = Color.MAGENTA.to_vec3(), .type = .SolidColor });
         }
 
         const frame_context = try renderer.start_rendering();

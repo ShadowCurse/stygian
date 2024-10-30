@@ -21,14 +21,21 @@ const _mesh = @import("../mesh.zig");
 const DefaultVertex = _mesh.DefaultVertex;
 
 const _math = @import("../math.zig");
-const Mat4 = _math.Mat4;
 const Vec2 = _math.Vec2;
+const Vec3 = _math.Vec3;
+const Mat4 = _math.Mat4;
 
 pub const UiQuadPushConstant = extern struct {
     buffer_address: vk.VkDeviceAddress,
 };
 pub const UiQuadInfo = extern struct {
     transform: Mat4,
+    color: Vec3,
+    type: UiQuadType,
+};
+pub const UiQuadType = enum(u32) {
+    VertColor = 0,
+    SolidColor = 1,
 };
 
 pub const MeshPushConstant = extern struct {
@@ -97,7 +104,7 @@ pub fn init(
             vk.VkPushConstantRange{
                 .offset = 0,
                 .size = @sizeOf(UiQuadPushConstant),
-                .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+                .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
             },
         },
         "ui_quad_vert.spv",
@@ -537,7 +544,7 @@ pub fn render_ui_quad(
     vk.vkCmdPushConstants(
         command.command.cmd,
         self.ui_quad_pipeline.pipeline_layout,
-        vk.VK_SHADER_STAGE_VERTEX_BIT,
+        vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
         0,
         @sizeOf(UiQuadPushConstant),
         &render_ui_quad_info.push_constants,
