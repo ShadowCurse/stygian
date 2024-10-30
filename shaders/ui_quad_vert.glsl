@@ -3,7 +3,8 @@
 #extension GL_EXT_buffer_reference : require
 
 layout (location = 0) out vec3 outColor;
-layout (location = 1) out int outInstanceId;
+layout (location = 1) out vec2 outUV;
+layout (location = 2) out int outInstanceId;
 
 struct QuadInfo {
     mat4 transform;
@@ -68,5 +69,6 @@ void main() {
     gl_Position = vec4(new_position.xy, 1.0, 1.0);
 
     outColor = v.color.xyz;
+    outUV = v.uv;
     outInstanceId = gl_InstanceIndex;
 }

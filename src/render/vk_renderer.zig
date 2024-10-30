@@ -36,6 +36,7 @@ pub const UiQuadInfo = extern struct {
 pub const UiQuadType = enum(u32) {
     VertColor = 0,
     SolidColor = 1,
+    Texture = 2,
 };
 
 pub const MeshPushConstant = extern struct {
@@ -99,7 +100,14 @@ pub fn init(
     const immediate_command = try vk_context.create_immediate_command();
 
     const ui_quad_pipeline = try vk_context.create_pipeline(
-        &.{},
+        &.{
+            .{
+                .binding = 0,
+                .descriptorCount = 1,
+                .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+            },
+        },
         &.{
             vk.VkPushConstantRange{
                 .offset = 0,
@@ -327,6 +335,24 @@ pub fn create_ui_quad(self: *Self, instances: u32) !RenderUiQuadInfo {
 
 pub fn delete_ui_quad(self: *Self, render_ui_quad_info: *const RenderUiQuadInfo) void {
     render_ui_quad_info.instance_info_buffer.deinit(self.vk_context.vma_allocator);
+}
+
+pub fn set_ui_quad_pipeline_texture(self: *const Self, view: vk.VkImageView, sampler: vk.VkSampler) void {
+    const desc_image_info = vk.VkDescriptorImageInfo{
+        .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .imageView = view,
+        .sampler = sampler,
+    };
+    const desc_image_write = vk.VkWriteDescriptorSet{
+        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstBinding = 0,
+        .dstSet = self.ui_quad_pipeline.descriptor_set,
+        .descriptorCount = 1,
+        .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &desc_image_info,
+    };
+    const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
+    vk.vkUpdateDescriptorSets(self.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
 }
 
 pub const FrameContext = struct {
