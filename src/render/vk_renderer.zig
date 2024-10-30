@@ -288,43 +288,38 @@ pub fn delete_mesh(self: *Self, render_mesh_info: *const RenderMeshInfo) void {
 }
 
 pub const RenderUiQuadInfo = struct {
-    buffer: AllocatedBuffer,
+    instance_info_buffer: AllocatedBuffer,
+    num_instances: u32,
     push_constants: UiQuadPushConstant,
+
+    pub fn set_instance_info(self: *const RenderUiQuadInfo, index: u32, info: UiQuadInfo) void {
+        var info_slice: []UiQuadInfo = undefined;
+        info_slice.ptr = @alignCast(@ptrCast(self.instance_info_buffer.allocation_info.pMappedData));
+        info_slice.len = self.num_instances;
+        info_slice[index] = info;
+    }
 };
 
-pub fn create_ui_quad(self: *Self, size: Vec2, pos: Vec2) !RenderUiQuadInfo {
-    const buffer = try self.vk_context.create_buffer(
-        @sizeOf(UiQuadInfo),
+pub fn create_ui_quad(self: *Self, instances: u32) !RenderUiQuadInfo {
+    const instance_info_buffer = try self.vk_context.create_buffer(
+        @sizeOf(UiQuadInfo) * instances,
         vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
         vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
     );
 
-    var ui_quad_infos: []UiQuadInfo = undefined;
-    ui_quad_infos.ptr = @alignCast(@ptrCast(buffer.allocation_info.pMappedData));
-    ui_quad_infos.len = 1;
-
-    var transform = Mat4.IDENDITY;
-    transform.i.x = size.x / @as(f32, @floatFromInt(self.window_width));
-    transform.j.y = size.y / @as(f32, @floatFromInt(self.window_height));
-    transform = transform.translate(.{
-        .x = pos.x / (@as(f32, @floatFromInt(self.window_width)) / 2.0),
-        .y = pos.y / (@as(f32, @floatFromInt(self.window_height)) / 2.0),
-        .z = 0.0,
-    });
-
-    ui_quad_infos[0].transform = transform;
     const push_constants: UiQuadPushConstant = .{
-        .buffer_address = buffer.get_device_address(self.vk_context.logical_device.device),
+        .buffer_address = instance_info_buffer.get_device_address(self.vk_context.logical_device.device),
     };
 
     return .{
-        .buffer = buffer,
+        .instance_info_buffer = instance_info_buffer,
+        .num_instances = instances,
         .push_constants = push_constants,
     };
 }
 
 pub fn delete_ui_quad(self: *Self, render_ui_quad_info: *const RenderUiQuadInfo) void {
-    render_ui_quad_info.buffer.deinit(self.vk_context.vma_allocator);
+    render_ui_quad_info.instance_info_buffer.deinit(self.vk_context.vma_allocator);
 }
 
 pub const FrameContext = struct {
@@ -526,6 +521,7 @@ pub fn render_ui_quad(
     self: *Self,
     command: *const FrameContext,
     render_ui_quad_info: *const RenderUiQuadInfo,
+    instances: u32,
 ) !void {
     vk.vkCmdBindPipeline(command.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.ui_quad_pipeline.pipeline);
     vk.vkCmdBindDescriptorSets(
@@ -546,5 +542,5 @@ pub fn render_ui_quad(
         @sizeOf(UiQuadPushConstant),
         &render_ui_quad_info.push_constants,
     );
-    vk.vkCmdDraw(command.command.cmd, 6, 1, 0, 0);
+    vk.vkCmdDraw(command.command.cmd, 6, instances, 0, 0);
 }

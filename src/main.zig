@@ -7,6 +7,7 @@ const Memory = @import("memory.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
 
 const _math = @import("math.zig");
+const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
 
@@ -50,29 +51,8 @@ pub fn main() !void {
     var cube_mesh = try renderer.create_mesh(&CubeMesh.indices, &CubeMesh.vertices, 2);
     defer renderer.delete_mesh(&cube_mesh);
 
-    const screen_quad = try renderer.create_ui_quad(
-        .{
-            .x = 200.0,
-            .y = 200.0,
-        },
-        .{
-            .x = -WINDOW_WIDTH / 2.0 + 100.0,
-            .y = -WINDOW_HEIGHT / 2.0 + 100.0,
-        },
-    );
+    const screen_quad = try renderer.create_ui_quad(2);
     defer renderer.delete_ui_quad(&screen_quad);
-
-    const screen_quad_2 = try renderer.create_ui_quad(
-        .{
-            .x = 100.0,
-            .y = 100.0,
-        },
-        .{
-            .x = -WINDOW_WIDTH / 2.0 + 300.0,
-            .y = -WINDOW_HEIGHT / 2.0 + 300.0,
-        },
-    );
-    defer renderer.delete_ui_quad(&screen_quad_2);
 
     var camera_controller = CameraController{};
     camera_controller.position.z = -5.0;
@@ -118,10 +98,51 @@ pub fn main() !void {
             .transform = Mat4.IDENDITY.translate(.{ .y = 2.0 }),
         });
 
+        {
+            const size = Vec2{
+                .x = 200.0,
+                .y = 200.0,
+            };
+            const pos = Vec2{
+                .x = -WINDOW_WIDTH / 2.0 + 100.0,
+                .y = -WINDOW_HEIGHT / 2.0 + 100.0,
+            };
+
+            var transform = Mat4.IDENDITY;
+            transform.i.x = size.x / @as(f32, @floatFromInt(renderer.window_width));
+            transform.j.y = size.y / @as(f32, @floatFromInt(renderer.window_height));
+            transform = transform.translate(.{
+                .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
+                .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
+                .z = 0.0,
+            });
+            screen_quad.set_instance_info(0, .{ .transform = transform });
+        }
+
+        {
+            const size = Vec2{
+                .x = 100.0,
+                .y = 100.0,
+            };
+            const pos = Vec2{
+                .x = -WINDOW_WIDTH / 2.0 + 300.0,
+                .y = -WINDOW_HEIGHT / 2.0 + 300.0,
+            };
+
+            var transform = Mat4.IDENDITY;
+            transform.i.x = size.x / @as(f32, @floatFromInt(renderer.window_width));
+            transform.j.y = size.y / @as(f32, @floatFromInt(renderer.window_height));
+            transform = transform.translate(.{
+                .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
+                .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
+                .z = 0.0,
+            });
+            screen_quad.set_instance_info(1, .{ .transform = transform });
+        }
+
         const frame_context = try renderer.start_rendering();
         try renderer.render_mesh(&frame_context, &cube_mesh, 2);
-        try renderer.render_ui_quad(&frame_context, &screen_quad);
-        try renderer.render_ui_quad(&frame_context, &screen_quad_2);
+        try renderer.render_ui_quad(&frame_context, &screen_quad, 2);
         try renderer.end_rendering(frame_context);
     }
 
