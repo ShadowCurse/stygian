@@ -13,7 +13,7 @@ const RenderCommand = VkContext.RenderCommand;
 const ImmediateCommand = VkContext.ImmediateCommand;
 
 const AllocatedImage = @import("image.zig").AllocatedImage;
-const AllocatedBuffer = @import("buffer.zig").AllocatedBuffer;
+const GpuBuffer = @import("gpu_buffer.zig");
 
 const Pipeline = @import("pipeline.zig").Pipeline;
 
@@ -250,9 +250,9 @@ pub fn deinit(self: *Self) void {
 }
 
 pub const RenderMeshInfo = struct {
-    vertex_buffer: AllocatedBuffer,
-    index_buffer: AllocatedBuffer,
-    instance_info_buffer: AllocatedBuffer,
+    vertex_buffer: GpuBuffer,
+    index_buffer: GpuBuffer,
+    instance_info_buffer: GpuBuffer,
     num_instances: u32,
     num_indices: u32,
     push_constants: MeshPushConstant,
@@ -366,7 +366,7 @@ pub fn delete_mesh(self: *Self, render_mesh_info: *const RenderMeshInfo) void {
 }
 
 pub const RenderUiQuadInfo = struct {
-    instance_info_buffer: AllocatedBuffer,
+    instance_info_buffer: GpuBuffer,
     num_instances: u32,
     push_constants: UiQuadPushConstant,
 

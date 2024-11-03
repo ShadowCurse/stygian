@@ -6,7 +6,7 @@ const _image = @import("image.zig");
 
 const Memory = @import("../memory.zig");
 const AllocatedImage = @import("image.zig").AllocatedImage;
-const AllocatedBuffer = @import("buffer.zig").AllocatedBuffer;
+const GpuBuffer = @import("gpu_buffer.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
 const BlendingType = @import("pipeline.zig").BlendingType;
 
@@ -217,8 +217,8 @@ pub fn create_buffer(
     size: u64,
     usage: vk.VkBufferUsageFlags,
     memory_usage: vk.VmaMemoryUsage,
-) !AllocatedBuffer {
-    return try AllocatedBuffer.init(self.vma_allocator, size, usage, memory_usage);
+) !GpuBuffer {
+    return try GpuBuffer.init(self.vma_allocator, size, usage, memory_usage);
 }
 
 pub fn create_image(
