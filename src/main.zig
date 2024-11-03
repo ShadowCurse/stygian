@@ -3,6 +3,8 @@ const log = @import("log.zig");
 const vk = @import("vulkan.zig");
 const sdl = @import("sdl.zig");
 
+const Image = @import("image.zig");
+
 const Memory = @import("memory.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
 
@@ -57,7 +59,14 @@ pub fn main() !void {
     const screen_quad = try renderer.create_ui_quad(3);
     defer renderer.delete_ui_quad(&screen_quad);
 
-    renderer.set_ui_quad_pipeline_texture(renderer.debug_texture.view, renderer.debug_sampler);
+    const image = try Image.init("assets/a.png");
+    defer image.deinit();
+
+    const texture = try renderer.create_texture(image.width, image.height);
+    defer renderer.delete_texture(&texture);
+
+    try renderer.upload_texture_image(&texture, &image);
+    renderer.set_ui_quad_pipeline_texture(texture.view, renderer.debug_sampler);
 
     var camera_controller = CameraController{};
     camera_controller.position.z = -5.0;

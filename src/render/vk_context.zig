@@ -8,6 +8,7 @@ const Memory = @import("../memory.zig");
 const AllocatedImage = @import("image.zig").AllocatedImage;
 const AllocatedBuffer = @import("buffer.zig").AllocatedBuffer;
 const Pipeline = @import("pipeline.zig").Pipeline;
+const BlendingType = @import("pipeline.zig").BlendingType;
 
 const Allocator = std.mem.Allocator;
 
@@ -193,6 +194,7 @@ pub fn create_pipeline(
     fragment_shader_path: [:0]const u8,
     image_format: vk.VkFormat,
     depth_format: vk.VkFormat,
+    blending: BlendingType,
 ) !Pipeline {
     const frame_allocator = self.memory.frame_alloc();
     defer self.memory.reset_frame();
@@ -206,6 +208,7 @@ pub fn create_pipeline(
         fragment_shader_path,
         image_format,
         depth_format,
+        blending,
     );
 }
 
@@ -233,6 +236,10 @@ pub fn create_image(
         format,
         usage,
     );
+}
+
+pub fn delete_image(self: *Self, image: *const AllocatedImage) void {
+    image.deinit(self.logical_device.device, self.vma_allocator);
 }
 
 pub fn create_sampler(

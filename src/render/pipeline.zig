@@ -18,6 +18,12 @@ pub fn load_shader_module(arena: Allocator, device: vk.VkDevice, path: []const u
     return module;
 }
 
+pub const BlendingType = enum {
+    None,
+    Alpha,
+    Additive,
+};
+
 pub const Pipeline = struct {
     pipeline: vk.VkPipeline,
     pipeline_layout: vk.VkPipelineLayout,
@@ -34,6 +40,7 @@ pub const Pipeline = struct {
         fragment_shader_path: [:0]const u8,
         image_format: vk.VkFormat,
         depth_format: vk.VkFormat,
+        blending: BlendingType,
     ) !Pipeline {
 
         // create descriptor set layout
@@ -88,19 +95,21 @@ pub const Pipeline = struct {
         ));
 
         var builder: PipelineBuilder = .{};
-        const pipeline = try builder
-            .layout(pipeline_layout)
+        _ = builder.layout(pipeline_layout)
             .shaders(vertex_shader_module, fragment_shader_module)
             .input_topology(vk.VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
             .polygon_mode(vk.VK_POLYGON_MODE_FILL)
             .cull_mode(vk.VK_CULL_MODE_NONE, vk.VK_FRONT_FACE_CLOCKWISE)
             .multisampling_none()
-            .blending_none()
             .color_attachment_format(image_format)
             .depthtest(true, vk.VK_COMPARE_OP_GREATER_OR_EQUAL)
-            .depth_format(depth_format)
-            .build(device);
-
+            .depth_format(depth_format);
+        switch (blending) {
+            .None => _ = builder.blending_none(),
+            .Alpha => _ = builder.blending_alphablend(),
+            .Additive => _ = builder.blending_additive(),
+        }
+        const pipeline = try builder.build(device);
         return .{
             .pipeline = pipeline,
             .pipeline_layout = pipeline_layout,

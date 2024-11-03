@@ -34,7 +34,6 @@ void main() {
     } else if (qi.type == 1) {
       outFragColor = vec4(qi.color, 1.0);
     } else {
-      vec3 color = texture(colorTex, inUV).xyz;
-      outFragColor = vec4(color, 1.0);
+      outFragColor = texture(colorTex, inUV);
     }
 }

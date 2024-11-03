@@ -2,7 +2,9 @@ const std = @import("std");
 const log = @import("../log.zig");
 const vk = @import("../vulkan.zig");
 const sdl = @import("../sdl.zig");
+const stb = @import("../stb.zig");
 
+const Image = @import("../image.zig");
 const Color = @import("../color.zig").Color;
 const Memory = @import("../memory.zig");
 
@@ -119,6 +121,7 @@ pub fn init(
         "ui_quad_frag.spv",
         vk.VK_FORMAT_R16G16B16A16_SFLOAT,
         vk.VK_FORMAT_D32_SFLOAT,
+        .Alpha,
     );
 
     const mesh_pipeline = try vk_context.create_pipeline(
@@ -141,6 +144,7 @@ pub fn init(
         "mesh_frag.spv",
         vk.VK_FORMAT_R16G16B16A16_SFLOAT,
         vk.VK_FORMAT_D32_SFLOAT,
+        .None,
     );
 
     const debug_texture = try vk_context.create_image(
@@ -192,7 +196,7 @@ pub fn init(
         .imageView = debug_texture.view,
         .sampler = debug_sampler,
     };
-    const desc_image_write = vk.VkWriteDescriptorSet{
+    const mesh_desc_set_update = vk.VkWriteDescriptorSet{
         .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .dstBinding = 0,
         .dstSet = mesh_pipeline.descriptor_set,
@@ -200,7 +204,15 @@ pub fn init(
         .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .pImageInfo = &desc_image_info,
     };
-    const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
+    const ui_quad_desc_set_update = vk.VkWriteDescriptorSet{
+        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstBinding = 0,
+        .dstSet = ui_quad_pipeline.descriptor_set,
+        .descriptorCount = 1,
+        .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &desc_image_info,
+    };
+    const updates = [_]vk.VkWriteDescriptorSet{ mesh_desc_set_update, ui_quad_desc_set_update };
     vk.vkUpdateDescriptorSets(vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
 
     return .{
@@ -252,6 +264,57 @@ pub const RenderMeshInfo = struct {
         info_slice[index] = info;
     }
 };
+
+pub fn create_texture(self: *Self, width: u32, height: u32) !AllocatedImage {
+    return try self.vk_context.create_image(
+        width,
+        height,
+        // vk.VK_FORMAT_B8G8R8A8_UNORM,
+        vk.VK_FORMAT_R8G8B8A8_SRGB,
+        vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | vk.VK_IMAGE_USAGE_SAMPLED_BIT,
+    );
+}
+
+pub fn delete_texture(self: *Self, texture: *const AllocatedImage) void {
+    self.vk_context.delete_image(texture);
+}
+
+pub fn upload_texture_image(self: *Self, texture: *const AllocatedImage, image: *const Image) !void {
+    if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= texture.format and texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and
+        image.channels != 4)
+    {
+        return error.TextureAndImageIncopatibleChannelDepth;
+    }
+
+    const staging_buffer = try self.vk_context.create_buffer(
+        image.width * image.height * image.channels,
+        vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
+    );
+    defer staging_buffer.deinit(self.vk_context.vma_allocator);
+
+    var buffer_slice: []u8 = undefined;
+    buffer_slice.ptr = @alignCast(@ptrCast(staging_buffer.allocation_info.pMappedData));
+    buffer_slice.len = image.width * image.height * image.channels;
+    @memcpy(buffer_slice, image.data);
+
+    try self.immediate_command.begin(self.vk_context.logical_device.device);
+    defer self.immediate_command.end(
+        self.vk_context.logical_device.device,
+        self.vk_context.logical_device.graphics_queue,
+    ) catch @panic("immediate_command error");
+
+    _image.copy_buffer_to_image(
+        self.immediate_command.cmd,
+        staging_buffer.buffer,
+        texture.image,
+        .{
+            .height = image.height,
+            .width = image.width,
+            .depth = 1,
+        },
+    );
+}
 
 pub fn create_mesh(self: *Self, indices: []const u32, vertices: []const DefaultVertex, instances: u32) !RenderMeshInfo {
     const vertex_buffer = try self.vk_context.create_buffer(
