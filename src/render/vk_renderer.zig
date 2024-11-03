@@ -12,12 +12,10 @@ const VkContext = @import("vk_context.zig");
 const RenderCommand = VkContext.RenderCommand;
 const ImmediateCommand = VkContext.ImmediateCommand;
 
-const AllocatedImage = @import("image.zig").AllocatedImage;
+const GpuImage = @import("gpu_image.zig");
 const GpuBuffer = @import("gpu_buffer.zig");
 
 const Pipeline = @import("pipeline.zig").Pipeline;
-
-const _image = @import("image.zig");
 
 const _mesh = @import("../mesh.zig");
 const DefaultVertex = _mesh.DefaultVertex;
@@ -57,8 +55,8 @@ window_width: u32,
 window_height: u32,
 
 vk_context: VkContext,
-draw_image: AllocatedImage,
-depth_image: AllocatedImage,
+draw_image: GpuImage,
+depth_image: GpuImage,
 
 current_framme_idx: usize,
 commands: [FRAMES]RenderCommand,
@@ -67,7 +65,7 @@ immediate_command: ImmediateCommand,
 ui_quad_pipeline: Pipeline,
 mesh_pipeline: Pipeline,
 
-debug_texture: AllocatedImage,
+debug_texture: GpuImage,
 debug_sampler: vk.VkSampler,
 
 pub fn init(
@@ -178,7 +176,7 @@ pub fn init(
             vk_context.logical_device.graphics_queue,
         ) catch @panic("immediate_command error");
 
-        _image.copy_buffer_to_image(
+        GpuImage.copy_buffer_to_image(
             immediate_command.cmd,
             staging_buffer.buffer,
             debug_texture.image,
@@ -265,7 +263,7 @@ pub const RenderMeshInfo = struct {
     }
 };
 
-pub fn create_texture(self: *Self, width: u32, height: u32) !AllocatedImage {
+pub fn create_texture(self: *Self, width: u32, height: u32) !GpuImage {
     return try self.vk_context.create_image(
         width,
         height,
@@ -275,11 +273,11 @@ pub fn create_texture(self: *Self, width: u32, height: u32) !AllocatedImage {
     );
 }
 
-pub fn delete_texture(self: *Self, texture: *const AllocatedImage) void {
+pub fn delete_texture(self: *Self, texture: *const GpuImage) void {
     self.vk_context.delete_image(texture);
 }
 
-pub fn upload_texture_image(self: *Self, texture: *const AllocatedImage, image: *const Image) !void {
+pub fn upload_texture_image(self: *Self, texture: *const GpuImage, image: *const Image) !void {
     if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= texture.format and texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and
         image.channels != 4)
     {
@@ -304,7 +302,7 @@ pub fn upload_texture_image(self: *Self, texture: *const AllocatedImage, image: 
         self.vk_context.logical_device.graphics_queue,
     ) catch @panic("immediate_command error");
 
-    _image.copy_buffer_to_image(
+    GpuImage.copy_buffer_to_image(
         self.immediate_command.cmd,
         staging_buffer.buffer,
         texture.image,
@@ -438,14 +436,14 @@ pub fn start_rendering(self: *const Self) !FrameContext {
     };
     try vk.check_result(vk.vkBeginCommandBuffer(command.cmd, &begin_info));
 
-    _image.transition_image(
+    GpuImage.transition_image(
         command.cmd,
         self.draw_image.image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
     );
 
-    _image.transition_image(
+    GpuImage.transition_image(
         command.cmd,
         self.depth_image.image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
@@ -514,19 +512,19 @@ pub fn end_rendering(self: *Self, frame_context: FrameContext) !void {
 
     vk.vkCmdEndRendering(command.cmd);
 
-    _image.transition_image(
+    GpuImage.transition_image(
         command.cmd,
         self.draw_image.image,
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
         vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
     );
-    _image.transition_image(
+    GpuImage.transition_image(
         command.cmd,
         self.vk_context.swap_chain.images[image_index],
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
     );
-    _image.copy_image_to_image(
+    GpuImage.copy_image_to_image(
         command.cmd,
         self.draw_image.image,
         .{
@@ -536,7 +534,7 @@ pub fn end_rendering(self: *Self, frame_context: FrameContext) !void {
         self.vk_context.swap_chain.images[image_index],
         self.vk_context.swap_chain.extent,
     );
-    _image.transition_image(
+    GpuImage.transition_image(
         command.cmd,
         self.vk_context.swap_chain.images[image_index],
         vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,

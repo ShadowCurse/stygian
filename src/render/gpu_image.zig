@@ -1,82 +1,82 @@
 const vk = @import("../vulkan.zig");
 
-pub const AllocatedImage = struct {
-    image: vk.VkImage,
-    view: vk.VkImageView,
-    extent: vk.VkExtent3D,
+const Self = @This();
+
+image: vk.VkImage,
+view: vk.VkImageView,
+extent: vk.VkExtent3D,
+format: vk.VkFormat,
+allocation: vk.VmaAllocation,
+
+pub fn init(
+    vma_allocator: vk.VmaAllocator,
+    device: vk.VkDevice,
+    width: u32,
+    height: u32,
     format: vk.VkFormat,
-    allocation: vk.VmaAllocation,
+    usage: u32,
+) !Self {
+    var image: Self = undefined;
+    image.extent = vk.VkExtent3D{
+        .width = width,
+        .height = height,
+        .depth = 1,
+    };
+    image.format = format;
+    const image_create_info = vk.VkImageCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = vk.VK_IMAGE_TYPE_2D,
+        .format = image.format,
+        .extent = image.extent,
+        .usage = usage,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vk.VK_SAMPLE_COUNT_1_BIT,
+        .tiling = vk.VK_IMAGE_TILING_OPTIMAL,
+    };
+    const alloc_info = vk.VmaAllocationCreateInfo{
+        .usage = vk.VMA_MEMORY_USAGE_GPU_ONLY,
+        .requiredFlags = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
+    try vk.check_result(vk.vmaCreateImage(
+        vma_allocator,
+        &image_create_info,
+        &alloc_info,
+        &image.image,
+        &image.allocation,
+        null,
+    ));
 
-    pub fn init(
-        vma_allocator: vk.VmaAllocator,
-        device: vk.VkDevice,
-        width: u32,
-        height: u32,
-        format: vk.VkFormat,
-        usage: u32,
-    ) !AllocatedImage {
-        var image: AllocatedImage = undefined;
-        image.extent = vk.VkExtent3D{
-            .width = width,
-            .height = height,
-            .depth = 1,
-        };
-        image.format = format;
-        const image_create_info = vk.VkImageCreateInfo{
-            .sType = vk.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .imageType = vk.VK_IMAGE_TYPE_2D,
-            .format = image.format,
-            .extent = image.extent,
-            .usage = usage,
-            .mipLevels = 1,
-            .arrayLayers = 1,
-            .samples = vk.VK_SAMPLE_COUNT_1_BIT,
-            .tiling = vk.VK_IMAGE_TILING_OPTIMAL,
-        };
-        const alloc_info = vk.VmaAllocationCreateInfo{
-            .usage = vk.VMA_MEMORY_USAGE_GPU_ONLY,
-            .requiredFlags = vk.VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        };
-        try vk.check_result(vk.vmaCreateImage(
-            vma_allocator,
-            &image_create_info,
-            &alloc_info,
-            &image.image,
-            &image.allocation,
-            null,
-        ));
+    const aspect_mask: u32 = if (usage & vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT != 0)
+        vk.VK_IMAGE_ASPECT_DEPTH_BIT
+    else
+        vk.VK_IMAGE_ASPECT_COLOR_BIT;
+    const image_view_create_info = vk.VkImageViewCreateInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
+        .image = image.image,
+        .format = image.format,
+        .subresourceRange = .{
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+            .aspectMask = aspect_mask,
+        },
+    };
+    try vk.check_result(vk.vkCreateImageView(
+        device,
+        &image_view_create_info,
+        null,
+        &image.view,
+    ));
+    return image;
+}
 
-        const aspect_mask: u32 = if (usage & vk.VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT != 0)
-            vk.VK_IMAGE_ASPECT_DEPTH_BIT
-        else
-            vk.VK_IMAGE_ASPECT_COLOR_BIT;
-        const image_view_create_info = vk.VkImageViewCreateInfo{
-            .sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .viewType = vk.VK_IMAGE_VIEW_TYPE_2D,
-            .image = image.image,
-            .format = image.format,
-            .subresourceRange = .{
-                .baseMipLevel = 0,
-                .levelCount = 1,
-                .baseArrayLayer = 0,
-                .layerCount = 1,
-                .aspectMask = aspect_mask,
-            },
-        };
-        try vk.check_result(vk.vkCreateImageView(
-            device,
-            &image_view_create_info,
-            null,
-            &image.view,
-        ));
-        return image;
-    }
-
-    pub fn deinit(self: *const AllocatedImage, device: vk.VkDevice, vma_allocator: vk.VmaAllocator) void {
-        vk.vkDestroyImageView(device, self.view, null);
-        vk.vmaDestroyImage(vma_allocator, self.image, self.allocation);
-    }
-};
+pub fn deinit(self: *const Self, device: vk.VkDevice, vma_allocator: vk.VmaAllocator) void {
+    vk.vkDestroyImageView(device, self.view, null);
+    vk.vmaDestroyImage(vma_allocator, self.image, self.allocation);
+}
 
 pub fn transition_image(
     cmd: vk.VkCommandBuffer,

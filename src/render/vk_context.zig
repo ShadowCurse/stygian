@@ -2,11 +2,10 @@ const std = @import("std");
 const log = @import("../log.zig");
 const sdl = @import("../sdl.zig");
 const vk = @import("../vulkan.zig");
-const _image = @import("image.zig");
 
 const Memory = @import("../memory.zig");
-const AllocatedImage = @import("image.zig").AllocatedImage;
 const GpuBuffer = @import("gpu_buffer.zig");
+const GpuImage = @import("gpu_image.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
 const BlendingType = @import("pipeline.zig").BlendingType;
 
@@ -227,8 +226,8 @@ pub fn create_image(
     height: u32,
     format: vk.VkFormat,
     usage: u32,
-) !AllocatedImage {
-    return AllocatedImage.init(
+) !GpuImage {
+    return GpuImage.init(
         self.vma_allocator,
         self.logical_device.device,
         width,
@@ -238,7 +237,7 @@ pub fn create_image(
     );
 }
 
-pub fn delete_image(self: *Self, image: *const AllocatedImage) void {
+pub fn delete_image(self: *Self, image: *const GpuImage) void {
     image.deinit(self.logical_device.device, self.vma_allocator);
 }
 
