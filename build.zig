@@ -34,7 +34,9 @@ pub fn build(b: *std.Build) !void {
     exe.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
 
     exe.addIncludePath(b.path("thirdparty/vma"));
+    exe.addIncludePath(b.path("thirdparty/stb"));
     exe.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
+    exe.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
 
     exe.linkSystemLibrary("SDL2");
     exe.linkSystemLibrary("vulkan");
