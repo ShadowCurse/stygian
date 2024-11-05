@@ -7,9 +7,10 @@ layout (location = 1) out vec2 outUV;
 layout (location = 2) out int outInstanceId;
 
 struct QuadInfo {
-    mat4 transform;
     vec3 color;
     uint type;
+    vec2 pos;
+    vec2 scale;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
@@ -65,7 +66,7 @@ void main() {
     Vertex v = vertices[gl_VertexIndex];
     QuadInfo qi = PushConstants.instance_infos.infos[gl_InstanceIndex];
 
-    vec4 new_position = qi.transform * vec4(v.position, 1.0, 1.0);
+    vec4 new_position = vec4((v.position * qi.scale + qi.pos) , 1.0, 1.0);
     gl_Position = vec4(new_position.xy, 1.0, 1.0);
 
     outColor = v.color.xyz;

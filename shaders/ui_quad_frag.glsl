@@ -13,9 +13,10 @@ layout (location = 0) out vec4 outFragColor;
 layout(set = 0, binding = 0) uniform sampler2D colorTex;
 
 struct QuadInfo {
-    mat4 transform;
     vec3 color;
     uint type;
+    vec2 pos;
+    vec2 scale;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
@@ -33,7 +34,7 @@ void main() {
       outFragColor = vec4(inColor, 1.0);
     } else if (qi.type == 1) {
       outFragColor = vec4(qi.color, 1.0);
-    } else {
+    } else if (qi.type == 2) {
       outFragColor = texture(colorTex, inUV);
     }
 }

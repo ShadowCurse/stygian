@@ -29,9 +29,10 @@ pub const UiQuadPushConstant = extern struct {
     buffer_address: vk.VkDeviceAddress,
 };
 pub const UiQuadInfo = extern struct {
-    transform: Mat4,
     color: Vec3,
     type: UiQuadType,
+    pos: Vec2,
+    scale: Vec2,
 };
 pub const UiQuadType = enum(u32) {
     VertColor = 0,
@@ -398,7 +399,7 @@ pub fn delete_ui_quad(self: *Self, render_ui_quad_info: *const RenderUiQuadInfo)
     render_ui_quad_info.instance_info_buffer.deinit(self.vk_context.vma_allocator);
 }
 
-pub fn set_ui_quad_pipeline_texture(self: *const Self, view: vk.VkImageView, sampler: vk.VkSampler) void {
+pub fn set_ui_quad_pipeline_color_texture(self: *const Self, view: vk.VkImageView, sampler: vk.VkSampler) void {
     const desc_image_info = vk.VkDescriptorImageInfo{
         .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         .imageView = view,

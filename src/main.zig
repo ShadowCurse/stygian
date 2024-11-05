@@ -4,6 +4,7 @@ const vk = @import("vulkan.zig");
 const sdl = @import("sdl.zig");
 
 const Image = @import("image.zig");
+const Font = @import("font.zig").Font;
 
 const Memory = @import("memory.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
@@ -66,7 +67,7 @@ pub fn main() !void {
     defer renderer.delete_texture(&texture);
 
     try renderer.upload_texture_image(&texture, &image);
-    renderer.set_ui_quad_pipeline_texture(texture.view, renderer.debug_sampler);
+    renderer.set_ui_quad_pipeline_color_texture(texture.view, renderer.debug_sampler);
 
     var camera_controller = CameraController{};
     camera_controller.position.z = -5.0;
@@ -121,16 +122,18 @@ pub fn main() !void {
                 .x = -WINDOW_WIDTH / 2.0 + 100.0,
                 .y = -WINDOW_HEIGHT / 2.0 + 100.0,
             };
-
-            var transform = Mat4.IDENDITY;
-            transform.i.x = size.x / @as(f32, @floatFromInt(renderer.window_width));
-            transform.j.y = size.y / @as(f32, @floatFromInt(renderer.window_height));
-            transform = transform.translate(.{
-                .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
-                .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
-                .z = 0.0,
+            screen_quad.set_instance_info(0, .{
+                .color = .{},
+                .type = .VertColor,
+                .pos = .{
+                    .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
+                    .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
+                },
+                .scale = .{
+                    .x = size.x / @as(f32, @floatFromInt(renderer.window_width)),
+                    .y = size.y / @as(f32, @floatFromInt(renderer.window_height)),
+                },
             });
-            screen_quad.set_instance_info(0, .{ .transform = transform, .color = .{}, .type = .VertColor });
         }
         {
             const size = Vec2{
@@ -141,16 +144,18 @@ pub fn main() !void {
                 .x = -WINDOW_WIDTH / 2.0 + 100.0,
                 .y = -WINDOW_HEIGHT / 2.0 + 300.0,
             };
-
-            var transform = Mat4.IDENDITY;
-            transform.i.x = size.x / @as(f32, @floatFromInt(renderer.window_width));
-            transform.j.y = size.y / @as(f32, @floatFromInt(renderer.window_height));
-            transform = transform.translate(.{
-                .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
-                .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
-                .z = 0.0,
+            screen_quad.set_instance_info(1, .{
+                .color = Color.MAGENTA.to_vec3(),
+                .type = .SolidColor,
+                .pos = .{
+                    .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
+                    .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
+                },
+                .scale = .{
+                    .x = size.x / @as(f32, @floatFromInt(renderer.window_width)),
+                    .y = size.y / @as(f32, @floatFromInt(renderer.window_height)),
+                },
             });
-            screen_quad.set_instance_info(1, .{ .transform = transform, .color = Color.MAGENTA.to_vec3(), .type = .SolidColor });
         }
         {
             const size = Vec2{
@@ -161,16 +166,18 @@ pub fn main() !void {
                 .x = -WINDOW_WIDTH / 2.0 + 100.0,
                 .y = -WINDOW_HEIGHT / 2.0 + 500.0,
             };
-
-            var transform = Mat4.IDENDITY;
-            transform.i.x = size.x / @as(f32, @floatFromInt(renderer.window_width));
-            transform.j.y = size.y / @as(f32, @floatFromInt(renderer.window_height));
-            transform = transform.translate(.{
-                .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
-                .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
-                .z = 0.0,
+            screen_quad.set_instance_info(2, .{
+                .color = .{},
+                .type = .Texture,
+                .pos = .{
+                    .x = pos.x / (@as(f32, @floatFromInt(renderer.window_width)) / 2.0),
+                    .y = pos.y / (@as(f32, @floatFromInt(renderer.window_height)) / 2.0),
+                },
+                .scale = .{
+                    .x = size.x / @as(f32, @floatFromInt(renderer.window_width)),
+                    .y = size.y / @as(f32, @floatFromInt(renderer.window_height)),
+                },
             });
-            screen_quad.set_instance_info(2, .{ .transform = transform, .color = .{}, .type = .Texture });
         }
 
         const frame_context = try renderer.start_rendering();
