@@ -5,6 +5,8 @@ const sdl = @import("sdl.zig");
 
 const Image = @import("image.zig");
 const Font = @import("font.zig").Font;
+const FontInfo = @import("font.zig").FontInfo;
+const UiText = @import("font.zig").UiText;
 
 const Memory = @import("memory.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
@@ -24,6 +26,7 @@ const CameraController = @import("camera.zig").CameraController;
 
 const WINDOW_WIDTH = 1280;
 const WINDOW_HEIGHT = 720;
+const SAMPLE_TEXT = "SAMPLE text";
 
 pub fn main() !void {
     var memory = try Memory.init();
@@ -69,6 +72,17 @@ pub fn main() !void {
     try renderer.upload_texture_image(&texture, &image);
     renderer.set_ui_quad_pipeline_color_texture(texture.view, renderer.debug_sampler);
 
+    const font = try Font.init(&renderer, "assets/font.png");
+    defer font.deinit(&renderer);
+    renderer.set_ui_quad_pipeline_font_texture(font.texture.view, renderer.debug_sampler);
+
+    const font_info = try FontInfo.init(memory.game_alloc(), memory.frame_alloc(), "assets/font.json");
+    memory.reset_frame();
+    defer font_info.deinit(memory.game_alloc());
+
+    var sample_text = try UiText.init(&renderer, 32);
+    defer sample_text.deinit(&renderer);
+
     var camera_controller = CameraController{};
     camera_controller.position.z = -5.0;
 
@@ -88,6 +102,23 @@ pub fn main() !void {
             camera_controller.process_input(&sdl_event, dt);
         }
         camera_controller.update(dt);
+
+        sample_text.set_text(
+            &font_info,
+            SAMPLE_TEXT,
+            .{
+                .x = @floatFromInt(WINDOW_WIDTH),
+                .y = @floatFromInt(WINDOW_HEIGHT),
+            },
+            .{
+                .x = 300.0,
+                .y = -300.0,
+            },
+            .{
+                .x = 50.0,
+                .y = 50.0,
+            },
+        );
 
         const view = camera_controller.view_matrix();
         var projection = Mat4.perspective(
@@ -183,6 +214,7 @@ pub fn main() !void {
         const frame_context = try renderer.start_rendering();
         try renderer.render_mesh(&frame_context, &cube_mesh, 2);
         try renderer.render_ui_quad(&frame_context, &screen_quad, 3);
+        try renderer.render_ui_quad(&frame_context, &sample_text.screen_quads, SAMPLE_TEXT.len);
         try renderer.end_rendering(frame_context);
     }
 

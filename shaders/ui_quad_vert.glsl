@@ -11,6 +11,8 @@ struct QuadInfo {
     uint type;
     vec2 pos;
     vec2 scale;
+    vec2 uv_pos;
+    vec2 uv_scale;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 

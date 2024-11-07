@@ -11,12 +11,15 @@ layout (location = 2) flat in int inInstanceId;
 layout (location = 0) out vec4 outFragColor;
 
 layout(set = 0, binding = 0) uniform sampler2D colorTex;
+layout(set = 0, binding = 1) uniform sampler2D fontTex;
 
 struct QuadInfo {
     vec3 color;
     uint type;
     vec2 pos;
     vec2 scale;
+    vec2 uv_pos;
+    vec2 uv_scale;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
@@ -36,5 +39,7 @@ void main() {
       outFragColor = vec4(qi.color, 1.0);
     } else if (qi.type == 2) {
       outFragColor = texture(colorTex, inUV);
+    } else {
+      outFragColor = texture(fontTex, inUV * qi.uv_scale + qi.uv_pos);
     }
 }
