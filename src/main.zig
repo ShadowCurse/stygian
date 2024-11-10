@@ -11,6 +11,10 @@ const UiText = @import("font.zig").UiText;
 const Memory = @import("memory.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
 
+const _ui_quad = @import("render/ui_quad.zig");
+const UiQuadPipeline = _ui_quad.UiQuadPipeline;
+const RenderUiQuadInfo = _ui_quad.RenderUiQuadInfo;
+
 const _color = @import("color.zig");
 const Color = _color.Color;
 
@@ -60,8 +64,10 @@ pub fn main() !void {
     var cube_mesh = try renderer.create_mesh(&CubeMesh.indices, &CubeMesh.vertices, 2);
     defer renderer.delete_mesh(&cube_mesh);
 
-    const screen_quad = try renderer.create_ui_quad(3);
-    defer renderer.delete_ui_quad(&screen_quad);
+    const ui_quad_pipeline = try UiQuadPipeline.init(&renderer);
+
+    const screen_quad = try RenderUiQuadInfo.init(&renderer, 3);
+    defer screen_quad.deinit(&renderer);
 
     const image = try Image.init("assets/a.png");
     defer image.deinit();
@@ -70,11 +76,13 @@ pub fn main() !void {
     defer renderer.delete_texture(&texture);
 
     try renderer.upload_texture_image(&texture, &image);
-    renderer.set_ui_quad_pipeline_color_texture(texture.view, renderer.debug_sampler);
+
+    ui_quad_pipeline.set_color_texture(&renderer, texture.view, renderer.debug_sampler);
+    defer ui_quad_pipeline.deinit(&renderer);
 
     const font = try Font.init(&renderer, "assets/font.png");
     defer font.deinit(&renderer);
-    renderer.set_ui_quad_pipeline_font_texture(font.texture.view, renderer.debug_sampler);
+    ui_quad_pipeline.set_font_texture(&renderer, font.texture.view, renderer.debug_sampler);
 
     const font_info = try FontInfo.init(memory.game_alloc(), memory.frame_alloc(), "assets/font.json");
     memory.reset_frame();
@@ -213,8 +221,8 @@ pub fn main() !void {
 
         const frame_context = try renderer.start_rendering();
         try renderer.render_mesh(&frame_context, &cube_mesh, 2);
-        try renderer.render_ui_quad(&frame_context, &screen_quad, 3);
-        try renderer.render_ui_quad(&frame_context, &sample_text.screen_quads, SAMPLE_TEXT.len);
+        ui_quad_pipeline.render(&frame_context, &screen_quad, 3);
+        ui_quad_pipeline.render(&frame_context, &sample_text.screen_quads, SAMPLE_TEXT.len);
         try renderer.end_rendering(frame_context);
     }
 

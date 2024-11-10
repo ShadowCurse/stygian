@@ -21,27 +21,7 @@ const _mesh = @import("../mesh.zig");
 const DefaultVertex = _mesh.DefaultVertex;
 
 const _math = @import("../math.zig");
-const Vec2 = _math.Vec2;
-const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
-
-pub const UiQuadPushConstant = extern struct {
-    buffer_address: vk.VkDeviceAddress,
-};
-pub const UiQuadInfo = extern struct {
-    color: Vec3 = .{},
-    type: UiQuadType = .VertColor,
-    pos: Vec2 = .{},
-    scale: Vec2 = .{},
-    uv_pos: Vec2 = .{},
-    uv_scale: Vec2 = .{},
-};
-pub const UiQuadType = enum(u32) {
-    VertColor = 0,
-    SolidColor = 1,
-    Texture = 2,
-    Font = 3,
-};
 
 pub const MeshPushConstant = extern struct {
     view_proj: Mat4,
@@ -66,7 +46,6 @@ current_framme_idx: usize,
 commands: [FRAMES]RenderCommand,
 immediate_command: ImmediateCommand,
 
-ui_quad_pipeline: Pipeline,
 mesh_pipeline: Pipeline,
 
 debug_texture: GpuImage,
@@ -102,37 +81,6 @@ pub fn init(
     };
 
     const immediate_command = try vk_context.create_immediate_command();
-
-    const ui_quad_pipeline = try vk_context.create_pipeline(
-        &.{
-            // Color texture
-            .{
-                .binding = 0,
-                .descriptorCount = 1,
-                .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-            },
-            // Font texture
-            .{
-                .binding = 1,
-                .descriptorCount = 1,
-                .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-            },
-        },
-        &.{
-            vk.VkPushConstantRange{
-                .offset = 0,
-                .size = @sizeOf(UiQuadPushConstant),
-                .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-            },
-        },
-        "ui_quad_vert.spv",
-        "ui_quad_frag.spv",
-        vk.VK_FORMAT_R16G16B16A16_SFLOAT,
-        vk.VK_FORMAT_D32_SFLOAT,
-        .Alpha,
-    );
 
     const mesh_pipeline = try vk_context.create_pipeline(
         &.{
@@ -214,15 +162,7 @@ pub fn init(
         .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .pImageInfo = &desc_image_info,
     };
-    const ui_quad_desc_set_update = vk.VkWriteDescriptorSet{
-        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstBinding = 0,
-        .dstSet = ui_quad_pipeline.descriptor_set,
-        .descriptorCount = 1,
-        .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .pImageInfo = &desc_image_info,
-    };
-    const updates = [_]vk.VkWriteDescriptorSet{ mesh_desc_set_update, ui_quad_desc_set_update };
+    const updates = [_]vk.VkWriteDescriptorSet{mesh_desc_set_update};
     vk.vkUpdateDescriptorSets(vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
 
     return .{
@@ -234,7 +174,6 @@ pub fn init(
         .current_framme_idx = 0,
         .commands = commands,
         .immediate_command = immediate_command,
-        .ui_quad_pipeline = ui_quad_pipeline,
         .mesh_pipeline = mesh_pipeline,
         .debug_texture = debug_texture,
         .debug_sampler = debug_sampler,
@@ -246,7 +185,6 @@ pub fn deinit(self: *Self) void {
     self.debug_texture.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
 
     self.mesh_pipeline.deinit(self.vk_context.logical_device.device);
-    self.ui_quad_pipeline.deinit(self.vk_context.logical_device.device);
 
     self.immediate_command.deinit(self.vk_context.logical_device.device);
     for (&self.commands) |*c| {
@@ -373,77 +311,6 @@ pub fn delete_mesh(self: *Self, render_mesh_info: *const RenderMeshInfo) void {
     render_mesh_info.instance_info_buffer.deinit(self.vk_context.vma_allocator);
     render_mesh_info.index_buffer.deinit(self.vk_context.vma_allocator);
     render_mesh_info.vertex_buffer.deinit(self.vk_context.vma_allocator);
-}
-
-pub const RenderUiQuadInfo = struct {
-    instance_info_buffer: GpuBuffer,
-    num_instances: u32,
-    push_constants: UiQuadPushConstant,
-
-    pub fn set_instance_info(self: *const RenderUiQuadInfo, index: u32, info: UiQuadInfo) void {
-        var info_slice: []UiQuadInfo = undefined;
-        info_slice.ptr = @alignCast(@ptrCast(self.instance_info_buffer.allocation_info.pMappedData));
-        info_slice.len = self.num_instances;
-        info_slice[index] = info;
-    }
-};
-
-pub fn create_ui_quad(self: *Self, instances: u32) !RenderUiQuadInfo {
-    const instance_info_buffer = try self.vk_context.create_buffer(
-        @sizeOf(UiQuadInfo) * instances,
-        vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
-    );
-
-    const push_constants: UiQuadPushConstant = .{
-        .buffer_address = instance_info_buffer.get_device_address(self.vk_context.logical_device.device),
-    };
-
-    return .{
-        .instance_info_buffer = instance_info_buffer,
-        .num_instances = instances,
-        .push_constants = push_constants,
-    };
-}
-
-pub fn delete_ui_quad(self: *Self, render_ui_quad_info: *const RenderUiQuadInfo) void {
-    render_ui_quad_info.instance_info_buffer.deinit(self.vk_context.vma_allocator);
-}
-
-pub fn set_ui_quad_pipeline_color_texture(self: *const Self, view: vk.VkImageView, sampler: vk.VkSampler) void {
-    const desc_image_info = vk.VkDescriptorImageInfo{
-        .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .imageView = view,
-        .sampler = sampler,
-    };
-    const desc_image_write = vk.VkWriteDescriptorSet{
-        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstBinding = 0,
-        .dstSet = self.ui_quad_pipeline.descriptor_set,
-        .descriptorCount = 1,
-        .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .pImageInfo = &desc_image_info,
-    };
-    const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
-    vk.vkUpdateDescriptorSets(self.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
-}
-
-pub fn set_ui_quad_pipeline_font_texture(self: *const Self, view: vk.VkImageView, sampler: vk.VkSampler) void {
-    const desc_image_info = vk.VkDescriptorImageInfo{
-        .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .imageView = view,
-        .sampler = sampler,
-    };
-    const desc_image_write = vk.VkWriteDescriptorSet{
-        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstBinding = 1,
-        .dstSet = self.ui_quad_pipeline.descriptor_set,
-        .descriptorCount = 1,
-        .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .pImageInfo = &desc_image_info,
-    };
-    const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
-    vk.vkUpdateDescriptorSets(self.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
 }
 
 pub const FrameContext = struct {
@@ -639,32 +506,4 @@ pub fn render_mesh(
     );
     vk.vkCmdBindIndexBuffer(frame_context.command.cmd, render_mesh_info.index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
     vk.vkCmdDrawIndexed(frame_context.command.cmd, render_mesh_info.num_indices, instances, 0, 0, 0);
-}
-
-pub fn render_ui_quad(
-    self: *Self,
-    command: *const FrameContext,
-    render_ui_quad_info: *const RenderUiQuadInfo,
-    instances: u32,
-) !void {
-    vk.vkCmdBindPipeline(command.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.ui_quad_pipeline.pipeline);
-    vk.vkCmdBindDescriptorSets(
-        command.command.cmd,
-        vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-        self.ui_quad_pipeline.pipeline_layout,
-        0,
-        1,
-        &self.ui_quad_pipeline.descriptor_set,
-        0,
-        null,
-    );
-    vk.vkCmdPushConstants(
-        command.command.cmd,
-        self.ui_quad_pipeline.pipeline_layout,
-        vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        @sizeOf(UiQuadPushConstant),
-        &render_ui_quad_info.push_constants,
-    );
-    vk.vkCmdDraw(command.command.cmd, 6, instances, 0, 0);
 }

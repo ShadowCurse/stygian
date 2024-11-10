@@ -9,7 +9,7 @@ const Vec2 = _math.Vec2;
 const Image = @import("image.zig");
 const GpuImage = @import("render/gpu_image.zig");
 const VkRenderer = @import("render/vk_renderer.zig");
-const RenderUiQuadInfo = VkRenderer.RenderUiQuadInfo;
+const RenderUiQuadInfo = @import("render/ui_quad.zig").RenderUiQuadInfo;
 
 pub const Font = struct {
     const Self = @This();
@@ -21,8 +21,6 @@ pub const Font = struct {
         const image = try Image.init(path);
         const texture = try renderer.create_texture(image.width, image.height);
         try renderer.upload_texture_image(&texture, &image);
-
-        renderer.set_ui_quad_pipeline_font_texture(texture.view, renderer.debug_sampler);
 
         return .{
             .image = image,
@@ -117,7 +115,7 @@ pub const UiText = struct {
     max_text_len: u32,
 
     pub fn init(renderer: *VkRenderer, max_text_len: u32) !Self {
-        const screen_quads = try renderer.create_ui_quad(max_text_len);
+        const screen_quads = try RenderUiQuadInfo.init(renderer, max_text_len);
         return .{
             .screen_quads = screen_quads,
             .max_text_len = max_text_len,
@@ -165,6 +163,6 @@ pub const UiText = struct {
     }
 
     pub fn deinit(self: *const Self, renderer: *VkRenderer) void {
-        renderer.delete_ui_quad(&self.screen_quads);
+        self.screen_quads.deinit(renderer);
     }
 };
