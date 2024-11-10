@@ -172,11 +172,11 @@ pub const UiQuadPipeline = struct {
         vk.vkUpdateDescriptorSets(renderer.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
     }
 
+    pub const Bundle = struct { *const RenderUiQuadInfo, u32 };
     pub fn render(
         self: *const Self,
         frame_context: *const FrameContext,
-        render_ui_quad_info: *const RenderUiQuadInfo,
-        instances: u32,
+        bundles: []const Bundle,
     ) void {
         vk.vkCmdBindPipeline(frame_context.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline.pipeline);
         vk.vkCmdBindDescriptorSets(
@@ -189,14 +189,16 @@ pub const UiQuadPipeline = struct {
             0,
             null,
         );
-        vk.vkCmdPushConstants(
-            frame_context.command.cmd,
-            self.pipeline.pipeline_layout,
-            vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            @sizeOf(UiQuadPushConstant),
-            &render_ui_quad_info.push_constants,
-        );
-        vk.vkCmdDraw(frame_context.command.cmd, 6, instances, 0, 0);
+        for (bundles) |bundle| {
+            vk.vkCmdPushConstants(
+                frame_context.command.cmd,
+                self.pipeline.pipeline_layout,
+                vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
+                0,
+                @sizeOf(UiQuadPushConstant),
+                &bundle[0].push_constants,
+            );
+            vk.vkCmdDraw(frame_context.command.cmd, 6, bundle[1], 0, 0);
+        }
     }
 };

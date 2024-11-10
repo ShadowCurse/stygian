@@ -240,10 +240,15 @@ pub fn main() !void {
         }
 
         const frame_context = try renderer.start_rendering();
-        mesh_pipeline.render(&frame_context, &cube_mesh, 2);
-        ui_quad_pipeline.render(&frame_context, &screen_quad, 3);
-        ui_quad_pipeline.render(&frame_context, &frame_time_text.screen_quads, frame_time_text.current_text_len);
-        ui_quad_pipeline.render(&frame_context, &frame_alloc_text.screen_quads, frame_alloc_text.current_text_len);
+        mesh_pipeline.render(&frame_context, &.{.{ &cube_mesh, 2 }});
+        ui_quad_pipeline.render(
+            &frame_context,
+            &.{
+                .{ &screen_quad, 3 },
+                .{ &frame_time_text.screen_quads, frame_time_text.current_text_len },
+                .{ &frame_alloc_text.screen_quads, frame_alloc_text.current_text_len },
+            },
+        );
         try renderer.end_rendering(frame_context);
     }
 

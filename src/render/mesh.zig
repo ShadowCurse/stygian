@@ -143,11 +143,11 @@ pub const MeshPipeline = struct {
         self.pipeline.deinit(renderer.vk_context.logical_device.device);
     }
 
+    pub const Bundle = struct { *const RenderMeshInfo, u32 };
     pub fn render(
         self: *const Self,
         frame_context: *const FrameContext,
-        render_mesh_info: *const RenderMeshInfo,
-        instances: u32,
+        bundles: []const Bundle,
     ) void {
         vk.vkCmdBindPipeline(frame_context.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline.pipeline);
         vk.vkCmdBindDescriptorSets(
@@ -160,15 +160,17 @@ pub const MeshPipeline = struct {
             0,
             null,
         );
-        vk.vkCmdPushConstants(
-            frame_context.command.cmd,
-            self.pipeline.pipeline_layout,
-            vk.VK_SHADER_STAGE_VERTEX_BIT,
-            0,
-            @sizeOf(MeshPushConstant),
-            &render_mesh_info.push_constants,
-        );
-        vk.vkCmdBindIndexBuffer(frame_context.command.cmd, render_mesh_info.index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
-        vk.vkCmdDrawIndexed(frame_context.command.cmd, render_mesh_info.num_indices, instances, 0, 0, 0);
+        for (bundles) |bundle| {
+            vk.vkCmdPushConstants(
+                frame_context.command.cmd,
+                self.pipeline.pipeline_layout,
+                vk.VK_SHADER_STAGE_VERTEX_BIT,
+                0,
+                @sizeOf(MeshPushConstant),
+                &bundle[0].push_constants,
+            );
+            vk.vkCmdBindIndexBuffer(frame_context.command.cmd, bundle[0].index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
+            vk.vkCmdDrawIndexed(frame_context.command.cmd, bundle[0].num_indices, bundle[1], 0, 0, 0);
+        }
     }
 };
