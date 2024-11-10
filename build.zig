@@ -52,6 +52,10 @@ pub fn build(b: *std.Build) !void {
     // such a dependency.
     const run_cmd = b.addRunArtifact(exe);
 
+    if (b.option(bool, "X11", "Use X11 backend") == null) {
+        run_cmd.setEnvironmentVariable("SDL_VIDEODRIVER", "wayland");
+    }
+
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
     // This is not necessary, however, if the application depends on other installed
