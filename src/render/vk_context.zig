@@ -40,6 +40,7 @@ pub fn init(
     defer memory.reset_frame();
 
     if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLInit;
     }
     const window = sdl.SDL_CreateWindow(
@@ -50,16 +51,19 @@ pub fn init(
         @intCast(height),
         sdl.SDL_WINDOW_VULKAN,
     ) orelse {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLCreateWindow;
     };
     sdl.SDL_ShowWindow(window);
 
     var sdl_extension_count: u32 = undefined;
     if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, null) != 1) {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLGetExtensions;
     }
     const sdl_extensions = try frame_allocator.alloc([*c]const u8, sdl_extension_count);
     if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, sdl_extensions.ptr) != 1) {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLGetExtensions;
     }
     for (sdl_extensions) |e| {
@@ -73,6 +77,7 @@ pub fn init(
     // but compiler sees them as different types.
     var surface: vk.VkSurfaceKHR = undefined;
     if (sdl.SDL_Vulkan_CreateSurface(window, @ptrCast(instance.instance), @ptrCast(&surface)) != 1) {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLCreateSurface;
     }
 
@@ -372,6 +377,7 @@ pub fn get_vk_func(comptime Fn: type, instance: vk.VkInstance, name: [*c]const u
             return error.VKGetInstanceProcAddr;
         }
     } else {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLGetInstanceProcAddr;
     }
 }
