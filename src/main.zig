@@ -34,6 +34,8 @@ const CameraController = @import("camera.zig").CameraController;
 
 const WINDOW_WIDTH = 1280;
 const WINDOW_HEIGHT = 720;
+const FPS = 60.0;
+const FRAME_TIME = 1.0 / FPS;
 
 pub fn main() !void {
     try MEMORY.init();
@@ -97,6 +99,10 @@ pub fn main() !void {
 
         const dt = @as(f32, @floatFromInt(new_t - t)) / std.time.ns_per_s;
         t = new_t;
+
+        if (dt < FRAME_TIME) {
+            std.time.sleep(@intFromFloat((FRAME_TIME - dt) * std.time.ns_per_s));
+        }
 
         var sdl_event: sdl.SDL_Event = undefined;
         while (sdl.SDL_PollEvent(&sdl_event) != 0) {
