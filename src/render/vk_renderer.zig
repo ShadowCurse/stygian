@@ -6,7 +6,6 @@ const stb = @import("../stb.zig");
 
 const Image = @import("../image.zig");
 const Color = @import("../color.zig").Color;
-const Memory = @import("../memory.zig");
 
 const VkContext = @import("vk_context.zig");
 const RenderCommand = VkContext.RenderCommand;
@@ -32,11 +31,10 @@ debug_texture: GpuImage,
 debug_sampler: vk.VkSampler,
 
 pub fn init(
-    memory: *Memory,
     width: u32,
     height: u32,
 ) !Self {
-    var vk_context = try VkContext.init(memory, width, height);
+    var vk_context = try VkContext.init(width, height);
 
     const draw_image = try vk_context.create_image(
         vk_context.swap_chain.extent.width,

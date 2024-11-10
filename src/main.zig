@@ -8,7 +8,7 @@ const Font = @import("font.zig").Font;
 const FontInfo = @import("font.zig").FontInfo;
 const UiText = @import("font.zig").UiText;
 
-const Memory = @import("memory.zig");
+const MEMORY = &@import("memory.zig").MEMORY;
 const VkRenderer = @import("render/vk_renderer.zig");
 
 const _ui_quad = @import("render/ui_quad.zig");
@@ -34,35 +34,16 @@ const CameraController = @import("camera.zig").CameraController;
 
 const WINDOW_WIDTH = 1280;
 const WINDOW_HEIGHT = 720;
-const SAMPLE_TEXT = "SAMPLE text";
 
 pub fn main() !void {
-    var memory = try Memory.init();
-    defer memory.deinit();
-
-    {
-        const game_alloc = memory.game_alloc();
-        const buf = try game_alloc.alloc(u8, 1024);
-        defer game_alloc.free(buf);
-        log.info(@src(), "game: alloc {} bytes. game requested bytes: {}", .{ buf.len, memory.game_allocator.total_requested_bytes });
-    }
-    log.info(@src(), "game: game requested bytes after: {}", .{memory.game_allocator.total_requested_bytes});
-
-    {
-        const frame_alloc = memory.frame_alloc();
-        defer memory.reset_frame();
-        const buf = try frame_alloc.alloc(u8, 1024);
-        defer frame_alloc.free(buf);
-        log.info(@src(), "frame: alloc {} bytes. frame alloc end index: {}", .{ buf.len, memory.frame_allocator.end_index });
-    }
-    log.info(@src(), "frame alloc end index after: {}", .{memory.frame_allocator.end_index});
+    try MEMORY.init();
 
     log.info(@src(), "info log", .{});
     log.debug(@src(), "debug log", .{});
     log.warn(@src(), "warn log", .{});
     log.err(@src(), "err log", .{});
 
-    var renderer = try VkRenderer.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
+    var renderer = try VkRenderer.init(WINDOW_WIDTH, WINDOW_HEIGHT);
     defer renderer.deinit();
 
     const ui_quad_pipeline = try UiQuadPipeline.init(&renderer);
@@ -91,21 +72,30 @@ pub fn main() !void {
     defer font.deinit(&renderer);
     ui_quad_pipeline.set_font_texture(&renderer, font.texture.view, renderer.debug_sampler);
 
-    const font_info = try FontInfo.init(memory.game_alloc(), memory.frame_alloc(), "assets/font.json");
-    memory.reset_frame();
-    defer font_info.deinit(memory.game_alloc());
+    const font_info = try FontInfo.init("assets/font.json");
+    defer font_info.deinit();
 
-    var sample_text = try UiText.init(&renderer, 32);
-    defer sample_text.deinit(&renderer);
+    var frame_time_text = try UiText.init(&renderer, 32);
+    defer frame_time_text.deinit(&renderer);
+
+    var frame_alloc_text = try UiText.init(&renderer, 32);
+    defer frame_alloc_text.deinit(&renderer);
 
     var camera_controller = CameraController{};
     camera_controller.position.z = -5.0;
 
+    log.info(@src(), "game alloc usage: {}", .{MEMORY.game_allocator.total_requested_bytes});
+    log.info(@src(), "frame alloc usage: {}", .{MEMORY.frame_allocator.end_index});
+    log.info(@src(), "scratch alloc usage: {}", .{MEMORY.scratch_allocator.end_index});
+
     var stop = false;
     var t = std.time.nanoTimestamp();
     while (!stop) {
+        defer MEMORY.reset_frame();
+
         const new_t = std.time.nanoTimestamp();
-        const dt = @as(f32, @floatFromInt(new_t - t)) / 1000_000_000.0;
+
+        const dt = @as(f32, @floatFromInt(new_t - t)) / std.time.ns_per_s;
         t = new_t;
 
         var sdl_event: sdl.SDL_Event = undefined;
@@ -118,20 +108,37 @@ pub fn main() !void {
         }
         camera_controller.update(dt);
 
-        sample_text.set_text(
+        frame_time_text.set_text(
             &font_info,
-            SAMPLE_TEXT,
+            try std.fmt.allocPrint(MEMORY.frame_alloc(), "FPS: {d:.1} FT: {d:.3}s", .{ 1.0 / dt, dt }),
             .{
                 .x = @floatFromInt(WINDOW_WIDTH),
                 .y = @floatFromInt(WINDOW_HEIGHT),
             },
             .{
-                .x = 300.0,
-                .y = -300.0,
+                .x = -100.0,
+                .y = 300.0,
             },
             .{
-                .x = 50.0,
-                .y = 50.0,
+                .x = 30.0,
+                .y = 30.0,
+            },
+        );
+
+        frame_alloc_text.set_text(
+            &font_info,
+            try std.fmt.allocPrint(MEMORY.frame_alloc(), "FM: {} bytes", .{MEMORY.frame_allocator.end_index}),
+            .{
+                .x = @floatFromInt(WINDOW_WIDTH),
+                .y = @floatFromInt(WINDOW_HEIGHT),
+            },
+            .{
+                .x = -100.0,
+                .y = 250.0,
+            },
+            .{
+                .x = 30.0,
+                .y = 30.0,
             },
         );
 
@@ -229,7 +236,8 @@ pub fn main() !void {
         const frame_context = try renderer.start_rendering();
         mesh_pipeline.render(&frame_context, &cube_mesh, 2);
         ui_quad_pipeline.render(&frame_context, &screen_quad, 3);
-        ui_quad_pipeline.render(&frame_context, &sample_text.screen_quads, SAMPLE_TEXT.len);
+        ui_quad_pipeline.render(&frame_context, &frame_time_text.screen_quads, frame_time_text.current_text_len);
+        ui_quad_pipeline.render(&frame_context, &frame_alloc_text.screen_quads, frame_alloc_text.current_text_len);
         try renderer.end_rendering(frame_context);
     }
 

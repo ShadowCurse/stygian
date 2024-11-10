@@ -1,6 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 
+const MEMORY = &@import("memory.zig").MEMORY;
 const Allocator = std.mem.Allocator;
 
 const _math = @import("math.zig");
@@ -73,29 +74,35 @@ pub const FontInfo = struct {
     height: u16,
     characters: []const CharInfo,
 
-    pub fn init(allocator: Allocator, tmp_allocator: Allocator, path: []const u8) !Self {
+    pub fn init(path: []const u8) !Self {
+        const game_allocator = MEMORY.game_alloc();
+        const scratch_alloc = MEMORY.scratch_alloc();
+        defer MEMORY.reset_scratch();
+
         var file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
 
-        const file_data = try file.readToEndAlloc(tmp_allocator, 1024 * 1024 * 1024);
+        const file_data = try file.readToEndAlloc(scratch_alloc, 1024 * 1024 * 1024);
 
-        const font_info = try std.json.parseFromSlice(Self, tmp_allocator, file_data, .{});
+        const font_info = try std.json.parseFromSlice(Self, scratch_alloc, file_data, .{});
         defer font_info.deinit();
 
         return .{
-            .name = try allocator.dupe(u8, font_info.value.name),
+            .name = try game_allocator.dupe(u8, font_info.value.name),
             .size = font_info.value.size,
             .bold = font_info.value.bold,
             .italic = font_info.value.italic,
             .width = font_info.value.width,
             .height = font_info.value.height,
-            .characters = try allocator.dupe(CharInfo, font_info.value.characters),
+            .characters = try game_allocator.dupe(CharInfo, font_info.value.characters),
         };
     }
 
-    pub fn deinit(self: *const Self, allocator: Allocator) void {
-        allocator.free(self.name);
-        allocator.free(self.characters);
+    pub fn deinit(self: *const Self) void {
+        const game_allocator = MEMORY.game_alloc();
+
+        game_allocator.free(self.name);
+        game_allocator.free(self.characters);
     }
 
     pub fn char_info(self: *const Self, char: u8) ?*const CharInfo {
@@ -113,12 +120,14 @@ pub const UiText = struct {
 
     screen_quads: RenderUiQuadInfo,
     max_text_len: u32,
+    current_text_len: u32,
 
     pub fn init(renderer: *VkRenderer, max_text_len: u32) !Self {
         const screen_quads = try RenderUiQuadInfo.init(renderer, max_text_len);
         return .{
             .screen_quads = screen_quads,
             .max_text_len = max_text_len,
+            .current_text_len = 0,
         };
     }
 
@@ -131,6 +140,7 @@ pub const UiText = struct {
             );
             return;
         }
+        self.current_text_len = @intCast(text.len);
 
         var x_offset: f32 = -size.x * @as(f32, @floatFromInt(text.len / 2));
         for (text, 0..) |c, i| {

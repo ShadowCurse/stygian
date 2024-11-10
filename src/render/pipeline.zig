@@ -1,6 +1,7 @@
 const std = @import("std");
 const vk = @import("../vulkan.zig");
 
+const MEMORY = &@import("../memory.zig").MEMORY;
 const Allocator = std.mem.Allocator;
 
 pub fn load_shader_module(arena: Allocator, device: vk.VkDevice, path: []const u8) !vk.VkShaderModule {
@@ -31,7 +32,6 @@ pub const Pipeline = struct {
     descriptor_set_layout: vk.VkDescriptorSetLayout,
 
     pub fn init(
-        arena: Allocator,
         device: vk.VkDevice,
         descriptor_pool: vk.VkDescriptorPool,
         bindings: []const vk.VkDescriptorSetLayoutBinding,
@@ -42,6 +42,8 @@ pub const Pipeline = struct {
         depth_format: vk.VkFormat,
         blending: BlendingType,
     ) !Pipeline {
+        const scratch_alloc = MEMORY.scratch_alloc();
+        defer MEMORY.reset_frame();
 
         // create descriptor set layout
         var descriptor_set_layout: vk.VkDescriptorSetLayout = undefined;
@@ -71,9 +73,9 @@ pub const Pipeline = struct {
             &descriptor_set,
         ));
 
-        const vertex_shader_module = try load_shader_module(arena, device, vertex_shader_path);
+        const vertex_shader_module = try load_shader_module(scratch_alloc, device, vertex_shader_path);
         defer vk.vkDestroyShaderModule(device, vertex_shader_module, null);
-        const fragment_shader_module = try load_shader_module(arena, device, fragment_shader_path);
+        const fragment_shader_module = try load_shader_module(scratch_alloc, device, fragment_shader_path);
         defer vk.vkDestroyShaderModule(device, fragment_shader_module, null);
 
         const layouts = [_]vk.VkDescriptorSetLayout{

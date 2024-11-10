@@ -3,7 +3,7 @@ const log = @import("../log.zig");
 const sdl = @import("../sdl.zig");
 const vk = @import("../vulkan.zig");
 
-const Memory = @import("../memory.zig");
+const MEMORY = &@import("../memory.zig").MEMORY;
 const GpuBuffer = @import("gpu_buffer.zig");
 const GpuImage = @import("gpu_image.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
@@ -17,7 +17,6 @@ const VK_ADDITIONAL_EXTENSIONS_NAMES = [_][]const u8{"VK_EXT_debug_utils"};
 const VK_PHYSICAL_DEVICE_EXTENSION_NAMES = [_][]const u8{"VK_KHR_swapchain"};
 
 const Self = @This();
-memory: *Memory,
 window: *sdl.SDL_Window,
 surface: vk.VkSurfaceKHR,
 vma_allocator: vk.VmaAllocator,
@@ -31,14 +30,9 @@ commands: CommandPool,
 immediate_commands: CommandPool,
 
 pub fn init(
-    memory: *Memory,
     width: u32,
     height: u32,
 ) !Self {
-    const game_allocator = memory.game_alloc();
-    const frame_allocator = memory.frame_alloc();
-    defer memory.reset_frame();
-
     if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
         log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLInit;
@@ -56,21 +50,7 @@ pub fn init(
     };
     sdl.SDL_ShowWindow(window);
 
-    var sdl_extension_count: u32 = undefined;
-    if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, null) != 1) {
-        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-        return error.SDLGetExtensions;
-    }
-    const sdl_extensions = try frame_allocator.alloc([*c]const u8, sdl_extension_count);
-    if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, sdl_extensions.ptr) != 1) {
-        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-        return error.SDLGetExtensions;
-    }
-    for (sdl_extensions) |e| {
-        log.debug(@src(), "Required SDL extension: {s}", .{e});
-    }
-
-    const instance = try Instance.init(frame_allocator, sdl_extensions);
+    const instance = try Instance.init(window);
     const debug_messanger = try DebugMessanger.init(instance.instance);
 
     // Casts are needed because SDL and vulkan imports same type,
@@ -81,8 +61,8 @@ pub fn init(
         return error.SDLCreateSurface;
     }
 
-    const physical_device = try PhysicalDevice.init(frame_allocator, instance.instance, surface);
-    const logical_device = try LogicalDevice.init(frame_allocator, &physical_device);
+    const physical_device = try PhysicalDevice.init(instance.instance, surface);
+    const logical_device = try LogicalDevice.init(&physical_device);
 
     const allocator_info = vk.VmaAllocatorCreateInfo{
         .instance = instance.instance,
@@ -93,7 +73,7 @@ pub fn init(
     var vma_allocator: vk.VmaAllocator = undefined;
     try vk.check_result(vk.vmaCreateAllocator(&allocator_info, &vma_allocator));
 
-    const swap_chain = try Swapchain.init(frame_allocator, game_allocator, &logical_device, &physical_device, surface, window);
+    const swap_chain = try Swapchain.init(&logical_device, &physical_device, surface, window);
 
     const descriptor_pool = try DescriptorPool.init(logical_device.device, &.{
         .{
@@ -114,7 +94,6 @@ pub fn init(
     const immediate_commands = try CommandPool.init(logical_device.device, physical_device.graphics_queue_family);
 
     return .{
-        .memory = memory,
         .window = window,
         .surface = surface,
         .vma_allocator = vma_allocator,
@@ -130,7 +109,7 @@ pub fn init(
 }
 
 pub fn deinit(self: *Self) void {
-    const game_allocator = self.memory.game_alloc();
+    const game_allocator = MEMORY.game_alloc();
 
     self.descriptor_pool.deinit(self.logical_device.device);
     self.immediate_commands.deinit(self.logical_device.device);
@@ -200,10 +179,7 @@ pub fn create_pipeline(
     depth_format: vk.VkFormat,
     blending: BlendingType,
 ) !Pipeline {
-    const frame_allocator = self.memory.frame_alloc();
-    defer self.memory.reset_frame();
     return try Pipeline.init(
-        frame_allocator,
         self.logical_device.device,
         self.descriptor_pool.pool,
         bindings,
@@ -272,10 +248,27 @@ pub fn create_render_command(self: *Self) !RenderCommand {
 const Instance = struct {
     instance: vk.VkInstance,
 
-    pub fn init(arena: Allocator, sdl_extensions: [][*c]const u8) !Instance {
+    pub fn init(window: *sdl.SDL_Window) !Instance {
+        const scratch_alloc = MEMORY.scratch_alloc();
+        defer MEMORY.reset_scratch();
+
+        var sdl_extension_count: u32 = undefined;
+        if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, null) != 1) {
+            log.err(@src(), "{s}", .{sdl.SDL_GetError()});
+            return error.SDLGetExtensions;
+        }
+        const sdl_extensions = try scratch_alloc.alloc([*c]const u8, sdl_extension_count);
+        if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, sdl_extensions.ptr) != 1) {
+            log.err(@src(), "{s}", .{sdl.SDL_GetError()});
+            return error.SDLGetExtensions;
+        }
+        for (sdl_extensions) |e| {
+            log.debug(@src(), "Required SDL extension: {s}", .{e});
+        }
+
         var extensions_count: u32 = 0;
         try vk.check_result(vk.vkEnumerateInstanceExtensionProperties(null, &extensions_count, null));
-        const extensions = try arena.alloc(vk.VkExtensionProperties, extensions_count);
+        const extensions = try scratch_alloc.alloc(vk.VkExtensionProperties, extensions_count);
         try vk.check_result(vk.vkEnumerateInstanceExtensionProperties(null, &extensions_count, extensions.ptr));
 
         var found_sdl_extensions: u32 = 0;
@@ -307,19 +300,19 @@ const Instance = struct {
         }
 
         var total_extensions = try std.ArrayListUnmanaged([*c]const u8).initCapacity(
-            arena,
+            scratch_alloc,
             sdl_extensions.len + VK_ADDITIONAL_EXTENSIONS_NAMES.len,
         );
         for (sdl_extensions) |e| {
-            try total_extensions.append(arena, e);
+            try total_extensions.append(scratch_alloc, e);
         }
         for (VK_ADDITIONAL_EXTENSIONS_NAMES) |e| {
-            try total_extensions.append(arena, e.ptr);
+            try total_extensions.append(scratch_alloc, e.ptr);
         }
 
         var layer_property_count: u32 = 0;
         try vk.check_result(vk.vkEnumerateInstanceLayerProperties(&layer_property_count, null));
-        const layers = try arena.alloc(vk.VkLayerProperties, layer_property_count);
+        const layers = try scratch_alloc.alloc(vk.VkLayerProperties, layer_property_count);
         try vk.check_result(vk.vkEnumerateInstanceLayerProperties(&layer_property_count, layers.ptr));
 
         var found_validation_layers: u32 = 0;
@@ -446,10 +439,13 @@ const PhysicalDevice = struct {
     compute_queue_family: u32,
     transfer_queue_family: u32,
 
-    pub fn init(arena: Allocator, vk_instance: vk.VkInstance, vk_surface: vk.VkSurfaceKHR) !PhysicalDevice {
+    pub fn init(vk_instance: vk.VkInstance, vk_surface: vk.VkSurfaceKHR) !PhysicalDevice {
+        const scratch_alloc = MEMORY.scratch_alloc();
+        defer MEMORY.reset_scratch();
+
         var physical_device_count: u32 = 0;
         try vk.check_result(vk.vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, null));
-        const physical_devices = try arena.alloc(vk.VkPhysicalDevice, physical_device_count);
+        const physical_devices = try scratch_alloc.alloc(vk.VkPhysicalDevice, physical_device_count);
         try vk.check_result(vk.vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, physical_devices.ptr));
 
         for (physical_devices) |pd| {
@@ -462,7 +458,7 @@ const PhysicalDevice = struct {
 
             var extensions_count: u32 = 0;
             try vk.check_result(vk.vkEnumerateDeviceExtensionProperties(pd, null, &extensions_count, null));
-            const extensions = try arena.alloc(vk.VkExtensionProperties, extensions_count);
+            const extensions = try scratch_alloc.alloc(vk.VkExtensionProperties, extensions_count);
             try vk.check_result(vk.vkEnumerateDeviceExtensionProperties(pd, null, &extensions_count, extensions.ptr));
 
             var found_extensions: u32 = 0;
@@ -483,7 +479,7 @@ const PhysicalDevice = struct {
 
             var queue_family_count: u32 = 0;
             vk.vkGetPhysicalDeviceQueueFamilyProperties(pd, &queue_family_count, null);
-            const queue_families = try arena.alloc(vk.VkQueueFamilyProperties, queue_family_count);
+            const queue_families = try scratch_alloc.alloc(vk.VkQueueFamilyProperties, queue_family_count);
             vk.vkGetPhysicalDeviceQueueFamilyProperties(pd, &queue_family_count, queue_families.ptr);
 
             var graphics_queue_family: ?u32 = null;
@@ -540,7 +536,10 @@ const LogicalDevice = struct {
     compute_queue: vk.VkQueue,
     transfer_queue: vk.VkQueue,
 
-    pub fn init(arena: Allocator, physical_device: *const PhysicalDevice) !LogicalDevice {
+    pub fn init(physical_device: *const PhysicalDevice) !LogicalDevice {
+        const scratch_alloc = MEMORY.scratch_alloc();
+        defer MEMORY.reset_scratch();
+
         const all_queue_family_indexes: [4]u32 = .{
             physical_device.graphics_queue_family,
             physical_device.present_queue_family,
@@ -556,7 +555,7 @@ const LogicalDevice = struct {
             }
         }
         const unique = std.mem.sliceTo(&unique_indexes, std.math.maxInt(u32));
-        const queue_create_infos = try arena.alloc(vk.VkDeviceQueueCreateInfo, unique.len);
+        const queue_create_infos = try scratch_alloc.alloc(vk.VkDeviceQueueCreateInfo, unique.len);
 
         const queue_priority: f32 = 1.0;
         for (queue_create_infos, unique) |*qi, u| {
@@ -640,13 +639,15 @@ const Swapchain = struct {
     extent: vk.VkExtent2D,
 
     pub fn init(
-        arena: Allocator,
-        allocator: Allocator,
         logical_device: *const LogicalDevice,
         physical_device: *const PhysicalDevice,
         surface: vk.VkSurfaceKHR,
         window: *sdl.SDL_Window,
     ) !Swapchain {
+        const game_alloc = MEMORY.game_alloc();
+        const scratch_alloc = MEMORY.scratch_alloc();
+        defer MEMORY.reset_scratch();
+
         var surface_capabilities: vk.VkSurfaceCapabilitiesKHR = undefined;
         try vk.check_result(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &surface_capabilities));
 
@@ -657,7 +658,7 @@ const Swapchain = struct {
             &device_surface_format_count,
             null,
         ));
-        const device_surface_formats = try arena.alloc(vk.VkSurfaceFormatKHR, device_surface_format_count);
+        const device_surface_formats = try scratch_alloc.alloc(vk.VkSurfaceFormatKHR, device_surface_format_count);
         try vk.check_result(vk.vkGetPhysicalDeviceSurfaceFormatsKHR(
             physical_device.device,
             surface,
@@ -715,8 +716,8 @@ const Swapchain = struct {
             &swap_chain_images_count,
             null,
         ));
-        swap_chain.images = try allocator.alloc(vk.VkImage, swap_chain_images_count);
-        errdefer allocator.free(swap_chain.images);
+        swap_chain.images = try game_alloc.alloc(vk.VkImage, swap_chain_images_count);
+        errdefer game_alloc.free(swap_chain.images);
         try vk.check_result(vk.vkGetSwapchainImagesKHR(
             logical_device.device,
             swap_chain.swap_chain,
@@ -724,8 +725,8 @@ const Swapchain = struct {
             swap_chain.images.ptr,
         ));
 
-        swap_chain.image_views = try allocator.alloc(vk.VkImageView, swap_chain_images_count);
-        errdefer allocator.free(swap_chain.image_views);
+        swap_chain.image_views = try game_alloc.alloc(vk.VkImageView, swap_chain_images_count);
+        errdefer game_alloc.free(swap_chain.image_views);
         for (swap_chain.images, swap_chain.image_views) |image, *view| {
             const view_create_info = vk.VkImageViewCreateInfo{
                 .sType = vk.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
