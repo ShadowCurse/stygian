@@ -97,11 +97,12 @@ pub fn main() !void {
 
         const new_t = std.time.nanoTimestamp();
 
-        const dt = @as(f32, @floatFromInt(new_t - t)) / std.time.ns_per_s;
+        var dt = @as(f32, @floatFromInt(new_t - t)) / std.time.ns_per_s;
         t = new_t;
 
         if (dt < FRAME_TIME) {
             std.time.sleep(@intFromFloat((FRAME_TIME - dt) * std.time.ns_per_s));
+            dt = FRAME_TIME;
         }
 
         var sdl_event: sdl.SDL_Event = undefined;
