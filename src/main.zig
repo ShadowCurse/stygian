@@ -15,6 +15,10 @@ const _ui_quad = @import("render/ui_quad.zig");
 const UiQuadPipeline = _ui_quad.UiQuadPipeline;
 const RenderUiQuadInfo = _ui_quad.RenderUiQuadInfo;
 
+const _render_mesh = @import("render/mesh.zig");
+const MeshPipeline = _render_mesh.MeshPipeline;
+const RenderMeshInfo = _render_mesh.RenderMeshInfo;
+
 const _color = @import("color.zig");
 const Color = _color.Color;
 
@@ -61,10 +65,14 @@ pub fn main() !void {
     var renderer = try VkRenderer.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
     defer renderer.deinit();
 
-    var cube_mesh = try renderer.create_mesh(&CubeMesh.indices, &CubeMesh.vertices, 2);
-    defer renderer.delete_mesh(&cube_mesh);
-
     const ui_quad_pipeline = try UiQuadPipeline.init(&renderer);
+    defer ui_quad_pipeline.deinit(&renderer);
+
+    const mesh_pipeline = try MeshPipeline.init(&renderer);
+    defer mesh_pipeline.deinit(&renderer);
+
+    var cube_mesh = try RenderMeshInfo.init(&renderer, &CubeMesh.indices, &CubeMesh.vertices, 2);
+    defer cube_mesh.deinit(&renderer);
 
     const screen_quad = try RenderUiQuadInfo.init(&renderer, 3);
     defer screen_quad.deinit(&renderer);
@@ -78,7 +86,6 @@ pub fn main() !void {
     try renderer.upload_texture_image(&texture, &image);
 
     ui_quad_pipeline.set_color_texture(&renderer, texture.view, renderer.debug_sampler);
-    defer ui_quad_pipeline.deinit(&renderer);
 
     const font = try Font.init(&renderer, "assets/font.png");
     defer font.deinit(&renderer);
@@ -220,7 +227,7 @@ pub fn main() !void {
         }
 
         const frame_context = try renderer.start_rendering();
-        try renderer.render_mesh(&frame_context, &cube_mesh, 2);
+        mesh_pipeline.render(&frame_context, &cube_mesh, 2);
         ui_quad_pipeline.render(&frame_context, &screen_quad, 3);
         ui_quad_pipeline.render(&frame_context, &sample_text.screen_quads, SAMPLE_TEXT.len);
         try renderer.end_rendering(frame_context);

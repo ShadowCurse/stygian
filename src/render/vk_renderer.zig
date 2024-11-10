@@ -13,24 +13,6 @@ const RenderCommand = VkContext.RenderCommand;
 const ImmediateCommand = VkContext.ImmediateCommand;
 
 const GpuImage = @import("gpu_image.zig");
-const GpuBuffer = @import("gpu_buffer.zig");
-
-const Pipeline = @import("pipeline.zig").Pipeline;
-
-const _mesh = @import("../mesh.zig");
-const DefaultVertex = _mesh.DefaultVertex;
-
-const _math = @import("../math.zig");
-const Mat4 = _math.Mat4;
-
-pub const MeshPushConstant = extern struct {
-    view_proj: Mat4,
-    vertex_buffer_address: vk.VkDeviceAddress,
-    instance_info_buffer_address: vk.VkDeviceAddress,
-};
-pub const MeshInfo = extern struct {
-    transform: Mat4,
-};
 
 const FRAMES = 2;
 
@@ -45,8 +27,6 @@ depth_image: GpuImage,
 current_framme_idx: usize,
 commands: [FRAMES]RenderCommand,
 immediate_command: ImmediateCommand,
-
-mesh_pipeline: Pipeline,
 
 debug_texture: GpuImage,
 debug_sampler: vk.VkSampler,
@@ -81,29 +61,6 @@ pub fn init(
     };
 
     const immediate_command = try vk_context.create_immediate_command();
-
-    const mesh_pipeline = try vk_context.create_pipeline(
-        &.{
-            .{
-                .binding = 0,
-                .descriptorCount = 1,
-                .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-            },
-        },
-        &.{
-            vk.VkPushConstantRange{
-                .offset = 0,
-                .size = @sizeOf(MeshPushConstant),
-                .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
-            },
-        },
-        "mesh_vert.spv",
-        "mesh_frag.spv",
-        vk.VK_FORMAT_R16G16B16A16_SFLOAT,
-        vk.VK_FORMAT_D32_SFLOAT,
-        .None,
-    );
 
     const debug_texture = try vk_context.create_image(
         16,
@@ -149,22 +106,6 @@ pub fn init(
     }
     const debug_sampler = try vk_context.create_sampler(vk.VK_FILTER_NEAREST, vk.VK_FILTER_NEAREST);
 
-    const desc_image_info = vk.VkDescriptorImageInfo{
-        .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        .imageView = debug_texture.view,
-        .sampler = debug_sampler,
-    };
-    const mesh_desc_set_update = vk.VkWriteDescriptorSet{
-        .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstBinding = 0,
-        .dstSet = mesh_pipeline.descriptor_set,
-        .descriptorCount = 1,
-        .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .pImageInfo = &desc_image_info,
-    };
-    const updates = [_]vk.VkWriteDescriptorSet{mesh_desc_set_update};
-    vk.vkUpdateDescriptorSets(vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
-
     return .{
         .window_width = width,
         .window_height = height,
@@ -174,7 +115,6 @@ pub fn init(
         .current_framme_idx = 0,
         .commands = commands,
         .immediate_command = immediate_command,
-        .mesh_pipeline = mesh_pipeline,
         .debug_texture = debug_texture,
         .debug_sampler = debug_sampler,
     };
@@ -183,8 +123,6 @@ pub fn init(
 pub fn deinit(self: *Self) void {
     vk.vkDestroySampler(self.vk_context.logical_device.device, self.debug_sampler, null);
     self.debug_texture.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
-
-    self.mesh_pipeline.deinit(self.vk_context.logical_device.device);
 
     self.immediate_command.deinit(self.vk_context.logical_device.device);
     for (&self.commands) |*c| {
@@ -196,22 +134,6 @@ pub fn deinit(self: *Self) void {
 
     self.vk_context.deinit();
 }
-
-pub const RenderMeshInfo = struct {
-    vertex_buffer: GpuBuffer,
-    index_buffer: GpuBuffer,
-    instance_info_buffer: GpuBuffer,
-    num_instances: u32,
-    num_indices: u32,
-    push_constants: MeshPushConstant,
-
-    pub fn set_instance_info(self: *const RenderMeshInfo, index: u32, info: MeshInfo) void {
-        var info_slice: []MeshInfo = undefined;
-        info_slice.ptr = @alignCast(@ptrCast(self.instance_info_buffer.allocation_info.pMappedData));
-        info_slice.len = self.num_instances;
-        info_slice[index] = info;
-    }
-};
 
 pub fn create_texture(self: *Self, width: u32, height: u32) !GpuImage {
     return try self.vk_context.create_image(
@@ -262,55 +184,6 @@ pub fn upload_texture_image(self: *Self, texture: *const GpuImage, image: *const
             .depth = 1,
         },
     );
-}
-
-pub fn create_mesh(self: *Self, indices: []const u32, vertices: []const DefaultVertex, instances: u32) !RenderMeshInfo {
-    const vertex_buffer = try self.vk_context.create_buffer(
-        @sizeOf(DefaultVertex) * vertices.len,
-        vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
-    );
-    var vertex_slice: []DefaultVertex = undefined;
-    vertex_slice.ptr = @alignCast(@ptrCast(vertex_buffer.allocation_info.pMappedData));
-    vertex_slice.len = vertices.len;
-    @memcpy(vertex_slice, vertices);
-
-    const index_buffer = try self.vk_context.create_buffer(
-        @sizeOf(u32) * indices.len,
-        vk.VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
-    );
-    var index_slice: []u32 = undefined;
-    index_slice.ptr = @alignCast(@ptrCast(index_buffer.allocation_info.pMappedData));
-    index_slice.len = indices.len;
-    @memcpy(index_slice, indices);
-
-    const instance_info_buffer = try self.vk_context.create_buffer(
-        @sizeOf(MeshInfo) * instances,
-        vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-        vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
-    );
-
-    const push_constants: MeshPushConstant = .{
-        .view_proj = undefined,
-        .vertex_buffer_address = vertex_buffer.get_device_address(self.vk_context.logical_device.device),
-        .instance_info_buffer_address = instance_info_buffer.get_device_address(self.vk_context.logical_device.device),
-    };
-
-    return .{
-        .vertex_buffer = vertex_buffer,
-        .index_buffer = index_buffer,
-        .instance_info_buffer = instance_info_buffer,
-        .num_instances = instances,
-        .num_indices = @intCast(indices.len),
-        .push_constants = push_constants,
-    };
-}
-
-pub fn delete_mesh(self: *Self, render_mesh_info: *const RenderMeshInfo) void {
-    render_mesh_info.instance_info_buffer.deinit(self.vk_context.vma_allocator);
-    render_mesh_info.index_buffer.deinit(self.vk_context.vma_allocator);
-    render_mesh_info.vertex_buffer.deinit(self.vk_context.vma_allocator);
 }
 
 pub const FrameContext = struct {
@@ -477,33 +350,4 @@ pub fn end_rendering(self: *Self, frame_context: FrameContext) !void {
         .pImageIndices = &image_index,
     };
     try self.vk_context.queue_present(&present_info);
-}
-
-pub fn render_mesh(
-    self: *Self,
-    frame_context: *const FrameContext,
-    render_mesh_info: *const RenderMeshInfo,
-    instances: u32,
-) !void {
-    vk.vkCmdBindPipeline(frame_context.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.mesh_pipeline.pipeline);
-    vk.vkCmdBindDescriptorSets(
-        frame_context.command.cmd,
-        vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
-        self.mesh_pipeline.pipeline_layout,
-        0,
-        1,
-        &self.mesh_pipeline.descriptor_set,
-        0,
-        null,
-    );
-    vk.vkCmdPushConstants(
-        frame_context.command.cmd,
-        self.mesh_pipeline.pipeline_layout,
-        vk.VK_SHADER_STAGE_VERTEX_BIT,
-        0,
-        @sizeOf(MeshPushConstant),
-        &render_mesh_info.push_constants,
-    );
-    vk.vkCmdBindIndexBuffer(frame_context.command.cmd, render_mesh_info.index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
-    vk.vkCmdDrawIndexed(frame_context.command.cmd, render_mesh_info.num_indices, instances, 0, 0, 0);
 }
