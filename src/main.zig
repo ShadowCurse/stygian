@@ -19,6 +19,8 @@ const _render_mesh = @import("render/mesh.zig");
 const MeshPipeline = _render_mesh.MeshPipeline;
 const RenderMeshInfo = _render_mesh.RenderMeshInfo;
 
+const TileMap = @import("tile_map.zig");
+
 const _color = @import("color.zig");
 const Color = _color.Color;
 
@@ -83,8 +85,11 @@ pub fn main() !void {
     var frame_alloc_text = try UiText.init(&renderer, 32);
     defer frame_alloc_text.deinit(&renderer);
 
+    var tile_map = try TileMap.init(&renderer);
+    defer tile_map.deini(&renderer);
+
     var camera_controller = CameraController{};
-    camera_controller.position.z = -5.0;
+    camera_controller.position.z = 0.0;
 
     log.info(@src(), "game alloc usage: {}", .{MEMORY.game_allocator.total_requested_bytes});
     log.info(@src(), "frame alloc usage: {}", .{MEMORY.frame_allocator.end_index});
@@ -157,20 +162,24 @@ pub fn main() !void {
             0.1,
         );
         projection.j.y *= -1.0;
+
         cube_mesh.push_constants.view_proj = view.mul(projection);
+        tile_map.update(cube_mesh.push_constants.view_proj);
 
         const A = struct {
             var a: f32 = 0.0;
         };
         A.a += dt;
+        var ct = Mat4.rotation(
+            Vec3.Y,
+            A.a,
+        );
+        ct = ct.translate(.{ .y = 2.0 });
         cube_mesh.set_instance_info(0, .{
-            .transform = Mat4.rotation(
-                Vec3.Y,
-                A.a,
-            ),
+            .transform = ct,
         });
         cube_mesh.set_instance_info(1, .{
-            .transform = Mat4.IDENDITY.translate(.{ .y = 2.0 }),
+            .transform = Mat4.IDENDITY.translate(.{ .y = 4.0 }),
         });
 
         {
@@ -250,6 +259,7 @@ pub fn main() !void {
                 .{ &frame_alloc_text.screen_quads, frame_alloc_text.current_text_len },
             },
         );
+        tile_map.render(&frame_context);
         try renderer.end_rendering(frame_context);
     }
 
