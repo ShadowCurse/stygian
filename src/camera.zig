@@ -18,6 +18,8 @@ pub const CameraController = struct {
                 sdl.SDLK_s => self.velocity.z = -1.0,
                 sdl.SDLK_a => self.velocity.x = 1.0,
                 sdl.SDLK_d => self.velocity.x = -1.0,
+                sdl.SDLK_SPACE => self.velocity.y = -1.0,
+                sdl.SDLK_LCTRL => self.velocity.y = 1.0,
                 else => {},
             }
         }
@@ -28,6 +30,8 @@ pub const CameraController = struct {
                 sdl.SDLK_s => self.velocity.z = 0,
                 sdl.SDLK_a => self.velocity.x = 0,
                 sdl.SDLK_d => self.velocity.x = 0,
+                sdl.SDLK_SPACE => self.velocity.y = 0,
+                sdl.SDLK_LCTRL => self.velocity.y = 0,
                 else => {},
             }
         }
