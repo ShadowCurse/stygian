@@ -77,7 +77,6 @@ pub const FontInfo = struct {
     pub fn init(path: []const u8) !Self {
         const game_allocator = MEMORY.game_alloc();
         const scratch_alloc = MEMORY.scratch_alloc();
-        defer MEMORY.reset_scratch();
 
         var file = try std.fs.cwd().openFile(path, .{});
         defer file.close();

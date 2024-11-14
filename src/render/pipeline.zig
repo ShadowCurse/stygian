@@ -4,14 +4,24 @@ const vk = @import("../vulkan.zig");
 const MEMORY = &@import("../memory.zig").MEMORY;
 const Allocator = std.mem.Allocator;
 
-pub fn load_shader_module(arena: Allocator, device: vk.VkDevice, path: []const u8) !vk.VkShaderModule {
+pub fn load_shader_module(device: vk.VkDevice, path: []const u8) !vk.VkShaderModule {
+    const scratch_alloc = MEMORY.scratch_alloc();
+
     const file = try std.fs.cwd().openFile(path, .{});
-    const content = try file.reader().readAllAlloc(arena, std.math.maxInt(usize));
+    const meta = try file.metadata();
+
+    const size_in_u32 = meta.size() / @sizeOf(u32);
+    const buff_u32 = try scratch_alloc.alloc(u32, size_in_u32);
+
+    var buff_u8: []u8 = undefined;
+    buff_u8.ptr = @ptrCast(buff_u32.ptr);
+    buff_u8.len = meta.size();
+    _ = try file.reader().readAll(buff_u8);
 
     const create_info = vk.VkShaderModuleCreateInfo{
         .sType = vk.VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .pCode = @alignCast(@ptrCast(content.ptr)),
-        .codeSize = content.len,
+        .pCode = buff_u32.ptr,
+        .codeSize = buff_u8.len,
     };
 
     var module: vk.VkShaderModule = undefined;
@@ -42,8 +52,6 @@ pub const Pipeline = struct {
         depth_format: vk.VkFormat,
         blending: BlendingType,
     ) !Pipeline {
-        const scratch_alloc = MEMORY.scratch_alloc();
-        defer MEMORY.reset_frame();
 
         // create descriptor set layout
         var descriptor_set_layout: vk.VkDescriptorSetLayout = undefined;
@@ -73,9 +81,9 @@ pub const Pipeline = struct {
             &descriptor_set,
         ));
 
-        const vertex_shader_module = try load_shader_module(scratch_alloc, device, vertex_shader_path);
+        const vertex_shader_module = try load_shader_module(device, vertex_shader_path);
         defer vk.vkDestroyShaderModule(device, vertex_shader_module, null);
-        const fragment_shader_module = try load_shader_module(scratch_alloc, device, fragment_shader_path);
+        const fragment_shader_module = try load_shader_module(device, fragment_shader_path);
         defer vk.vkDestroyShaderModule(device, fragment_shader_module, null);
 
         const layouts = [_]vk.VkDescriptorSetLayout{

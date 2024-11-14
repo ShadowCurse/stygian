@@ -250,7 +250,6 @@ const Instance = struct {
 
     pub fn init(window: *sdl.SDL_Window) !Instance {
         const scratch_alloc = MEMORY.scratch_alloc();
-        defer MEMORY.reset_scratch();
 
         var sdl_extension_count: u32 = undefined;
         if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, null) != 1) {
@@ -441,7 +440,6 @@ const PhysicalDevice = struct {
 
     pub fn init(vk_instance: vk.VkInstance, vk_surface: vk.VkSurfaceKHR) !PhysicalDevice {
         const scratch_alloc = MEMORY.scratch_alloc();
-        defer MEMORY.reset_scratch();
 
         var physical_device_count: u32 = 0;
         try vk.check_result(vk.vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, null));
@@ -538,7 +536,6 @@ const LogicalDevice = struct {
 
     pub fn init(physical_device: *const PhysicalDevice) !LogicalDevice {
         const scratch_alloc = MEMORY.scratch_alloc();
-        defer MEMORY.reset_scratch();
 
         const all_queue_family_indexes: [4]u32 = .{
             physical_device.graphics_queue_family,
@@ -646,7 +643,6 @@ const Swapchain = struct {
     ) !Swapchain {
         const game_alloc = MEMORY.game_alloc();
         const scratch_alloc = MEMORY.scratch_alloc();
-        defer MEMORY.reset_scratch();
 
         var surface_capabilities: vk.VkSurfaceCapabilitiesKHR = undefined;
         try vk.check_result(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &surface_capabilities));

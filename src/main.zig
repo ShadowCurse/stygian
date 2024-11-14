@@ -88,7 +88,7 @@ pub fn main() !void {
 
     log.info(@src(), "game alloc usage: {}", .{MEMORY.game_allocator.total_requested_bytes});
     log.info(@src(), "frame alloc usage: {}", .{MEMORY.frame_allocator.end_index});
-    log.info(@src(), "scratch alloc usage: {}", .{MEMORY.scratch_allocator.end_index});
+    log.info(@src(), "scratch alloc total allocated: {}", .{MEMORY.scratch_allocator.total_allocated});
 
     var stop = false;
     var t = std.time.nanoTimestamp();
