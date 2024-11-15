@@ -20,11 +20,8 @@ const Mat4 = _math.Mat4;
 pub const WIDTH = 5;
 pub const HEIGHT = 5;
 
-// TODO fix this
-pub const CENTER_OFFSET: Vec3 = .{
-    .x = -4,
-    .z = -4,
-};
+pub const GAP_W = 0.2;
+pub const GAP_H = 0.2;
 
 const TileType = enum {
     None,
@@ -65,19 +62,22 @@ pub fn deini(self: *Self, renderer: *VkRenderer) void {
 pub fn update(self: *Self, view_proj: Mat4) void {
     self.mesh.push_constants.view_proj = view_proj;
     self.meshes_set = 0;
+    var top_left: Vec3 = .{
+        .x = -(2.0 + GAP_W) / 2.0 * (WIDTH - 1),
+        .z = -(2.0 + GAP_H) / 2.0 * (HEIGHT - 1),
+    };
     for (self.map, 0..) |row, r| {
         for (row, 0..) |tile, c| {
             switch (tile) {
                 .None => {},
                 .Wall => {
                     self.mesh.set_instance_info(self.meshes_set, .{
-                        .transform = Mat4.IDENDITY.translate(
-                            (Vec3{
-                                .x = @as(f32, @floatFromInt(c)) * 2.0,
-                                .z = @as(f32, @floatFromInt(r)) * 2.0,
-                            })
-                                .add(CENTER_OFFSET),
-                        ),
+                        .transform = Mat4.IDENDITY.translate(top_left.add(
+                            .{
+                                .x = @as(f32, @floatFromInt(c)) * (2.0 + GAP_W),
+                                .z = @as(f32, @floatFromInt(r)) * (2.0 + GAP_H),
+                            },
+                        )),
                     });
                     self.meshes_set += 1;
                 },
