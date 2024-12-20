@@ -3,6 +3,8 @@ const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
 const Image = @import("image.zig");
+const GpuImage = @import("vk_renderer/gpu_image.zig");
+
 const Font = @import("font.zig").Font;
 const FontInfo = @import("font.zig").FontInfo;
 const UiText = @import("font.zig").UiText;
@@ -42,7 +44,7 @@ const Runtime = struct {
     cube_mesh: RenderMeshInfo,
 
     font: Font,
-    font_info: FontInfo,
+    font_image: GpuImage,
 
     frame_time_text: UiText,
     frame_alloc_text: UiText,
@@ -61,23 +63,35 @@ const Runtime = struct {
         self.screen_quad = try RenderUiQuadInfo.init(&self.renderer, 3);
 
         const image = try Image.init("assets/a.png");
-        const texture = try self.renderer.create_texture(image.width, image.height);
-
+        const texture = try self.renderer.create_texture(image.width, image.height, image.channels);
         try self.renderer.upload_texture_image(&texture, &image);
 
         self.ui_quad_pipeline.set_color_texture(&self.renderer, texture.view, self.renderer.debug_sampler);
 
-        self.font = try Font.init(&self.renderer, "assets/font.png");
-        self.ui_quad_pipeline.set_font_texture(&self.renderer, self.font.texture.view, self.renderer.debug_sampler);
+        self.font = try Font.init(memory, "assets/font.ttf", 32);
+        self.font_image = try self.renderer.create_texture(
+            self.font.image.width,
+            self.font.image.height,
+            self.font.image.channels,
+        );
+        try self.renderer.upload_texture_image(&self.font_image, &self.font.image);
 
-        self.font_info = try FontInfo.init(memory, "assets/font.json");
+        self.ui_quad_pipeline.set_font_texture(&self.renderer, self.font_image.view, self.renderer.debug_sampler);
+
         self.frame_time_text = try UiText.init(&self.renderer, 32);
         self.frame_alloc_text = try UiText.init(&self.renderer, 32);
         self.tile_map = try TileMap.init(memory, &self.renderer);
     }
 };
 
-export fn runtime_main(window: *sdl.SDL_Window, sdl_events: [*]sdl.SDL_Event, sdl_events_num: usize, memory: *Memory, dt: f32, data: ?*anyopaque) *anyopaque {
+export fn runtime_main(
+    window: *sdl.SDL_Window,
+    sdl_events: [*]sdl.SDL_Event,
+    sdl_events_num: usize,
+    memory: *Memory,
+    dt: f32,
+    data: ?*anyopaque,
+) *anyopaque {
     memory.reset_frame();
 
     var events: []sdl.SDL_Event = undefined;
@@ -103,8 +117,12 @@ export fn runtime_main(window: *sdl.SDL_Window, sdl_events: [*]sdl.SDL_Event, sd
         runtime.camera_controller.update(dt);
 
         runtime.frame_time_text.set_text(
-            &runtime.font_info,
-            std.fmt.allocPrint(memory.frame_alloc(), "FPS: {d:.1} FT: {d:.3}s", .{ 1.0 / dt, dt }) catch unreachable,
+            &runtime.font,
+            std.fmt.allocPrint(
+                memory.frame_alloc(),
+                "FPS: {d:.1} FT: {d:.3}s",
+                .{ 1.0 / dt, dt },
+            ) catch unreachable,
             .{
                 .x = @floatFromInt(width),
                 .y = @floatFromInt(height),
@@ -113,15 +131,15 @@ export fn runtime_main(window: *sdl.SDL_Window, sdl_events: [*]sdl.SDL_Event, sd
                 .x = -100.0,
                 .y = 300.0,
             },
-            .{
-                .x = 30.0,
-                .y = 30.0,
-            },
         );
 
         runtime.frame_alloc_text.set_text(
-            &runtime.font_info,
-            std.fmt.allocPrint(memory.frame_alloc(), "FM: {} bytes", .{memory.frame_allocator.end_index}) catch unreachable,
+            &runtime.font,
+            std.fmt.allocPrint(
+                memory.frame_alloc(),
+                "FM: {} bytes",
+                .{memory.frame_allocator.end_index},
+            ) catch unreachable,
             .{
                 .x = @floatFromInt(width),
                 .y = @floatFromInt(height),
@@ -129,10 +147,6 @@ export fn runtime_main(window: *sdl.SDL_Window, sdl_events: [*]sdl.SDL_Event, sd
             .{
                 .x = -100.0,
                 .y = 250.0,
-            },
-            .{
-                .x = 30.0,
-                .y = 30.0,
             },
         );
 

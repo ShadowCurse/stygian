@@ -138,7 +138,12 @@ pub const UiQuadPipeline = struct {
         self.pipeline.deinit(renderer.vk_context.logical_device.device);
     }
 
-    pub fn set_color_texture(self: *const Self, renderer: *const VkRenderer, view: vk.VkImageView, sampler: vk.VkSampler) void {
+    pub fn set_color_texture(
+        self: *const Self,
+        renderer: *const VkRenderer,
+        view: vk.VkImageView,
+        sampler: vk.VkSampler,
+    ) void {
         const desc_image_info = vk.VkDescriptorImageInfo{
             .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .imageView = view,
@@ -153,10 +158,21 @@ pub const UiQuadPipeline = struct {
             .pImageInfo = &desc_image_info,
         };
         const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
-        vk.vkUpdateDescriptorSets(renderer.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
+        vk.vkUpdateDescriptorSets(
+            renderer.vk_context.logical_device.device,
+            updates.len,
+            @ptrCast(&updates),
+            0,
+            null,
+        );
     }
 
-    pub fn set_font_texture(self: *const Self, renderer: *const VkRenderer, view: vk.VkImageView, sampler: vk.VkSampler) void {
+    pub fn set_font_texture(
+        self: *const Self,
+        renderer: *const VkRenderer,
+        view: vk.VkImageView,
+        sampler: vk.VkSampler,
+    ) void {
         const desc_image_info = vk.VkDescriptorImageInfo{
             .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             .imageView = view,
@@ -171,7 +187,13 @@ pub const UiQuadPipeline = struct {
             .pImageInfo = &desc_image_info,
         };
         const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
-        vk.vkUpdateDescriptorSets(renderer.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
+        vk.vkUpdateDescriptorSets(
+            renderer.vk_context.logical_device.device,
+            updates.len,
+            @ptrCast(&updates),
+            0,
+            null,
+        );
     }
 
     pub const Bundle = struct { *const RenderUiQuadInfo, u32 };
@@ -180,7 +202,11 @@ pub const UiQuadPipeline = struct {
         frame_context: *const FrameContext,
         bundles: []const Bundle,
     ) void {
-        vk.vkCmdBindPipeline(frame_context.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline.pipeline);
+        vk.vkCmdBindPipeline(
+            frame_context.command.cmd,
+            vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            self.pipeline.pipeline,
+        );
         vk.vkCmdBindDescriptorSets(
             frame_context.command.cmd,
             vk.VK_PIPELINE_BIND_POINT_GRAPHICS,

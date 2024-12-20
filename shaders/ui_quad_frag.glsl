@@ -40,6 +40,6 @@ void main() {
     } else if (qi.type == 2) {
       outFragColor = texture(colorTex, inUV);
     } else {
-      outFragColor = texture(fontTex, inUV * qi.uv_scale + qi.uv_pos);
+      outFragColor = vec4(texture(fontTex, inUV * qi.uv_scale + qi.uv_pos).r);
     }
 }

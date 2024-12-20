@@ -136,12 +136,18 @@ pub fn deinit(self: *Self, memory: *Memory) void {
     self.vk_context.deinit(memory);
 }
 
-pub fn create_texture(self: *Self, width: u32, height: u32) !GpuImage {
+pub fn create_texture(self: *Self, width: u32, height: u32, channels: u32) !GpuImage {
+    const format: vk.VkFormat = switch (channels) {
+        4 => vk.VK_FORMAT_R8G8B8A8_SRGB,
+        1 => vk.VK_FORMAT_R8_SRGB,
+        else => unreachable,
+    };
     return try self.vk_context.create_image(
         width,
         height,
         // vk.VK_FORMAT_B8G8R8A8_UNORM,
-        vk.VK_FORMAT_R8G8B8A8_SRGB,
+        // vk.VK_FORMAT_R8G8B8A8_SRGB,
+        format,
         vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | vk.VK_IMAGE_USAGE_SAMPLED_BIT,
     );
 }
