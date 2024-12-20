@@ -37,7 +37,12 @@ meshes_set: u32,
 
 pub fn init(memory: *Memory, renderer: *VkRenderer) !Self {
     const pipeline = try MeshPipeline.init(memory, renderer);
-    const mesh = try RenderMeshInfo.init(renderer, &CubeMesh.indices, &CubeMesh.vertices, WIDTH * HEIGHT);
+    const mesh = try RenderMeshInfo.init(
+        renderer,
+        &CubeMesh.indices,
+        &CubeMesh.vertices,
+        WIDTH * HEIGHT,
+    );
 
     return .{
         .pipeline = pipeline,

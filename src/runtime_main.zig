@@ -55,18 +55,37 @@ const Runtime = struct {
 
     const Self = @This();
 
-    fn init(self: *Self, window: *sdl.SDL_Window, memory: *Memory, width: u32, height: u32) !void {
+    fn init(
+        self: *Self,
+        window: *sdl.SDL_Window,
+        memory: *Memory,
+        width: u32,
+        height: u32,
+    ) !void {
         self.renderer = try VkRenderer.init(memory, window, width, height);
         self.ui_quad_pipeline = try UiQuadPipeline.init(memory, &self.renderer);
         self.mesh_pipeline = try MeshPipeline.init(memory, &self.renderer);
-        self.cube_mesh = try RenderMeshInfo.init(&self.renderer, &CubeMesh.indices, &CubeMesh.vertices, 2);
+        self.cube_mesh = try RenderMeshInfo.init(
+            &self.renderer,
+            &CubeMesh.indices,
+            &CubeMesh.vertices,
+            2,
+        );
         self.screen_quad = try RenderUiQuadInfo.init(&self.renderer, 3);
 
         const image = try Image.init("assets/a.png");
-        const texture = try self.renderer.create_texture(image.width, image.height, image.channels);
+        const texture = try self.renderer.create_texture(
+            image.width,
+            image.height,
+            image.channels,
+        );
         try self.renderer.upload_texture_image(&texture, &image);
 
-        self.ui_quad_pipeline.set_color_texture(&self.renderer, texture.view, self.renderer.debug_sampler);
+        self.ui_quad_pipeline.set_color_texture(
+            &self.renderer,
+            texture.view,
+            self.renderer.debug_sampler,
+        );
 
         self.font = try Font.init(memory, "assets/font.ttf", 32);
         self.font_image = try self.renderer.create_texture(
@@ -76,7 +95,11 @@ const Runtime = struct {
         );
         try self.renderer.upload_texture_image(&self.font_image, &self.font.image);
 
-        self.ui_quad_pipeline.set_font_texture(&self.renderer, self.font_image.view, self.renderer.debug_sampler);
+        self.ui_quad_pipeline.set_font_texture(
+            &self.renderer,
+            self.font_image.view,
+            self.renderer.debug_sampler,
+        );
 
         self.frame_time_text = try UiText.init(&self.renderer, 32);
         self.frame_alloc_text = try UiText.init(&self.renderer, 32);
@@ -251,8 +274,14 @@ export fn runtime_main(
             &frame_context,
             &.{
                 .{ &runtime.screen_quad, 3 },
-                .{ &runtime.frame_time_text.screen_quads, runtime.frame_time_text.current_text_len },
-                .{ &runtime.frame_alloc_text.screen_quads, runtime.frame_alloc_text.current_text_len },
+                .{
+                    &runtime.frame_time_text.screen_quads,
+                    runtime.frame_time_text.current_text_len,
+                },
+                .{
+                    &runtime.frame_alloc_text.screen_quads,
+                    runtime.frame_alloc_text.current_text_len,
+                },
             },
         );
         runtime.tile_map.render(&frame_context);

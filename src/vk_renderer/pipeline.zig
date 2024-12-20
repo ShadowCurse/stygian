@@ -4,7 +4,11 @@ const vk = @import("../bindings/vulkan.zig");
 const Memory = @import("../memory.zig");
 const Allocator = std.mem.Allocator;
 
-pub fn load_shader_module(memory: *Memory, device: vk.VkDevice, path: []const u8) !vk.VkShaderModule {
+pub fn load_shader_module(
+    memory: *Memory,
+    device: vk.VkDevice,
+    path: []const u8,
+) !vk.VkShaderModule {
     const scratch_alloc = memory.scratch_alloc();
 
     const file = try std.fs.cwd().openFile(path, .{});
@@ -84,7 +88,11 @@ pub const Pipeline = struct {
 
         const vertex_shader_module = try load_shader_module(memory, device, vertex_shader_path);
         defer vk.vkDestroyShaderModule(device, vertex_shader_module, null);
-        const fragment_shader_module = try load_shader_module(memory, device, fragment_shader_path);
+        const fragment_shader_module = try load_shader_module(
+            memory,
+            device,
+            fragment_shader_path,
+        );
         defer vk.vkDestroyShaderModule(device, fragment_shader_module, null);
 
         const layouts = [_]vk.VkDescriptorSetLayout{
@@ -176,7 +184,11 @@ pub const PipelineBuilder = struct {
         return self;
     }
 
-    pub fn shaders(self: *Self, vertex_shader: vk.VkShaderModule, fragment_shader: vk.VkShaderModule) *Self {
+    pub fn shaders(
+        self: *Self,
+        vertex_shader: vk.VkShaderModule,
+        fragment_shader: vk.VkShaderModule,
+    ) *Self {
         self.stages[0].stage = vk.VK_SHADER_STAGE_VERTEX_BIT;
         self.stages[0].module = vertex_shader;
         self.stages[0].pName = "main";
@@ -273,7 +285,11 @@ pub const PipelineBuilder = struct {
         return self;
     }
 
-    pub fn depthtest(self: *Self, depth_write_enable: bool, depth_compare_op: vk.VkCompareOp) *Self {
+    pub fn depthtest(
+        self: *Self,
+        depth_write_enable: bool,
+        depth_compare_op: vk.VkCompareOp,
+    ) *Self {
         self.depth_stencil.depthTestEnable = vk.VK_TRUE;
         self.depth_stencil.depthWriteEnable = @intFromBool(depth_write_enable);
         self.depth_stencil.depthCompareOp = depth_compare_op;
@@ -308,7 +324,10 @@ pub const PipelineBuilder = struct {
             .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         };
 
-        const dynamic_states = [_]vk.VkDynamicState{ vk.VK_DYNAMIC_STATE_VIEWPORT, vk.VK_DYNAMIC_STATE_SCISSOR };
+        const dynamic_states = [_]vk.VkDynamicState{
+            vk.VK_DYNAMIC_STATE_VIEWPORT,
+            vk.VK_DYNAMIC_STATE_SCISSOR,
+        };
         const dynamic_state_info = vk.VkPipelineDynamicStateCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
             .pDynamicStates = &dynamic_states,

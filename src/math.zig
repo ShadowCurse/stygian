@@ -66,7 +66,10 @@ pub const Vec4 = extern struct {
     w: f32 = 0.0,
 
     pub inline fn eq(self: Vec4, other: Vec4) bool {
-        return self.x == other.x and self.y == other.y and self.z == other.z and self.w == other.w;
+        return self.x == other.x and
+            self.y == other.y and
+            self.z == other.z and
+            self.w == other.w;
     }
 
     pub inline fn shrink(self: Vec4) Vec3 {
@@ -114,7 +117,10 @@ pub const Mat4 = extern struct {
     };
 
     pub inline fn eq(self: Mat4, other: Mat4) bool {
-        return self.i.eq(other.i) and self.j.eq(other.j) and self.k.eq(other.k) and self.t.eq(other.t);
+        return self.i.eq(other.i) and
+            self.j.eq(other.j) and
+            self.k.eq(other.k) and
+            self.t.eq(other.t);
     }
 
     pub inline fn translate(self: Mat4, v: Vec3) Mat4 {

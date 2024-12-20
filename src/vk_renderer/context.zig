@@ -37,7 +37,11 @@ pub fn init(
     // Casts are needed because SDL and vulkan imports same type,
     // but compiler sees them as different types.
     var surface: vk.VkSurfaceKHR = undefined;
-    if (sdl.SDL_Vulkan_CreateSurface(window, @ptrCast(instance.instance), @ptrCast(&surface)) != 1) {
+    if (sdl.SDL_Vulkan_CreateSurface(
+        window,
+        @ptrCast(instance.instance),
+        @ptrCast(&surface),
+    ) != 1) {
         log.err(@src(), "{s}", .{sdl.SDL_GetError()});
         return error.SDLCreateSurface;
     }
@@ -54,7 +58,13 @@ pub fn init(
     var vma_allocator: vk.VmaAllocator = undefined;
     try vk.check_result(vk.vmaCreateAllocator(&allocator_info, &vma_allocator));
 
-    const swap_chain = try Swapchain.init(memory, &logical_device, &physical_device, surface, window);
+    const swap_chain = try Swapchain.init(
+        memory,
+        &logical_device,
+        &physical_device,
+        surface,
+        window,
+    );
 
     const descriptor_pool = try DescriptorPool.init(logical_device.device, &.{
         .{
@@ -71,8 +81,14 @@ pub fn init(
         },
     });
 
-    const commands = try CommandPool.init(logical_device.device, physical_device.graphics_queue_family);
-    const immediate_commands = try CommandPool.init(logical_device.device, physical_device.graphics_queue_family);
+    const commands = try CommandPool.init(
+        logical_device.device,
+        physical_device.graphics_queue_family,
+    );
+    const immediate_commands = try CommandPool.init(
+        logical_device.device,
+        physical_device.graphics_queue_family,
+    );
 
     return .{
         .window = window,
@@ -135,7 +151,11 @@ pub fn acquire_next_image(self: *const Self, semaphore: vk.VkSemaphore) !u32 {
     return image_index;
 }
 
-pub fn queue_submit_2(self: *const Self, submit_info: *const vk.VkSubmitInfo2, fence: vk.VkFence) !void {
+pub fn queue_submit_2(
+    self: *const Self,
+    submit_info: *const vk.VkSubmitInfo2,
+    fence: vk.VkFence,
+) !void {
     return vk.check_result(vk.vkQueueSubmit2(
         self.logical_device.graphics_queue,
         1,
@@ -145,7 +165,9 @@ pub fn queue_submit_2(self: *const Self, submit_info: *const vk.VkSubmitInfo2, f
 }
 
 pub fn queue_present(self: *const Self, present_info: *const vk.VkPresentInfoKHR) !void {
-    return vk.check_result(vk.vkQueuePresentKHR(self.logical_device.graphics_queue, present_info));
+    return vk.check_result(
+        vk.vkQueuePresentKHR(self.logical_device.graphics_queue, present_info),
+    );
 }
 
 pub fn create_pipeline(
@@ -214,7 +236,12 @@ pub fn create_sampler(
         .minFilter = min_filter,
     };
     var sampler: vk.VkSampler = undefined;
-    try vk.check_result(vk.vkCreateSampler(self.logical_device.device, &create_info, null, &sampler));
+    try vk.check_result(vk.vkCreateSampler(
+        self.logical_device.device,
+        &create_info,
+        null,
+        &sampler,
+    ));
     return sampler;
 }
 
@@ -247,9 +274,17 @@ const Instance = struct {
         }
 
         var extensions_count: u32 = 0;
-        try vk.check_result(vk.vkEnumerateInstanceExtensionProperties(null, &extensions_count, null));
+        try vk.check_result(vk.vkEnumerateInstanceExtensionProperties(
+            null,
+            &extensions_count,
+            null,
+        ));
         const extensions = try scratch_alloc.alloc(vk.VkExtensionProperties, extensions_count);
-        try vk.check_result(vk.vkEnumerateInstanceExtensionProperties(null, &extensions_count, extensions.ptr));
+        try vk.check_result(vk.vkEnumerateInstanceExtensionProperties(
+            null,
+            &extensions_count,
+            extensions.ptr,
+        ));
 
         var found_sdl_extensions: u32 = 0;
         var found_additional_extensions: u32 = 0;
@@ -257,20 +292,30 @@ const Instance = struct {
             var required = "--------";
             for (sdl_extensions) |se| {
                 const sdl_name_span = std.mem.span(se);
-                const extension_name_span = std.mem.span(@as([*c]const u8, @ptrCast(&e.extensionName)));
+                const extension_name_span = std.mem.span(@as(
+                    [*c]const u8,
+                    @ptrCast(&e.extensionName),
+                ));
                 if (std.mem.eql(u8, extension_name_span, sdl_name_span)) {
                     found_sdl_extensions += 1;
                     required = "required";
                 }
             }
             for (VK_ADDITIONAL_EXTENSIONS_NAMES) |ae| {
-                const extension_name_span = std.mem.span(@as([*c]const u8, @ptrCast(&e.extensionName)));
+                const extension_name_span = std.mem.span(@as(
+                    [*c]const u8,
+                    @ptrCast(&e.extensionName),
+                ));
                 if (std.mem.eql(u8, extension_name_span, ae)) {
                     found_additional_extensions += 1;
                     required = "required";
                 }
             }
-            log.debug(@src(), "({s}) Extension name: {s} version: {}", .{ required, e.extensionName, e.specVersion });
+            log.debug(@src(), "({s}) Extension name: {s} version: {}", .{
+                required,
+                e.extensionName,
+                e.specVersion,
+            });
         }
         if (found_sdl_extensions != sdl_extensions.len) {
             return error.SDLExtensionsNotFound;
@@ -293,7 +338,10 @@ const Instance = struct {
         var layer_property_count: u32 = 0;
         try vk.check_result(vk.vkEnumerateInstanceLayerProperties(&layer_property_count, null));
         const layers = try scratch_alloc.alloc(vk.VkLayerProperties, layer_property_count);
-        try vk.check_result(vk.vkEnumerateInstanceLayerProperties(&layer_property_count, layers.ptr));
+        try vk.check_result(vk.vkEnumerateInstanceLayerProperties(
+            &layer_property_count,
+            layers.ptr,
+        ));
 
         var found_validation_layers: u32 = 0;
         for (layers) |l| {
@@ -305,7 +353,12 @@ const Instance = struct {
                     required = "required";
                 }
             }
-            log.debug(@src(), "({s}) Layer name: {s}, spec version: {}, description: {s}", .{ required, l.layerName, l.specVersion, l.description });
+            log.debug(@src(), "({s}) Layer name: {s}, spec version: {}, description: {s}", .{
+                required,
+                l.layerName,
+                l.specVersion,
+                l.description,
+            });
         }
         if (found_validation_layers != VK_VALIDATION_LAYERS_NAMES.len) {
             return error.ValidationLayersNotFound;
@@ -359,7 +412,11 @@ const DebugMessanger = struct {
     messanger: vk.VkDebugUtilsMessengerEXT,
 
     pub fn init(vk_instance: vk.VkInstance) !DebugMessanger {
-        const create_fn = (try get_vk_func(vk.PFN_vkCreateDebugUtilsMessengerEXT, vk_instance, "vkCreateDebugUtilsMessengerEXT")).?;
+        const create_fn = (try get_vk_func(
+            vk.PFN_vkCreateDebugUtilsMessengerEXT,
+            vk_instance,
+            "vkCreateDebugUtilsMessengerEXT",
+        )).?;
         const create_info = vk.VkDebugUtilsMessengerCreateInfoEXT{
             .sType = vk.VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
             .messageSeverity = vk.VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
@@ -379,7 +436,11 @@ const DebugMessanger = struct {
     }
 
     pub fn deinit(self: *const DebugMessanger, vk_instance: vk.VkInstance) !void {
-        const destroy_fn = (try get_vk_func(vk.PFN_vkDestroyDebugUtilsMessengerEXT, vk_instance, "vkDestroyDebugUtilsMessengerEXT")).?;
+        const destroy_fn = (try get_vk_func(
+            vk.PFN_vkDestroyDebugUtilsMessengerEXT,
+            vk_instance,
+            "vkDestroyDebugUtilsMessengerEXT",
+        )).?;
         destroy_fn(vk_instance, self.messanger, null);
     }
 
@@ -419,13 +480,28 @@ const PhysicalDevice = struct {
     compute_queue_family: u32,
     transfer_queue_family: u32,
 
-    pub fn init(memory: *Memory, vk_instance: vk.VkInstance, vk_surface: vk.VkSurfaceKHR) !PhysicalDevice {
+    pub fn init(
+        memory: *Memory,
+        vk_instance: vk.VkInstance,
+        vk_surface: vk.VkSurfaceKHR,
+    ) !PhysicalDevice {
         const scratch_alloc = memory.scratch_alloc();
 
         var physical_device_count: u32 = 0;
-        try vk.check_result(vk.vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, null));
-        const physical_devices = try scratch_alloc.alloc(vk.VkPhysicalDevice, physical_device_count);
-        try vk.check_result(vk.vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, physical_devices.ptr));
+        try vk.check_result(vk.vkEnumeratePhysicalDevices(
+            vk_instance,
+            &physical_device_count,
+            null,
+        ));
+        const physical_devices = try scratch_alloc.alloc(
+            vk.VkPhysicalDevice,
+            physical_device_count,
+        );
+        try vk.check_result(vk.vkEnumeratePhysicalDevices(
+            vk_instance,
+            &physical_device_count,
+            physical_devices.ptr,
+        ));
 
         for (physical_devices) |pd| {
             var properties: vk.VkPhysicalDeviceProperties = undefined;
@@ -436,15 +512,28 @@ const PhysicalDevice = struct {
             log.debug(@src(), "Physical device: {s}", .{properties.deviceName});
 
             var extensions_count: u32 = 0;
-            try vk.check_result(vk.vkEnumerateDeviceExtensionProperties(pd, null, &extensions_count, null));
+            try vk.check_result(vk.vkEnumerateDeviceExtensionProperties(
+                pd,
+                null,
+                &extensions_count,
+                null,
+            ));
             const extensions = try scratch_alloc.alloc(vk.VkExtensionProperties, extensions_count);
-            try vk.check_result(vk.vkEnumerateDeviceExtensionProperties(pd, null, &extensions_count, extensions.ptr));
+            try vk.check_result(vk.vkEnumerateDeviceExtensionProperties(
+                pd,
+                null,
+                &extensions_count,
+                extensions.ptr,
+            ));
 
             var found_extensions: u32 = 0;
             for (extensions) |e| {
                 var required = "--------";
                 for (VK_PHYSICAL_DEVICE_EXTENSION_NAMES) |re| {
-                    const extension_name_span = std.mem.span(@as([*c]const u8, @ptrCast(&e.extensionName)));
+                    const extension_name_span = std.mem.span(@as(
+                        [*c]const u8,
+                        @ptrCast(&e.extensionName),
+                    ));
                     if (std.mem.eql(u8, extension_name_span, re)) {
                         found_extensions += 1;
                         required = "required";
@@ -458,8 +547,15 @@ const PhysicalDevice = struct {
 
             var queue_family_count: u32 = 0;
             vk.vkGetPhysicalDeviceQueueFamilyProperties(pd, &queue_family_count, null);
-            const queue_families = try scratch_alloc.alloc(vk.VkQueueFamilyProperties, queue_family_count);
-            vk.vkGetPhysicalDeviceQueueFamilyProperties(pd, &queue_family_count, queue_families.ptr);
+            const queue_families = try scratch_alloc.alloc(
+                vk.VkQueueFamilyProperties,
+                queue_family_count,
+            );
+            vk.vkGetPhysicalDeviceQueueFamilyProperties(
+                pd,
+                &queue_family_count,
+                queue_families.ptr,
+            );
 
             var graphics_queue_family: ?u32 = null;
             var present_queue_family: ?u32 = null;
@@ -467,18 +563,29 @@ const PhysicalDevice = struct {
             var transfer_queue_family: ?u32 = null;
 
             for (queue_families, 0..) |qf, i| {
-                if (graphics_queue_family == null and qf.queueFlags & vk.VK_QUEUE_GRAPHICS_BIT != 0) {
+                if (graphics_queue_family == null and
+                    qf.queueFlags & vk.VK_QUEUE_GRAPHICS_BIT != 0)
+                {
                     graphics_queue_family = @intCast(i);
                 }
-                if (compute_queue_family == null and qf.queueFlags & vk.VK_QUEUE_COMPUTE_BIT != 0) {
+                if (compute_queue_family == null and
+                    qf.queueFlags & vk.VK_QUEUE_COMPUTE_BIT != 0)
+                {
                     compute_queue_family = @intCast(i);
                 }
-                if (transfer_queue_family == null and qf.queueFlags & vk.VK_QUEUE_TRANSFER_BIT != 0) {
+                if (transfer_queue_family == null and
+                    qf.queueFlags & vk.VK_QUEUE_TRANSFER_BIT != 0)
+                {
                     transfer_queue_family = @intCast(i);
                 }
                 if (present_queue_family == null) {
                     var supported: vk.VkBool32 = 0;
-                    try vk.check_result(vk.vkGetPhysicalDeviceSurfaceSupportKHR(pd, @intCast(i), vk_surface, &supported));
+                    try vk.check_result(vk.vkGetPhysicalDeviceSurfaceSupportKHR(
+                        pd,
+                        @intCast(i),
+                        vk_surface,
+                        &supported,
+                    ));
                     if (supported == vk.VK_TRUE) {
                         present_queue_family = @intCast(i);
                     }
@@ -525,7 +632,12 @@ const LogicalDevice = struct {
             physical_device.transfer_queue_family,
         };
         var i: usize = 0;
-        var unique_indexes: [4]u32 = .{ std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32), std.math.maxInt(u32) };
+        var unique_indexes: [4]u32 = .{
+            std.math.maxInt(u32),
+            std.math.maxInt(u32),
+            std.math.maxInt(u32),
+            std.math.maxInt(u32),
+        };
         for (all_queue_family_indexes) |qfi| {
             if (std.mem.count(u32, &unique_indexes, &.{qfi}) == 0) {
                 unique_indexes[i] = qfi;
@@ -533,7 +645,10 @@ const LogicalDevice = struct {
             }
         }
         const unique = std.mem.sliceTo(&unique_indexes, std.math.maxInt(u32));
-        const queue_create_infos = try scratch_alloc.alloc(vk.VkDeviceQueueCreateInfo, unique.len);
+        const queue_create_infos = try scratch_alloc.alloc(
+            vk.VkDeviceQueueCreateInfo,
+            unique.len,
+        );
 
         const queue_priority: f32 = 1.0;
         for (queue_create_infos, unique) |*qi, u| {
@@ -627,7 +742,11 @@ const Swapchain = struct {
         const scratch_alloc = memory.scratch_alloc();
 
         var surface_capabilities: vk.VkSurfaceCapabilitiesKHR = undefined;
-        try vk.check_result(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &surface_capabilities));
+        try vk.check_result(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+            physical_device.device,
+            surface,
+            &surface_capabilities,
+        ));
 
         var device_surface_format_count: u32 = 0;
         try vk.check_result(vk.vkGetPhysicalDeviceSurfaceFormatsKHR(
@@ -636,7 +755,10 @@ const Swapchain = struct {
             &device_surface_format_count,
             null,
         ));
-        const device_surface_formats = try scratch_alloc.alloc(vk.VkSurfaceFormatKHR, device_surface_format_count);
+        const device_surface_formats = try scratch_alloc.alloc(
+            vk.VkSurfaceFormatKHR,
+            device_surface_format_count,
+        );
         try vk.check_result(vk.vkGetPhysicalDeviceSurfaceFormatsKHR(
             physical_device.device,
             surface,
@@ -645,7 +767,9 @@ const Swapchain = struct {
         ));
         var found_format: ?vk.VkSurfaceFormatKHR = null;
         for (device_surface_formats) |format| {
-            if (format.format == vk.VK_FORMAT_B8G8R8A8_UNORM and format.colorSpace == vk.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+            if (format.format == vk.VK_FORMAT_B8G8R8A8_UNORM and
+                format.colorSpace == vk.VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            {
                 found_format = format;
                 break;
             }
@@ -662,8 +786,14 @@ const Swapchain = struct {
             sdl.SDL_GetWindowSize(window, &w, &h);
             const window_w: u32 = @intCast(w);
             const window_h: u32 = @intCast(h);
-            swap_chain_extent.width = @min(@max(window_w, surface_capabilities.minImageExtent.width), surface_capabilities.maxImageExtent.width);
-            swap_chain_extent.height = @min(@max(window_h, surface_capabilities.minImageExtent.height), surface_capabilities.maxImageExtent.height);
+            swap_chain_extent.width = @min(
+                @max(window_w, surface_capabilities.minImageExtent.width),
+                surface_capabilities.maxImageExtent.width,
+            );
+            swap_chain_extent.height = @min(
+                @max(window_h, surface_capabilities.minImageExtent.height),
+                surface_capabilities.maxImageExtent.height,
+            );
         }
 
         const create_info = vk.VkSwapchainCreateInfoKHR{
@@ -674,7 +804,8 @@ const Swapchain = struct {
             .imageColorSpace = surface_format.colorSpace,
             .imageExtent = swap_chain_extent,
             .imageArrayLayers = 1,
-            .imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            .imageUsage = vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT,
             .preTransform = surface_capabilities.currentTransform,
             .compositeAlpha = vk.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
             .presentMode = vk.VK_PRESENT_MODE_FIFO_KHR,
@@ -683,7 +814,12 @@ const Swapchain = struct {
         };
 
         var swap_chain: Swapchain = undefined;
-        try vk.check_result(vk.vkCreateSwapchainKHR(logical_device.device, &create_info, null, &swap_chain.swap_chain));
+        try vk.check_result(vk.vkCreateSwapchainKHR(
+            logical_device.device,
+            &create_info,
+            null,
+            &swap_chain.swap_chain,
+        ));
         swap_chain.format = surface_format.format;
         swap_chain.extent = swap_chain_extent;
 
@@ -752,7 +888,10 @@ const Swapchain = struct {
 const DescriptorPool = struct {
     pool: vk.VkDescriptorPool,
 
-    pub fn init(device: vk.VkDevice, pool_sizes: []const vk.VkDescriptorPoolSize) !DescriptorPool {
+    pub fn init(
+        device: vk.VkDevice,
+        pool_sizes: []const vk.VkDescriptorPoolSize,
+    ) !DescriptorPool {
         const pool_info = vk.VkDescriptorPoolCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
             .maxSets = 10,
@@ -902,8 +1041,18 @@ const CommandPool = struct {
         };
         var render_semaphore: vk.VkSemaphore = undefined;
         var swap_chain_semaphore: vk.VkSemaphore = undefined;
-        try vk.check_result(vk.vkCreateSemaphore(device, &semaphore_creaet_info, null, &render_semaphore));
-        try vk.check_result(vk.vkCreateSemaphore(device, &semaphore_creaet_info, null, &swap_chain_semaphore));
+        try vk.check_result(vk.vkCreateSemaphore(
+            device,
+            &semaphore_creaet_info,
+            null,
+            &render_semaphore,
+        ));
+        try vk.check_result(vk.vkCreateSemaphore(
+            device,
+            &semaphore_creaet_info,
+            null,
+            &swap_chain_semaphore,
+        ));
 
         return .{
             .cmd = cmd,

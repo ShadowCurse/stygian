@@ -41,7 +41,9 @@ pub const RuntimeWatch = struct {
     const Self = @This();
 
     pub fn init(runtime_path: [:0]const u8) !Self {
-        const inotify_fd = try std.posix.inotify_init1(@bitCast(std.os.linux.O{ .NONBLOCK = true }));
+        const inotify_fd = try std.posix.inotify_init1(@bitCast(
+            std.os.linux.O{ .NONBLOCK = true },
+        ));
         const runtime_fd = try std.posix.inotify_add_watchZ(
             inotify_fd,
             runtime_path,

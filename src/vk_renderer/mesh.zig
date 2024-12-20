@@ -33,7 +33,12 @@ pub const RenderMeshInfo = struct {
 
     const Self = @This();
 
-    pub fn init(renderer: *VkRenderer, indices: []const u32, vertices: []const DefaultVertex, instances: u32) !Self {
+    pub fn init(
+        renderer: *VkRenderer,
+        indices: []const u32,
+        vertices: []const DefaultVertex,
+        instances: u32,
+    ) !Self {
         const vertex_buffer = try renderer.vk_context.create_buffer(
             @sizeOf(DefaultVertex) * vertices.len,
             vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
@@ -62,8 +67,12 @@ pub const RenderMeshInfo = struct {
 
         const push_constants: MeshPushConstant = .{
             .view_proj = undefined,
-            .vertex_buffer_address = vertex_buffer.get_device_address(renderer.vk_context.logical_device.device),
-            .instance_info_buffer_address = instance_info_buffer.get_device_address(renderer.vk_context.logical_device.device),
+            .vertex_buffer_address = vertex_buffer.get_device_address(
+                renderer.vk_context.logical_device.device,
+            ),
+            .instance_info_buffer_address = instance_info_buffer.get_device_address(
+                renderer.vk_context.logical_device.device,
+            ),
         };
 
         return .{
@@ -84,7 +93,9 @@ pub const RenderMeshInfo = struct {
 
     pub fn set_instance_info(self: *const RenderMeshInfo, index: u32, info: MeshInfo) void {
         var info_slice: []MeshInfo = undefined;
-        info_slice.ptr = @alignCast(@ptrCast(self.instance_info_buffer.allocation_info.pMappedData));
+        info_slice.ptr = @alignCast(
+            @ptrCast(self.instance_info_buffer.allocation_info.pMappedData),
+        );
         info_slice.len = self.num_instances;
         info_slice[index] = info;
     }
@@ -134,7 +145,13 @@ pub const MeshPipeline = struct {
             .pImageInfo = &desc_image_info,
         };
         const updates = [_]vk.VkWriteDescriptorSet{mesh_desc_set_update};
-        vk.vkUpdateDescriptorSets(renderer.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
+        vk.vkUpdateDescriptorSets(
+            renderer.vk_context.logical_device.device,
+            updates.len,
+            @ptrCast(&updates),
+            0,
+            null,
+        );
 
         return .{
             .pipeline = pipeline,
@@ -151,7 +168,11 @@ pub const MeshPipeline = struct {
         frame_context: *const FrameContext,
         bundles: []const Bundle,
     ) void {
-        vk.vkCmdBindPipeline(frame_context.command.cmd, vk.VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline.pipeline);
+        vk.vkCmdBindPipeline(
+            frame_context.command.cmd,
+            vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            self.pipeline.pipeline,
+        );
         vk.vkCmdBindDescriptorSets(
             frame_context.command.cmd,
             vk.VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -171,8 +192,20 @@ pub const MeshPipeline = struct {
                 @sizeOf(MeshPushConstant),
                 &bundle[0].push_constants,
             );
-            vk.vkCmdBindIndexBuffer(frame_context.command.cmd, bundle[0].index_buffer.buffer, 0, vk.VK_INDEX_TYPE_UINT32);
-            vk.vkCmdDrawIndexed(frame_context.command.cmd, bundle[0].num_indices, bundle[1], 0, 0, 0);
+            vk.vkCmdBindIndexBuffer(
+                frame_context.command.cmd,
+                bundle[0].index_buffer.buffer,
+                0,
+                vk.VK_INDEX_TYPE_UINT32,
+            );
+            vk.vkCmdDrawIndexed(
+                frame_context.command.cmd,
+                bundle[0].num_indices,
+                bundle[1],
+                0,
+                0,
+                0,
+            );
         }
     }
 };

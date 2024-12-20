@@ -84,7 +84,10 @@ pub fn init(
 
         for (0..16) |x| {
             for (0..16) |y| {
-                buffer_slice[y * 16 + x] = if ((x % 2) ^ (y % 2) != 0) Color.MAGENTA else Color.GREY;
+                buffer_slice[y * 16 + x] = if ((x % 2) ^ (y % 2) != 0)
+                    Color.MAGENTA
+                else
+                    Color.GREY;
             }
         }
 
@@ -105,7 +108,10 @@ pub fn init(
             },
         );
     }
-    const debug_sampler = try vk_context.create_sampler(vk.VK_FILTER_NEAREST, vk.VK_FILTER_NEAREST);
+    const debug_sampler = try vk_context.create_sampler(
+        vk.VK_FILTER_NEAREST,
+        vk.VK_FILTER_NEAREST,
+    );
 
     return .{
         .window_width = width,
@@ -123,7 +129,10 @@ pub fn init(
 
 pub fn deinit(self: *Self, memory: *Memory) void {
     vk.vkDestroySampler(self.vk_context.logical_device.device, self.debug_sampler, null);
-    self.debug_texture.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
+    self.debug_texture.deinit(
+        self.vk_context.logical_device.device,
+        self.vk_context.vma_allocator,
+    );
 
     self.immediate_command.deinit(self.vk_context.logical_device.device);
     for (&self.commands) |*c| {
@@ -157,7 +166,8 @@ pub fn delete_texture(self: *Self, texture: *const GpuImage) void {
 }
 
 pub fn upload_texture_image(self: *Self, texture: *const GpuImage, image: *const Image) !void {
-    if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= texture.format and texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and
+    if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= texture.format and
+        texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and
         image.channels != 4)
     {
         return error.TextureAndImageIncopatibleChannelDepth;

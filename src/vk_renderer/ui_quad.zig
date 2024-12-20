@@ -45,7 +45,9 @@ pub const RenderUiQuadInfo = struct {
         );
 
         const push_constants: UiQuadPushConstant = .{
-            .buffer_address = instance_info_buffer.get_device_address(renderer.vk_context.logical_device.device),
+            .buffer_address = instance_info_buffer.get_device_address(
+                renderer.vk_context.logical_device.device,
+            ),
         };
 
         return .{
@@ -61,7 +63,9 @@ pub const RenderUiQuadInfo = struct {
 
     pub fn set_instance_info(self: *const RenderUiQuadInfo, index: u32, info: UiQuadInfo) void {
         var info_slice: []UiQuadInfo = undefined;
-        info_slice.ptr = @alignCast(@ptrCast(self.instance_info_buffer.allocation_info.pMappedData));
+        info_slice.ptr = @alignCast(
+            @ptrCast(self.instance_info_buffer.allocation_info.pMappedData),
+        );
         info_slice.len = self.num_instances;
         info_slice[index] = info;
     }
@@ -127,7 +131,13 @@ pub const UiQuadPipeline = struct {
             .pImageInfo = &desc_image_info,
         };
         const updates = [_]vk.VkWriteDescriptorSet{ color_desc_set_update, font_desc_set_update };
-        vk.vkUpdateDescriptorSets(renderer.vk_context.logical_device.device, updates.len, @ptrCast(&updates), 0, null);
+        vk.vkUpdateDescriptorSets(
+            renderer.vk_context.logical_device.device,
+            updates.len,
+            @ptrCast(&updates),
+            0,
+            null,
+        );
 
         return .{
             .pipeline = pipeline,

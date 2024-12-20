@@ -132,7 +132,12 @@ const ScratchAllocator = struct {
         const len: u32 = @intCast(l);
 
         const p_align = @as(usize, 1) << @as(Allocator.Log2Align, @intCast(ptr_align));
-        const adjust_off: u32 = @intCast(std.mem.alignPointerOffset(self.mem.ptr + self.end, p_align) orelse return null);
+        const adjust_off: u32 = @intCast(
+            std.mem.alignPointerOffset(
+                self.mem.ptr + self.end,
+                p_align,
+            ) orelse return null,
+        );
         const adjusted_index = self.end + adjust_off;
         const new_end = adjusted_index + len;
 

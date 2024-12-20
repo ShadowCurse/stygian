@@ -4,7 +4,14 @@ const sdl = @import("bindings/sdl.zig");
 
 const Memory = @import("memory.zig");
 const RuntimeWatch = @import("platform/posix.zig").RuntimeWatch;
-const RuntimeFn = *fn (*sdl.SDL_Window, [*]sdl.SDL_Event, usize, *Memory, f32, ?*anyopaque) *anyopaque;
+const RuntimeFn = *fn (
+    *sdl.SDL_Window,
+    [*]sdl.SDL_Event,
+    usize,
+    *Memory,
+    f32,
+    ?*anyopaque,
+) *anyopaque;
 
 const RUNTIME_LIB_PATH = "./zig-out/lib/libstygian_runtime.so";
 const WINDOW_WIDTH = 1280;
