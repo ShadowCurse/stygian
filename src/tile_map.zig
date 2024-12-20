@@ -1,8 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 
-const MEMORY = &@import("memory.zig").MEMORY;
-
+const Memory = @import("memory.zig");
 const VkRenderer = @import("vk_renderer/renderer.zig");
 const FrameContext = VkRenderer.FrameContext;
 
@@ -36,8 +35,8 @@ mesh: RenderMeshInfo,
 map: [WIDTH][HEIGHT]TileType,
 meshes_set: u32,
 
-pub fn init(renderer: *VkRenderer) !Self {
-    const pipeline = try MeshPipeline.init(renderer);
+pub fn init(memory: *Memory, renderer: *VkRenderer) !Self {
+    const pipeline = try MeshPipeline.init(memory, renderer);
     const mesh = try RenderMeshInfo.init(renderer, &CubeMesh.indices, &CubeMesh.vertices, WIDTH * HEIGHT);
 
     return .{

@@ -20,21 +20,27 @@ frame_allocator: FixedBufferAllocator,
 scratch_allocator: ScratchAllocator,
 
 const Self = @This();
-pub var MEMORY: Self = undefined;
 
-pub fn init(self: *Self) !void {
-    self.game_allocator = GeneralPurposeAllocator{};
-    self.game_allocator.setRequestedMemoryLimit(GAME_MEMORY_SIZE);
+pub fn init() !Self {
+    var game_allocator = GeneralPurposeAllocator{};
+    game_allocator.setRequestedMemoryLimit(GAME_MEMORY_SIZE);
 
     const prot = std.os.linux.PROT.READ | std.os.linux.PROT.WRITE;
     const flags = std.os.linux.MAP{
         .TYPE = .PRIVATE,
         .ANONYMOUS = true,
     };
-    self.frame_buffer = try std.posix.mmap(null, FRAME_MEMORY_SIZE, prot, flags, 0, 0);
-    self.frame_allocator = std.heap.FixedBufferAllocator.init(self.frame_buffer);
+    const frame_buffer = try std.posix.mmap(null, FRAME_MEMORY_SIZE, prot, flags, 0, 0);
+    const frame_allocator = std.heap.FixedBufferAllocator.init(frame_buffer);
 
-    self.scratch_allocator = try ScratchAllocator.init(SCRATCH_MEMORY_SIZE);
+    const scratch_allocator = try ScratchAllocator.init(SCRATCH_MEMORY_SIZE);
+
+    return .{
+        .game_allocator = game_allocator,
+        .frame_buffer = frame_buffer,
+        .frame_allocator = frame_allocator,
+        .scratch_allocator = scratch_allocator,
+    };
 }
 
 pub fn deinit(self: *Self) void {

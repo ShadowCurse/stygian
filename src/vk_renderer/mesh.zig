@@ -4,6 +4,7 @@ const vk = @import("../bindings/vulkan.zig");
 const VkRenderer = @import("renderer.zig");
 const FrameContext = VkRenderer.FrameContext;
 
+const Memory = @import("../memory.zig");
 const GpuBuffer = @import("gpu_buffer.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
 
@@ -94,8 +95,9 @@ pub const MeshPipeline = struct {
 
     const Self = @This();
 
-    pub fn init(renderer: *VkRenderer) !Self {
+    pub fn init(memory: *Memory, renderer: *VkRenderer) !Self {
         const pipeline = try renderer.vk_context.create_pipeline(
+            memory,
             &.{
                 .{
                     .binding = 0,

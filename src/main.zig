@@ -8,7 +8,7 @@ const Font = @import("font.zig").Font;
 const FontInfo = @import("font.zig").FontInfo;
 const UiText = @import("font.zig").UiText;
 
-const MEMORY = &@import("memory.zig").MEMORY;
+const Memory = @import("memory.zig");
 const VkRenderer = @import("vk_renderer/renderer.zig");
 
 const _ui_quad = @import("vk_renderer/ui_quad.zig");
@@ -40,20 +40,20 @@ const FPS = 60.0;
 const FRAME_TIME = 1.0 / FPS;
 
 pub fn main() !void {
-    try MEMORY.init();
+    var memory = try Memory.init();
 
     log.info(@src(), "info log", .{});
     log.debug(@src(), "debug log", .{});
     log.warn(@src(), "warn log", .{});
     log.err(@src(), "err log", .{});
 
-    var renderer = try VkRenderer.init(WINDOW_WIDTH, WINDOW_HEIGHT);
-    defer renderer.deinit();
+    var renderer = try VkRenderer.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
+    defer renderer.deinit(&memory);
 
-    const ui_quad_pipeline = try UiQuadPipeline.init(&renderer);
+    const ui_quad_pipeline = try UiQuadPipeline.init(&memory, &renderer);
     defer ui_quad_pipeline.deinit(&renderer);
 
-    const mesh_pipeline = try MeshPipeline.init(&renderer);
+    const mesh_pipeline = try MeshPipeline.init(&memory, &renderer);
     defer mesh_pipeline.deinit(&renderer);
 
     var cube_mesh = try RenderMeshInfo.init(&renderer, &CubeMesh.indices, &CubeMesh.vertices, 2);
@@ -76,8 +76,8 @@ pub fn main() !void {
     defer font.deinit(&renderer);
     ui_quad_pipeline.set_font_texture(&renderer, font.texture.view, renderer.debug_sampler);
 
-    const font_info = try FontInfo.init("assets/font.json");
-    defer font_info.deinit();
+    const font_info = try FontInfo.init(&memory, "assets/font.json");
+    defer font_info.deinit(&memory);
 
     var frame_time_text = try UiText.init(&renderer, 32);
     defer frame_time_text.deinit(&renderer);
@@ -85,19 +85,19 @@ pub fn main() !void {
     var frame_alloc_text = try UiText.init(&renderer, 32);
     defer frame_alloc_text.deinit(&renderer);
 
-    var tile_map = try TileMap.init(&renderer);
+    var tile_map = try TileMap.init(&memory, &renderer);
     defer tile_map.deini(&renderer);
 
     var camera_controller = CameraController{};
 
-    log.info(@src(), "game alloc usage: {}", .{MEMORY.game_allocator.total_requested_bytes});
-    log.info(@src(), "frame alloc usage: {}", .{MEMORY.frame_allocator.end_index});
-    log.info(@src(), "scratch alloc total allocated: {}", .{MEMORY.scratch_allocator.total_allocated});
+    log.info(@src(), "game alloc usage: {}", .{memory.game_allocator.total_requested_bytes});
+    log.info(@src(), "frame alloc usage: {}", .{memory.frame_allocator.end_index});
+    log.info(@src(), "scratch alloc total allocated: {}", .{memory.scratch_allocator.total_allocated});
 
     var stop = false;
     var t = std.time.nanoTimestamp();
     while (!stop) {
-        defer MEMORY.reset_frame();
+        defer memory.reset_frame();
 
         const new_t = std.time.nanoTimestamp();
 
@@ -121,7 +121,7 @@ pub fn main() !void {
 
         frame_time_text.set_text(
             &font_info,
-            try std.fmt.allocPrint(MEMORY.frame_alloc(), "FPS: {d:.1} FT: {d:.3}s", .{ 1.0 / dt, dt }),
+            try std.fmt.allocPrint(memory.frame_alloc(), "FPS: {d:.1} FT: {d:.3}s", .{ 1.0 / dt, dt }),
             .{
                 .x = @floatFromInt(WINDOW_WIDTH),
                 .y = @floatFromInt(WINDOW_HEIGHT),
@@ -138,7 +138,7 @@ pub fn main() !void {
 
         frame_alloc_text.set_text(
             &font_info,
-            try std.fmt.allocPrint(MEMORY.frame_alloc(), "FM: {} bytes", .{MEMORY.frame_allocator.end_index}),
+            try std.fmt.allocPrint(memory.frame_alloc(), "FM: {} bytes", .{memory.frame_allocator.end_index}),
             .{
                 .x = @floatFromInt(WINDOW_WIDTH),
                 .y = @floatFromInt(WINDOW_HEIGHT),

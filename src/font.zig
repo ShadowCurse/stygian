@@ -1,7 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 
-const MEMORY = &@import("memory.zig").MEMORY;
+const Memory = @import("memory.zig");
 const Allocator = std.mem.Allocator;
 
 const _math = @import("math.zig");
@@ -74,9 +74,9 @@ pub const FontInfo = struct {
     height: u16,
     characters: []const CharInfo,
 
-    pub fn init(path: []const u8) !Self {
-        const game_allocator = MEMORY.game_alloc();
-        const scratch_alloc = MEMORY.scratch_alloc();
+    pub fn init(memory: *Memory, path: []const u8) !Self {
+        const game_allocator = memory.game_alloc();
+        const scratch_alloc = memory.scratch_alloc();
 
         var file = try std.fs.cwd().openFile(path, .{});
         defer file.close();
@@ -97,8 +97,8 @@ pub const FontInfo = struct {
         };
     }
 
-    pub fn deinit(self: *const Self) void {
-        const game_allocator = MEMORY.game_alloc();
+    pub fn deinit(self: *const Self, memory: *Memory) void {
+        const game_allocator = memory.game_alloc();
 
         game_allocator.free(self.name);
         game_allocator.free(self.characters);

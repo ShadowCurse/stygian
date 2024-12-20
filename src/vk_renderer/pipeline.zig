@@ -1,11 +1,11 @@
 const std = @import("std");
 const vk = @import("../bindings/vulkan.zig");
 
-const MEMORY = &@import("../memory.zig").MEMORY;
+const Memory = @import("../memory.zig");
 const Allocator = std.mem.Allocator;
 
-pub fn load_shader_module(device: vk.VkDevice, path: []const u8) !vk.VkShaderModule {
-    const scratch_alloc = MEMORY.scratch_alloc();
+pub fn load_shader_module(memory: *Memory, device: vk.VkDevice, path: []const u8) !vk.VkShaderModule {
+    const scratch_alloc = memory.scratch_alloc();
 
     const file = try std.fs.cwd().openFile(path, .{});
     const meta = try file.metadata();
@@ -42,6 +42,7 @@ pub const Pipeline = struct {
     descriptor_set_layout: vk.VkDescriptorSetLayout,
 
     pub fn init(
+        memory: *Memory,
         device: vk.VkDevice,
         descriptor_pool: vk.VkDescriptorPool,
         bindings: []const vk.VkDescriptorSetLayoutBinding,
@@ -81,9 +82,9 @@ pub const Pipeline = struct {
             &descriptor_set,
         ));
 
-        const vertex_shader_module = try load_shader_module(device, vertex_shader_path);
+        const vertex_shader_module = try load_shader_module(memory, device, vertex_shader_path);
         defer vk.vkDestroyShaderModule(device, vertex_shader_module, null);
-        const fragment_shader_module = try load_shader_module(device, fragment_shader_path);
+        const fragment_shader_module = try load_shader_module(memory, device, fragment_shader_path);
         defer vk.vkDestroyShaderModule(device, fragment_shader_module, null);
 
         const layouts = [_]vk.VkDescriptorSetLayout{

@@ -4,6 +4,7 @@ const log = @import("../log.zig");
 const sdl = @import("../bindings/sdl.zig");
 const stb = @import("../bindings/stb.zig");
 
+const Memory = @import("../memory.zig");
 const Image = @import("../image.zig");
 const Color = @import("../color.zig").Color;
 
@@ -31,10 +32,11 @@ debug_texture: GpuImage,
 debug_sampler: vk.VkSampler,
 
 pub fn init(
+    memory: *Memory,
     width: u32,
     height: u32,
 ) !Self {
-    var vk_context = try VkContext.init(width, height);
+    var vk_context = try VkContext.init(memory, width, height);
 
     const draw_image = try vk_context.create_image(
         vk_context.swap_chain.extent.width,
@@ -118,7 +120,7 @@ pub fn init(
     };
 }
 
-pub fn deinit(self: *Self) void {
+pub fn deinit(self: *Self, memory: *Memory) void {
     vk.vkDestroySampler(self.vk_context.logical_device.device, self.debug_sampler, null);
     self.debug_texture.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
 
@@ -130,7 +132,7 @@ pub fn deinit(self: *Self) void {
     self.depth_image.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
     self.draw_image.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
 
-    self.vk_context.deinit();
+    self.vk_context.deinit(memory);
 }
 
 pub fn create_texture(self: *Self, width: u32, height: u32) !GpuImage {

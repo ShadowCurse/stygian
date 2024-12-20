@@ -3,13 +3,11 @@ const log = @import("../log.zig");
 const sdl = @import("../bindings/sdl.zig");
 const vk = @import("../bindings/vulkan.zig");
 
-const MEMORY = &@import("../memory.zig").MEMORY;
+const Memory = @import("../memory.zig");
 const GpuBuffer = @import("gpu_buffer.zig");
 const GpuImage = @import("gpu_image.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
 const BlendingType = @import("pipeline.zig").BlendingType;
-
-const Allocator = std.mem.Allocator;
 
 pub const TIMEOUT = std.math.maxInt(u64);
 const VK_VALIDATION_LAYERS_NAMES = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
@@ -30,6 +28,7 @@ commands: CommandPool,
 immediate_commands: CommandPool,
 
 pub fn init(
+    memory: *Memory,
     width: u32,
     height: u32,
 ) !Self {
@@ -50,7 +49,7 @@ pub fn init(
     };
     sdl.SDL_ShowWindow(window);
 
-    const instance = try Instance.init(window);
+    const instance = try Instance.init(memory, window);
     const debug_messanger = try DebugMessanger.init(instance.instance);
 
     // Casts are needed because SDL and vulkan imports same type,
@@ -61,8 +60,8 @@ pub fn init(
         return error.SDLCreateSurface;
     }
 
-    const physical_device = try PhysicalDevice.init(instance.instance, surface);
-    const logical_device = try LogicalDevice.init(&physical_device);
+    const physical_device = try PhysicalDevice.init(memory, instance.instance, surface);
+    const logical_device = try LogicalDevice.init(memory, &physical_device);
 
     const allocator_info = vk.VmaAllocatorCreateInfo{
         .instance = instance.instance,
@@ -73,7 +72,7 @@ pub fn init(
     var vma_allocator: vk.VmaAllocator = undefined;
     try vk.check_result(vk.vmaCreateAllocator(&allocator_info, &vma_allocator));
 
-    const swap_chain = try Swapchain.init(&logical_device, &physical_device, surface, window);
+    const swap_chain = try Swapchain.init(memory, &logical_device, &physical_device, surface, window);
 
     const descriptor_pool = try DescriptorPool.init(logical_device.device, &.{
         .{
@@ -108,14 +107,12 @@ pub fn init(
     };
 }
 
-pub fn deinit(self: *Self) void {
-    const game_allocator = MEMORY.game_alloc();
-
+pub fn deinit(self: *Self, memory: *Memory) void {
     self.descriptor_pool.deinit(self.logical_device.device);
     self.immediate_commands.deinit(self.logical_device.device);
     self.commands.deinit(self.logical_device.device);
     vk.vmaDestroyAllocator(self.vma_allocator);
-    self.swap_chain.deinit(self.logical_device.device, game_allocator);
+    self.swap_chain.deinit(memory, self.logical_device.device);
     self.logical_device.deinit();
     vk.vkDestroySurfaceKHR(self.instance.instance, self.surface, null);
     self.debug_messanger.deinit(self.instance.instance) catch {
@@ -171,6 +168,7 @@ pub fn queue_present(self: *const Self, present_info: *const vk.VkPresentInfoKHR
 
 pub fn create_pipeline(
     self: *Self,
+    memory: *Memory,
     bindings: []const vk.VkDescriptorSetLayoutBinding,
     push_constants: []const vk.VkPushConstantRange,
     vertex_shader_path: [:0]const u8,
@@ -180,6 +178,7 @@ pub fn create_pipeline(
     blending: BlendingType,
 ) !Pipeline {
     return try Pipeline.init(
+        memory,
         self.logical_device.device,
         self.descriptor_pool.pool,
         bindings,
@@ -248,8 +247,8 @@ pub fn create_render_command(self: *Self) !RenderCommand {
 const Instance = struct {
     instance: vk.VkInstance,
 
-    pub fn init(window: *sdl.SDL_Window) !Instance {
-        const scratch_alloc = MEMORY.scratch_alloc();
+    pub fn init(memory: *Memory, window: *sdl.SDL_Window) !Instance {
+        const scratch_alloc = memory.scratch_alloc();
 
         var sdl_extension_count: u32 = undefined;
         if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, null) != 1) {
@@ -438,8 +437,8 @@ const PhysicalDevice = struct {
     compute_queue_family: u32,
     transfer_queue_family: u32,
 
-    pub fn init(vk_instance: vk.VkInstance, vk_surface: vk.VkSurfaceKHR) !PhysicalDevice {
-        const scratch_alloc = MEMORY.scratch_alloc();
+    pub fn init(memory: *Memory, vk_instance: vk.VkInstance, vk_surface: vk.VkSurfaceKHR) !PhysicalDevice {
+        const scratch_alloc = memory.scratch_alloc();
 
         var physical_device_count: u32 = 0;
         try vk.check_result(vk.vkEnumeratePhysicalDevices(vk_instance, &physical_device_count, null));
@@ -534,8 +533,8 @@ const LogicalDevice = struct {
     compute_queue: vk.VkQueue,
     transfer_queue: vk.VkQueue,
 
-    pub fn init(physical_device: *const PhysicalDevice) !LogicalDevice {
-        const scratch_alloc = MEMORY.scratch_alloc();
+    pub fn init(memory: *Memory, physical_device: *const PhysicalDevice) !LogicalDevice {
+        const scratch_alloc = memory.scratch_alloc();
 
         const all_queue_family_indexes: [4]u32 = .{
             physical_device.graphics_queue_family,
@@ -636,13 +635,14 @@ const Swapchain = struct {
     extent: vk.VkExtent2D,
 
     pub fn init(
+        memory: *Memory,
         logical_device: *const LogicalDevice,
         physical_device: *const PhysicalDevice,
         surface: vk.VkSurfaceKHR,
         window: *sdl.SDL_Window,
     ) !Swapchain {
-        const game_alloc = MEMORY.game_alloc();
-        const scratch_alloc = MEMORY.scratch_alloc();
+        const game_alloc = memory.game_alloc();
+        const scratch_alloc = memory.scratch_alloc();
 
         var surface_capabilities: vk.VkSurfaceCapabilitiesKHR = undefined;
         try vk.check_result(vk.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &surface_capabilities));
@@ -755,13 +755,15 @@ const Swapchain = struct {
         return swap_chain;
     }
 
-    pub fn deinit(self: *const Swapchain, device: vk.VkDevice, allocator: Allocator) void {
+    pub fn deinit(self: *const Swapchain, memory: *Memory, device: vk.VkDevice) void {
+        const game_allocator = memory.game_alloc();
+
         for (self.image_views) |view| {
             vk.vkDestroyImageView(device, view, null);
         }
         vk.vkDestroySwapchainKHR(device, self.swap_chain, null);
-        allocator.free(self.images);
-        allocator.free(self.image_views);
+        game_allocator.free(self.images);
+        game_allocator.free(self.image_views);
     }
 };
 
