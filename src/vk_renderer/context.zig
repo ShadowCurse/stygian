@@ -29,26 +29,8 @@ immediate_commands: CommandPool,
 
 pub fn init(
     memory: *Memory,
-    width: u32,
-    height: u32,
+    window: *sdl.SDL_Window,
 ) !Self {
-    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
-        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-        return error.SDLInit;
-    }
-    const window = sdl.SDL_CreateWindow(
-        "stygian",
-        sdl.SDL_WINDOWPOS_UNDEFINED,
-        sdl.SDL_WINDOWPOS_UNDEFINED,
-        @intCast(width),
-        @intCast(height),
-        sdl.SDL_WINDOW_VULKAN,
-    ) orelse {
-        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-        return error.SDLCreateWindow;
-    };
-    sdl.SDL_ShowWindow(window);
-
     const instance = try Instance.init(memory, window);
     const debug_messanger = try DebugMessanger.init(instance.instance);
 

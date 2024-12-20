@@ -47,7 +47,24 @@ pub fn main() !void {
     log.warn(@src(), "warn log", .{});
     log.err(@src(), "err log", .{});
 
-    var renderer = try VkRenderer.init(&memory, WINDOW_WIDTH, WINDOW_HEIGHT);
+    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
+        return error.SDLInit;
+    }
+    const window = sdl.SDL_CreateWindow(
+        "stygian",
+        sdl.SDL_WINDOWPOS_UNDEFINED,
+        sdl.SDL_WINDOWPOS_UNDEFINED,
+        WINDOW_WIDTH,
+        WINDOW_HEIGHT,
+        sdl.SDL_WINDOW_VULKAN,
+    ) orelse {
+        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
+        return error.SDLCreateWindow;
+    };
+    sdl.SDL_ShowWindow(window);
+
+    var renderer = try VkRenderer.init(&memory, window, WINDOW_WIDTH, WINDOW_HEIGHT);
     defer renderer.deinit(&memory);
 
     const ui_quad_pipeline = try UiQuadPipeline.init(&memory, &renderer);

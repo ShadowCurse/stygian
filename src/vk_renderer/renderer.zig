@@ -33,10 +33,11 @@ debug_sampler: vk.VkSampler,
 
 pub fn init(
     memory: *Memory,
+    window: *sdl.SDL_Window,
     width: u32,
     height: u32,
 ) !Self {
-    var vk_context = try VkContext.init(memory, width, height);
+    var vk_context = try VkContext.init(memory, window);
 
     const draw_image = try vk_context.create_image(
         vk_context.swap_chain.extent.width,
