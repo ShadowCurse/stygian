@@ -1,4 +1,4 @@
-const sdl = @import("sdl.zig");
+const sdl = @import("bindings/sdl.zig");
 
 const _math = @import("math.zig");
 const Vec3 = _math.Vec3;

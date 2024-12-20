@@ -1,13 +1,13 @@
 const std = @import("std");
+const vk = @import("../bindings/vulkan.zig");
 const log = @import("../log.zig");
-const vk = @import("../vulkan.zig");
-const sdl = @import("../sdl.zig");
-const stb = @import("../stb.zig");
+const sdl = @import("../bindings/sdl.zig");
+const stb = @import("../bindings/stb.zig");
 
 const Image = @import("../image.zig");
 const Color = @import("../color.zig").Color;
 
-const VkContext = @import("vk_context.zig");
+const VkContext = @import("context.zig");
 const RenderCommand = VkContext.RenderCommand;
 const ImmediateCommand = VkContext.ImmediateCommand;
 

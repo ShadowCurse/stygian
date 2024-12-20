@@ -1,7 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
-const vk = @import("vulkan.zig");
-const sdl = @import("sdl.zig");
+const sdl = @import("bindings/sdl.zig");
+const vk = @import("bindings/vulkan.zig");
 
 const Image = @import("image.zig");
 const Font = @import("font.zig").Font;
@@ -9,13 +9,13 @@ const FontInfo = @import("font.zig").FontInfo;
 const UiText = @import("font.zig").UiText;
 
 const MEMORY = &@import("memory.zig").MEMORY;
-const VkRenderer = @import("render/vk_renderer.zig");
+const VkRenderer = @import("vk_renderer/renderer.zig");
 
-const _ui_quad = @import("render/ui_quad.zig");
+const _ui_quad = @import("vk_renderer/ui_quad.zig");
 const UiQuadPipeline = _ui_quad.UiQuadPipeline;
 const RenderUiQuadInfo = _ui_quad.RenderUiQuadInfo;
 
-const _render_mesh = @import("render/mesh.zig");
+const _render_mesh = @import("vk_renderer/mesh.zig");
 const MeshPipeline = _render_mesh.MeshPipeline;
 const RenderMeshInfo = _render_mesh.RenderMeshInfo;
 
@@ -89,7 +89,6 @@ pub fn main() !void {
     defer tile_map.deini(&renderer);
 
     var camera_controller = CameraController{};
-    camera_controller.position.z = 0.0;
 
     log.info(@src(), "game alloc usage: {}", .{MEMORY.game_allocator.total_requested_bytes});
     log.info(@src(), "frame alloc usage: {}", .{MEMORY.frame_allocator.end_index});

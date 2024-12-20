@@ -1,4 +1,4 @@
-const vk = @import("../vulkan.zig");
+const vk = @import("../bindings/vulkan.zig");
 
 const Self = @This();
 

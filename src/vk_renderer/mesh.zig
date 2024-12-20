@@ -1,7 +1,7 @@
 const std = @import("std");
-const vk = @import("../vulkan.zig");
+const vk = @import("../bindings/vulkan.zig");
 
-const VkRenderer = @import("vk_renderer.zig");
+const VkRenderer = @import("renderer.zig");
 const FrameContext = VkRenderer.FrameContext;
 
 const GpuBuffer = @import("gpu_buffer.zig");

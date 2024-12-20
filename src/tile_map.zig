@@ -3,10 +3,10 @@ const log = @import("log.zig");
 
 const MEMORY = &@import("memory.zig").MEMORY;
 
-const VkRenderer = @import("render/vk_renderer.zig");
+const VkRenderer = @import("vk_renderer/renderer.zig");
 const FrameContext = VkRenderer.FrameContext;
 
-const _render_mesh = @import("render/mesh.zig");
+const _render_mesh = @import("vk_renderer/mesh.zig");
 const MeshPipeline = _render_mesh.MeshPipeline;
 const RenderMeshInfo = _render_mesh.RenderMeshInfo;
 

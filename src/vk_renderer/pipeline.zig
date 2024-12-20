@@ -1,5 +1,5 @@
 const std = @import("std");
-const vk = @import("../vulkan.zig");
+const vk = @import("../bindings/vulkan.zig");
 
 const MEMORY = &@import("../memory.zig").MEMORY;
 const Allocator = std.mem.Allocator;

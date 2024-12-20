@@ -1,5 +1,5 @@
 const std = @import("std");
-const log = @import("log.zig");
+const log = @import("../log.zig");
 
 const vk = @cImport({
     @cInclude("vulkan/vulkan.h");

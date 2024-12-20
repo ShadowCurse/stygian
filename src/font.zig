@@ -8,9 +8,9 @@ const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
 
 const Image = @import("image.zig");
-const GpuImage = @import("render/gpu_image.zig");
-const VkRenderer = @import("render/vk_renderer.zig");
-const RenderUiQuadInfo = @import("render/ui_quad.zig").RenderUiQuadInfo;
+const GpuImage = @import("vk_renderer/gpu_image.zig");
+const VkRenderer = @import("vk_renderer/renderer.zig");
+const RenderUiQuadInfo = @import("vk_renderer/ui_quad.zig").RenderUiQuadInfo;
 
 pub const Font = struct {
     const Self = @This();

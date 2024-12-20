@@ -1,5 +1,5 @@
 const log = @import("log.zig");
-const stb = @import("stb.zig");
+const stb = @import("bindings/stb.zig");
 
 width: u32,
 height: u32,

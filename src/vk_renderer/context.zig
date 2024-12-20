@@ -1,7 +1,7 @@
 const std = @import("std");
 const log = @import("../log.zig");
-const sdl = @import("../sdl.zig");
-const vk = @import("../vulkan.zig");
+const sdl = @import("../bindings/sdl.zig");
+const vk = @import("../bindings/vulkan.zig");
 
 const MEMORY = &@import("../memory.zig").MEMORY;
 const GpuBuffer = @import("gpu_buffer.zig");
