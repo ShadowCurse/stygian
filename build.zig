@@ -53,34 +53,7 @@ pub fn build(b: *std.Build) !void {
     runtime.linkLibCpp();
     b.installArtifact(runtime);
 
-    const exe = b.addExecutable(.{
-        .name = "stygian",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    exe.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
-    exe.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
-
-    exe.addIncludePath(b.path("thirdparty/vma"));
-    exe.addIncludePath(b.path("thirdparty/stb"));
-    exe.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
-    exe.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
-
-    exe.linkSystemLibrary("SDL2");
-    exe.linkSystemLibrary("vulkan");
-    exe.linkLibCpp();
-
-    // This declares intent for the executable to be installed into the
-    // standard location when the user invokes the "install" step (the default
-    // step when running `zig build`).
-    b.installArtifact(exe);
-
-    // This *creates* a Run step in the build graph, to be executed when another
-    // step is evaluated that depends on it. The next line below will establish
-    // such a dependency.
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(platform);
 
     if (b.option(bool, "X11", "Use X11 backend") == null) {
         run_cmd.setEnvironmentVariable("SDL_VIDEODRIVER", "wayland");
