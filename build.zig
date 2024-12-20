@@ -23,6 +23,36 @@ pub fn build(b: *std.Build) !void {
     var env_map = try std.process.getEnvMap(b.allocator);
     defer env_map.deinit();
 
+    const platform = b.addExecutable(.{
+        .name = "stygian_platform",
+        .root_source_file = b.path("src/platform_main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    platform.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
+    platform.linkSystemLibrary("SDL2");
+    platform.linkLibC();
+    b.installArtifact(platform);
+
+    const runtime = b.addSharedLibrary(.{
+        .name = "stygian_runtime",
+        .root_source_file = b.path("src/runtime_main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
+    runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
+
+    runtime.addIncludePath(b.path("thirdparty/vma"));
+    runtime.addIncludePath(b.path("thirdparty/stb"));
+    runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
+    runtime.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
+
+    runtime.linkSystemLibrary("SDL2");
+    runtime.linkSystemLibrary("vulkan");
+    runtime.linkLibCpp();
+    b.installArtifact(runtime);
+
     const exe = b.addExecutable(.{
         .name = "stygian",
         .root_source_file = b.path("src/main.zig"),
