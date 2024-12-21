@@ -53,7 +53,7 @@ const Runtime = struct {
 
     tile_map: TileMap,
 
-    camera_controller: CameraController = .{},
+    camera_controller: CameraController,
 
     const Self = @This();
 
@@ -106,6 +106,8 @@ const Runtime = struct {
         self.frame_time_text = try UiText.init(&self.renderer, 32);
         self.frame_alloc_text = try UiText.init(&self.renderer, 32);
         self.tile_map = try TileMap.init(memory, &self.renderer);
+
+        self.camera_controller = CameraController.init();
     }
 };
 
@@ -175,27 +177,21 @@ export fn runtime_main(
             },
         );
 
-        const view = runtime.camera_controller.view_matrix();
-        var projection = Mat4.perspective(
+        const camera_transform = runtime.camera_controller.transform();
+        const projection = Mat4.perspective(
             std.math.degreesToRadians(70.0),
             @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(height)),
-            10000.0,
             0.1,
+            10000.0,
         );
-        projection.j.y *= -1.0;
-
-        runtime.cube_mesh.push_constants.view_proj = view.mul(projection);
+        runtime.cube_mesh.push_constants.view_proj = projection.mul(camera_transform.inverse());
         runtime.tile_map.update(runtime.cube_mesh.push_constants.view_proj);
 
         const A = struct {
             var a: f32 = 0.0;
         };
         A.a += dt;
-        var ct = Mat4.rotation(
-            Vec3.Y,
-            A.a,
-        );
-        ct = ct.translate(.{ .y = 2.0 });
+        const ct = Mat4.rotation_z(A.a);
         runtime.cube_mesh.set_instance_info(0, .{
             .transform = ct,
         });

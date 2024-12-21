@@ -19,8 +19,11 @@ pub const Vec3 = extern struct {
     z: f32 = 0.0,
 
     pub const X: Vec3 = .{ .x = 1.0 };
+    pub const NEG_X: Vec3 = .{ .x = -1.0 };
     pub const Y: Vec3 = .{ .y = 1.0 };
+    pub const NEG_Y: Vec3 = .{ .y = -1.0 };
     pub const Z: Vec3 = .{ .z = 1.0 };
+    pub const NEG_Z: Vec3 = .{ .z = -1.0 };
 
     pub inline fn extend(self: Vec3, w: f32) Vec4 {
         return .{ .x = self.x, .y = self.y, .z = self.z, .w = w };
@@ -34,11 +37,19 @@ pub const Vec3 = extern struct {
         };
     }
 
-    pub inline fn squared_norm(self: Vec3) f32 {
-        return self.x * self.x + self.y * self.y + self.z * self.z;
+    pub inline fn sub(self: Vec3, other: Vec3) Vec3 {
+        return .{
+            .x = self.x - other.x,
+            .y = self.y - other.y,
+            .z = self.z - other.z,
+        };
     }
 
-    pub inline fn mul(self: Vec3, n: f32) Vec3 {
+    pub inline fn len_squared(self: Vec3) f32 {
+        return self.dot(self);
+    }
+
+    pub inline fn mul_f32(self: Vec3, n: f32) Vec3 {
         return .{
             .x = self.x * n,
             .y = self.y * n,
@@ -56,6 +67,14 @@ pub const Vec3 = extern struct {
 
     pub inline fn dot(self: Vec3, other: Vec3) f32 {
         return self.x * other.x + self.y * other.y + self.z * other.z;
+    }
+
+    pub inline fn cross(self: Vec3, other: Vec3) Vec3 {
+        return .{
+            .x = self.y * other.z - self.z * other.y,
+            .y = self.z * other.x - self.x * other.z,
+            .z = self.x * other.y - self.y * other.x,
+        };
     }
 };
 
@@ -101,6 +120,17 @@ pub const Vec4 = extern struct {
     pub inline fn dot(self: Vec4, other: Vec4) f32 {
         return self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w;
     }
+
+    pub inline fn mul_mat4(self: Vec4, m: Mat4) Vec4 {
+        return .{
+            .x = m.i.dot(self),
+            .y = m.j.dot(self),
+            .z = m.k.dot(self),
+            .w = m.t.dot(self),
+        };
+    }
+};
+
 pub const Quat = struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
@@ -250,6 +280,12 @@ pub const Quat = struct {
     }
 };
 
+// Column based 4x4 matrix:
+//  i   j   k   t
+// |i.x|j.x|k.x|t.x|
+// |i.y|j.y|k.y|t.y|
+// |i.z|j.z|k.z|t.z|
+// |i.w|j.w|k.w|t.w|
 pub const Mat4 = extern struct {
     i: Vec4 = .{},
     j: Vec4 = .{},
@@ -277,46 +313,64 @@ pub const Mat4 = extern struct {
     }
 
     pub fn perspective(fovy: f32, aspect: f32, near: f32, far: f32) Mat4 {
-        const f = 1.0 / @tan(fovy / 2.0);
+        const g = 1.0 / @tan(fovy / 2.0);
+        const k = near / (near - far);
         return .{
-            .i = .{ .x = f / aspect },
-            .j = .{ .y = f },
-            .k = .{ .z = far / (near - far), .w = -1.0 },
-            .t = .{ .z = -(far * near) / (far - near), .w = 0.0 },
+            .i = .{ .x = g / aspect },
+            .j = .{ .y = g },
+            .k = .{ .z = k, .w = 1.0 },
+            .t = .{ .z = -far * k },
         };
     }
 
+    pub fn rotation_x(angle: f32) Mat4 {
+        const c = @cos(angle);
+        const s = @sin(angle);
+        return .{
+            .i = .{ .x = 1.0, .y = 0.0, .z = 0.0, .w = 0.0 },
+            .j = .{ .x = 0.0, .y = c, .z = s, .w = 0.0 },
+            .k = .{ .x = 0.0, .y = -s, .z = c, .w = 0.0 },
+            .t = .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0 },
+        };
+    }
+
+    pub fn rotation_y(angle: f32) Mat4 {
+        const c = @cos(angle);
+        const s = @sin(angle);
+        return .{
+            .i = .{ .x = c, .y = 0.0, .z = -s, .w = 0.0 },
+            .j = .{ .x = 0.0, .y = 1.0, .z = 0.0, .w = 0.0 },
+            .k = .{ .x = s, .y = 0.0, .z = c, .w = 0.0 },
+            .t = .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0 },
+        };
+    }
+
+    pub fn rotation_z(angle: f32) Mat4 {
+        const c = @cos(angle);
+        const s = @sin(angle);
+        return .{
+            .i = .{ .x = c, .y = s, .z = 0.0, .w = 0.0 },
+            .j = .{ .x = -s, .y = c, .z = 0.0, .w = 0.0 },
+            .k = .{ .x = 0.0, .y = 0.0, .z = 1.0, .w = 0.0 },
+            .t = .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0 },
+        };
+    }
+
+    // Assume axis is normalized
     pub fn rotation(axis: Vec3, angle: f32) Mat4 {
         const c = @cos(angle);
         const s = @sin(angle);
-        const t = 1.0 - c;
-
-        const sqr_norm = axis.squared_norm();
-        if (sqr_norm == 0.0) {
-            return Mat4.IDENDITY;
-        } else if (@abs(sqr_norm - 1.0) > 0.0001) {
-            const norm = @sqrt(sqr_norm);
-            return rotation(axis.div(norm), angle);
-        }
+        const d = 1.0 - c;
 
         const x = axis.x;
         const y = axis.y;
         const z = axis.z;
 
         return .{
-            .i = .{ .x = x * x * t + c, .y = y * x * t + z * s, .z = z * x * t - y * s, .w = 0.0 },
-            .j = .{ .x = x * y * t - z * s, .y = y * y * t + c, .z = z * y * t + x * s, .w = 0.0 },
-            .k = .{ .x = x * z * t + y * s, .y = y * z * t - x * s, .z = z * z * t + c, .w = 0.0 },
+            .i = .{ .x = x * x * d + c, .y = y * x * d + z * s, .z = z * x * d - y * s, .w = 0.0 },
+            .j = .{ .x = x * y * d - z * s, .y = y * y * d + c, .z = z * y * d + x * s, .w = 0.0 },
+            .k = .{ .x = x * z * d + y * s, .y = y * z * d - x * s, .z = z * z * d + c, .w = 0.0 },
             .t = .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0 },
-        };
-    }
-
-    pub inline fn mul_vec4(self: Mat4, v: Vec4) Vec4 {
-        return .{
-            .x = self.i.dot(v),
-            .y = self.j.dot(v),
-            .z = self.k.dot(v),
-            .w = self.t.dot(v),
         };
     }
 
@@ -329,32 +383,78 @@ pub const Mat4 = extern struct {
         };
     }
 
+    pub inline fn mul_vec4(self: Mat4, v4: Vec4) Vec4 {
+        return .{
+            .x = self.i.x * v4.x + self.j.x * v4.y + self.k.x * v4.z + self.t.x * v4.w,
+            .y = self.i.y * v4.x + self.j.y * v4.y + self.k.y * v4.z + self.t.y * v4.w,
+            .z = self.i.z * v4.x + self.j.z * v4.y + self.k.z * v4.z + self.t.z * v4.w,
+            .w = self.i.w * v4.x + self.j.w * v4.y + self.k.w * v4.z + self.t.w * v4.w,
+        };
+    }
+
+    // Self * Other in this order
     pub fn mul(self: Mat4, other: Mat4) Mat4 {
         return .{
             .i = .{
-                .x = self.i.x * other.i.x + self.i.y * other.j.x + self.i.z * other.k.x + self.i.w * other.t.x,
-                .y = self.i.x * other.i.y + self.i.y * other.j.y + self.i.z * other.k.y + self.i.w * other.t.y,
-                .z = self.i.x * other.i.z + self.i.y * other.j.z + self.i.z * other.k.z + self.i.w * other.t.z,
-                .w = self.i.x * other.i.w + self.i.y * other.j.w + self.i.z * other.k.w + self.i.w * other.t.w,
+                .x = other.i.x * self.i.x + other.i.y * self.j.x + other.i.z * self.k.x + other.i.w * self.t.x,
+                .y = other.i.x * self.i.y + other.i.y * self.j.y + other.i.z * self.k.y + other.i.w * self.t.y,
+                .z = other.i.x * self.i.z + other.i.y * self.j.z + other.i.z * self.k.z + other.i.w * self.t.z,
+                .w = other.i.x * self.i.w + other.i.y * self.j.w + other.i.z * self.k.w + other.i.w * self.t.w,
             },
             .j = .{
-                .x = self.j.x * other.i.x + self.j.y * other.j.x + self.j.z * other.k.x + self.j.w * other.t.x,
-                .y = self.j.x * other.i.y + self.j.y * other.j.y + self.j.z * other.k.y + self.j.w * other.t.y,
-                .z = self.j.x * other.i.z + self.j.y * other.j.z + self.j.z * other.k.z + self.j.w * other.t.z,
-                .w = self.j.x * other.i.w + self.j.y * other.j.w + self.j.z * other.k.w + self.j.w * other.t.w,
+                .x = other.j.x * self.i.x + other.j.y * self.j.x + other.j.z * self.k.x + other.j.w * self.t.x,
+                .y = other.j.x * self.i.y + other.j.y * self.j.y + other.j.z * self.k.y + other.j.w * self.t.y,
+                .z = other.j.x * self.i.z + other.j.y * self.j.z + other.j.z * self.k.z + other.j.w * self.t.z,
+                .w = other.j.x * self.i.w + other.j.y * self.j.w + other.j.z * self.k.w + other.j.w * self.t.w,
             },
             .k = .{
-                .x = self.k.x * other.i.x + self.k.y * other.j.x + self.k.z * other.k.x + self.k.w * other.t.x,
-                .y = self.k.x * other.i.y + self.k.y * other.j.y + self.k.z * other.k.y + self.k.w * other.t.y,
-                .z = self.k.x * other.i.z + self.k.y * other.j.z + self.k.z * other.k.z + self.k.w * other.t.z,
-                .w = self.k.x * other.i.w + self.k.y * other.j.w + self.k.z * other.k.w + self.k.w * other.t.w,
+                .x = other.k.x * self.i.x + other.k.y * self.j.x + other.k.z * self.k.x + other.k.w * self.t.x,
+                .y = other.k.x * self.i.y + other.k.y * self.j.y + other.k.z * self.k.y + other.k.w * self.t.y,
+                .z = other.k.x * self.i.z + other.k.y * self.j.z + other.k.z * self.k.z + other.k.w * self.t.z,
+                .w = other.k.x * self.i.w + other.k.y * self.j.w + other.k.z * self.k.w + other.k.w * self.t.w,
             },
             .t = .{
-                .x = self.t.x * other.i.x + self.t.y * other.j.x + self.t.z * other.k.x + self.t.w * other.t.x,
-                .y = self.t.x * other.i.y + self.t.y * other.j.y + self.t.z * other.k.y + self.t.w * other.t.y,
-                .z = self.t.x * other.i.z + self.t.y * other.j.z + self.t.z * other.k.z + self.t.w * other.t.z,
-                .w = self.t.x * other.i.w + self.t.y * other.j.w + self.t.z * other.k.w + self.t.w * other.t.w,
+                .x = other.t.x * self.i.x + other.t.y * self.j.x + other.t.z * self.k.x + other.t.w * self.t.x,
+                .y = other.t.x * self.i.y + other.t.y * self.j.y + other.t.z * self.k.y + other.t.w * self.t.y,
+                .z = other.t.x * self.i.z + other.t.y * self.j.z + other.t.z * self.k.z + other.t.w * self.t.z,
+                .w = other.t.x * self.i.w + other.t.y * self.j.w + other.t.z * self.k.w + other.t.w * self.t.w,
             },
+        };
+    }
+
+    // Assuming last row is 0,0,0,1
+    pub inline fn inverse(self: Mat4) Mat4 {
+        const a = self.i.shrink();
+        const b = self.j.shrink();
+        const c = self.k.shrink();
+        const d = self.t.shrink();
+
+        const x = self.i.w;
+        const y = self.j.w;
+        const z = self.k.w;
+        const w = self.t.w;
+
+        var s = a.cross(b);
+        var t = c.cross(d);
+        var u = a.mul_f32(y).sub(b.mul_f32(x));
+        var v = c.mul_f32(w).sub(d.mul_f32(z));
+
+        const inv_det = 1.0 / (s.dot(v) + t.dot(u));
+        s = s.mul_f32(inv_det);
+        t = t.mul_f32(inv_det);
+        u = u.mul_f32(inv_det);
+        v = v.mul_f32(inv_det);
+
+        const r0 = b.cross(v).add(t.mul_f32(y));
+        const r1 = v.cross(a).sub(t.mul_f32(x));
+        const r2 = d.cross(u).add(s.mul_f32(w));
+        const r3 = u.cross(c).sub(s.mul_f32(z));
+
+        return .{
+            .i = .{ .x = r0.x, .y = r1.x, .z = r2.x, .w = r3.x },
+            .j = .{ .x = r0.y, .y = r1.y, .z = r2.y, .w = r3.y },
+            .k = .{ .x = r0.z, .y = r1.z, .z = r2.z, .w = r3.z },
+            .t = .{ .x = -b.dot(t), .y = a.dot(t), .z = -d.dot(s), .w = c.dot(s) },
         };
     }
 };
@@ -369,23 +469,48 @@ test "mat4_mul" {
 
     {
         const mat_1 = Mat4{
-            .i = .{ .x = 1.0, .y = 2.0, .z = 3.0, .w = 4.0 },
-            .j = .{ .x = 5.0, .y = 6.0, .z = 7.0, .w = 8.0 },
-            .k = .{ .x = 9.0, .y = 10.0, .z = 11.0, .w = 12.0 },
-            .t = .{ .x = 13.0, .y = 14.0, .z = 15.0, .w = 16.0 },
-        };
-        const mat_2 = Mat4{
             .i = .{ .x = 17.0, .y = 18.0, .z = 19.0, .w = 20.0 },
             .j = .{ .x = 21.0, .y = 22.0, .z = 23.0, .w = 24.0 },
             .k = .{ .x = 25.0, .y = 26.0, .z = 27.0, .w = 28.0 },
             .t = .{ .x = 29.0, .y = 30.0, .z = 31.0, .w = 32.0 },
         };
+        const mat_2 = Mat4{
+            .i = .{ .x = 1.0, .y = 2.0, .z = 3.0, .w = 4.0 },
+            .j = .{ .x = 5.0, .y = 6.0, .z = 7.0, .w = 8.0 },
+            .k = .{ .x = 9.0, .y = 10.0, .z = 11.0, .w = 12.0 },
+            .t = .{ .x = 13.0, .y = 14.0, .z = 15.0, .w = 16.0 },
+        };
         const m = mat_1.mul(mat_2);
-        const expected = .{
+        const expected: Mat4 = .{
             .i = .{ .x = 250.0, .y = 260.0, .z = 270.0, .w = 280.0 },
             .j = .{ .x = 618.0, .y = 644.0, .z = 670.0, .w = 696.0 },
             .k = .{ .x = 986.0, .y = 1028.0, .z = 1070.0, .w = 1112.0 },
             .t = .{ .x = 1354.0, .y = 1412.0, .z = 1470.0, .w = 1528.0 },
+        };
+        std.debug.assert(m.eq(expected));
+    }
+}
+
+test "mat4_inverse" {
+    {
+        const mat = Mat4.IDENDITY;
+        const m = mat.inverse();
+        std.debug.assert(m.eq(Mat4.IDENDITY));
+    }
+
+    {
+        const mat = Mat4{
+            .i = .{ .x = 2.0, .y = 0.0, .z = 0.0, .w = 0.0 },
+            .j = .{ .x = 0.0, .y = 2.0, .z = 0.0, .w = 0.0 },
+            .k = .{ .x = 0.0, .y = 0.0, .z = 2.0, .w = 0.0 },
+            .t = .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0 },
+        };
+        const m = mat.inverse();
+        const expected = Mat4{
+            .i = .{ .x = 1.0 / 2.0, .y = 0.0, .z = 0.0, .w = 0.0 },
+            .j = .{ .x = 0.0, .y = 1.0 / 2.0, .z = 0.0, .w = 0.0 },
+            .k = .{ .x = 0.0, .y = 0.0, .z = 1.0 / 2.0, .w = 0.0 },
+            .t = .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0 },
         };
         std.debug.assert(m.eq(expected));
     }
