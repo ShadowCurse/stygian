@@ -43,6 +43,8 @@ const Runtime = struct {
     mesh_pipeline: MeshPipeline,
     cube_mesh: RenderMeshInfo,
 
+    texture_image: GpuImage,
+
     font: Font,
     font_image: GpuImage,
 
@@ -74,16 +76,16 @@ const Runtime = struct {
         self.screen_quad = try RenderUiQuadInfo.init(&self.renderer, 3);
 
         const image = try Image.init("assets/a.png");
-        const texture = try self.renderer.create_texture(
+        self.texture_image = try self.renderer.create_texture(
             image.width,
             image.height,
             image.channels,
         );
-        try self.renderer.upload_texture_image(&texture, &image);
+        try self.renderer.upload_texture_image(&self.texture_image, &image);
 
         self.ui_quad_pipeline.set_color_texture(
             &self.renderer,
-            texture.view,
+            self.texture_image.view,
             self.renderer.debug_sampler,
         );
 
@@ -270,6 +272,7 @@ export fn runtime_main(
 
         const frame_context = runtime.renderer.start_rendering() catch unreachable;
         runtime.mesh_pipeline.render(&frame_context, &.{.{ &runtime.cube_mesh, 2 }});
+        runtime.tile_map.render(&frame_context);
         runtime.ui_quad_pipeline.render(
             &frame_context,
             &.{
@@ -284,7 +287,6 @@ export fn runtime_main(
                 },
             },
         );
-        runtime.tile_map.render(&frame_context);
         runtime.renderer.end_rendering(frame_context) catch unreachable;
     }
     return @ptrCast(runtime_ptr);
