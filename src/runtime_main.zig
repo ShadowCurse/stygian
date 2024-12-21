@@ -43,6 +43,7 @@ const Runtime = struct {
     mesh_pipeline: MeshPipeline,
     cube_mesh: RenderMeshInfo,
 
+    image: Image,
     texture_image: GpuImage,
 
     font: Font,
@@ -75,13 +76,13 @@ const Runtime = struct {
         );
         self.screen_quad = try RenderUiQuadInfo.init(&self.renderer, 3);
 
-        const image = try Image.init("assets/a.png");
+        self.image = try Image.init(memory, "assets/a.png");
         self.texture_image = try self.renderer.create_texture(
-            image.width,
-            image.height,
-            image.channels,
+            self.image.width,
+            self.image.height,
+            self.image.channels,
         );
-        try self.renderer.upload_texture_image(&self.texture_image, &image);
+        try self.renderer.upload_texture_image(&self.texture_image, &self.image);
 
         self.ui_quad_pipeline.set_color_texture(
             &self.renderer,
