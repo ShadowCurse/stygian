@@ -1,3 +1,4 @@
+const std = @import("std");
 const sdl = @import("bindings/sdl.zig");
 
 const _math = @import("math.zig");
@@ -61,7 +62,13 @@ pub const CameraController = struct {
 
         if (self.active and event.type == sdl.SDL_MOUSEMOTION) {
             self.yaw -= @as(f32, @floatFromInt(event.motion.xrel)) * self.sensitivity * dt;
-            self.pitch += @as(f32, @floatFromInt(event.motion.yrel)) * self.sensitivity * dt;
+            self.pitch -= @as(f32, @floatFromInt(event.motion.yrel)) * self.sensitivity * dt;
+            if (std.math.pi / 2.0 < self.pitch) {
+                self.pitch = std.math.pi / 2.0;
+            }
+            if (self.pitch < -std.math.pi / 2.0) {
+                self.pitch = -std.math.pi / 2.0;
+            }
         }
     }
 
