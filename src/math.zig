@@ -101,6 +101,153 @@ pub const Vec4 = extern struct {
     pub inline fn dot(self: Vec4, other: Vec4) f32 {
         return self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w;
     }
+pub const Quat = struct {
+    x: f32 = 0.0,
+    y: f32 = 0.0,
+    z: f32 = 0.0,
+    w: f32 = 0.0,
+
+    pub inline fn from_axis_angle(axis: Vec3, angle: f32) Quat {
+        const s = @sin(angle / 2.0);
+        const c = @cos(angle / 2.0);
+        return .{
+            .x = axis.x * s,
+            .y = axis.y * s,
+            .z = axis.z * s,
+            .w = c,
+        };
+    }
+
+    pub inline fn from_rotation_axis(x_axis: Vec3, y_axis: Vec3, z_axis: Vec3) Quat {
+        const m00 = x_axis.x;
+        const m01 = x_axis.y;
+        const m02 = x_axis.z;
+
+        const m10 = y_axis.x;
+        const m11 = y_axis.y;
+        const m12 = y_axis.z;
+
+        const m20 = z_axis.x;
+        const m21 = z_axis.y;
+        const m22 = z_axis.z;
+
+        if (m22 <= 0.0) {
+            const d = m11 - m00;
+            const n = 1.0 - m22;
+            if (d <= 0.0) {
+                const f = n - d;
+                const inv = 0.5 / @sqrt(f);
+                return .{
+                    .x = f * inv,
+                    .y = (m01 + m10) * inv,
+                    .z = (m02 + m20) * inv,
+                    .w = (m12 - m21) * inv,
+                };
+            } else {
+                const f = n + d;
+                const inv = 0.5 / @sqrt(f);
+                return .{
+                    .x = (m01 + m10) * inv,
+                    .y = f * inv,
+                    .z = (m12 + m21) * inv,
+                    .w = (m20 - m02) * inv,
+                };
+            }
+        } else {
+            const d = m11 + m00;
+            const n = 1.0 + m22;
+            if (d <= 0.0) {
+                const f = n - d;
+                const inv = 0.5 / @sqrt(f);
+                return .{
+                    .x = (m02 + m20) * inv,
+                    .y = (m12 + m21) * inv,
+                    .z = f * inv,
+                    .w = (m01 - m10) * inv,
+                };
+            } else {
+                const f = n + d;
+                const inv = 0.5 / @sqrt(f);
+                return .{
+                    .z = (m12 - m21) * inv,
+                    .w = (m20 - m02) * inv,
+                    .x = (m01 - m10) * inv,
+                    .y = f * inv,
+                };
+            }
+        }
+    }
+
+    pub inline fn vec3(self: Quat) Vec3 {
+        return .{ .x = self.x, .y = self.y, .z = self.z };
+    }
+
+    pub inline fn len_squared(self: Quat) f32 {
+        const v3 = self.vec3();
+        return v3.dot(v3) + self.w * self.w;
+    }
+
+    pub inline fn add(self: Quat, other: Quat) Quat {
+        return .{
+            .x = self.x + other.x,
+            .y = self.y + other.y,
+            .z = self.z + other.z,
+            .w = self.w + other.w,
+        };
+    }
+
+    pub inline fn sub(self: Quat, other: Quat) Quat {
+        return .{
+            .x = self.x - other.x,
+            .y = self.y - other.y,
+            .z = self.z - other.z,
+            .w = self.w - other.w,
+        };
+    }
+
+    pub inline fn mul_f32(self: Quat, v: f32) Quat {
+        return .{
+            .x = self.x * v,
+            .y = self.y * v,
+            .z = self.z * v,
+            .w = self.w * v,
+        };
+    }
+
+    pub inline fn mul(self: Quat, other: Quat) Quat {
+        return .{
+            .x = self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y,
+            .y = self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x,
+            .z = self.w * other.z + self.x * other.y - self.y * other.x + self.z * other.w,
+            .w = self.w * other.w - self.x * other.x - self.y * other.y - self.z * other.z,
+        };
+    }
+
+    pub inline fn rotate_vec3(self: Quat, v3: Vec3) Vec3 {
+        const self_v3 = self.vec3();
+        const self_v3_len_sq = self_v3.len_squared();
+        return v3.mul_f32(self.w * self.w - self_v3_len_sq)
+            .add(self_v3.mul_f32(2.0 * v3.dot(self_v3)))
+            .add(2.0 * self.w * self_v3.cross(v3));
+    }
+
+    pub inline fn to_mat4(self: Quat) Mat4 {
+        const x2 = self.x * self.x;
+        const y2 = self.y * self.y;
+        const z2 = self.z * self.z;
+        const xy = self.x * self.y;
+        const xz = self.x * self.z;
+        const yz = self.y * self.z;
+        const wx = self.w * self.x;
+        const wy = self.w * self.y;
+        const wz = self.w * self.z;
+        return .{
+            .i = .{ .x = 1.0 - 2.0 * (y2 + z2), .y = 2.0 * (xy + wz), .z = 2.0 * (xz - wy), .w = 0.0 },
+            .j = .{ .x = 2.0 * (xy - wz), .y = 1.0 - 2.0 * (x2 + z2), .z = 2.0 * (yz + wx), .w = 0.0 },
+            .k = .{ .x = 2.0 * (xz + wy), .y = 2.0 * (yz - wx), .z = 1.0 - 2.0 * (x2 + y2), .w = 0.0 },
+            .t = .{ .x = 0.0, .y = 0.0, .z = 0.0, .w = 1.0 },
+        };
+    }
 };
 
 pub const Mat4 = extern struct {
