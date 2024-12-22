@@ -95,20 +95,12 @@ pub fn add_text(
                 .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
             },
             .uv_pos = .{
-                .x = @as(f32, @floatFromInt(char_info.x0)) /
-                    @as(f32, @floatFromInt(font.image.width)),
-                .y = @as(f32, @floatFromInt(char_info.y0)) /
-                    @as(f32, @floatFromInt(font.image.height)),
+                .x = @as(f32, @floatFromInt(char_info.x0)),
+                .y = @as(f32, @floatFromInt(char_info.y0)),
             },
             .uv_scale = .{
-                .x = @as(f32, @floatFromInt((char_info.x1 - char_info.x0))) / @as(
-                    f32,
-                    @floatFromInt(font.image.width),
-                ),
-                .y = @as(f32, @floatFromInt((char_info.y1 - char_info.y0))) / @as(
-                    f32,
-                    @floatFromInt(font.image.height),
-                ),
+                .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)),
+                .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
             },
         };
         x_offset += char_info.xadvance;
