@@ -1,3 +1,4 @@
+const log = @import("../log.zig");
 const vk = @import("../bindings/vulkan.zig");
 
 const VkRenderer = @import("renderer.zig");
@@ -7,44 +8,32 @@ const Memory = @import("../memory.zig");
 const GpuBuffer = @import("gpu_buffer.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
 
+const ScreenQuad = @import("../screen_quads.zig").ScreenQuad;
+
 const _math = @import("../math.zig");
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
 
-pub const UiQuadPushConstant = extern struct {
+pub const GpuScreenQuadPushConstant = extern struct {
     buffer_address: vk.VkDeviceAddress,
 };
-pub const UiQuadInfo = extern struct {
-    color: Vec3 = .{},
-    type: UiQuadType = .VertColor,
-    pos: Vec2 = .{},
-    scale: Vec2 = .{},
-    uv_pos: Vec2 = .{},
-    uv_scale: Vec2 = .{},
-};
-pub const UiQuadType = enum(u32) {
-    VertColor = 0,
-    SolidColor = 1,
-    Texture = 2,
-    Font = 3,
-};
 
-pub const RenderUiQuadInfo = struct {
+pub const ScreenQuadsGpuInfo = struct {
     instance_info_buffer: GpuBuffer,
     num_instances: u32,
-    push_constants: UiQuadPushConstant,
+    push_constants: GpuScreenQuadPushConstant,
 
     const Self = @This();
 
     pub fn init(renderer: *VkRenderer, instances: u32) !Self {
         const instance_info_buffer = try renderer.vk_context.create_buffer(
-            @sizeOf(UiQuadInfo) * instances,
+            @sizeOf(ScreenQuad) * instances,
             vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
             vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
         );
 
-        const push_constants: UiQuadPushConstant = .{
+        const push_constants: GpuScreenQuadPushConstant = .{
             .buffer_address = instance_info_buffer.get_device_address(
                 renderer.vk_context.logical_device.device,
             ),
@@ -61,17 +50,26 @@ pub const RenderUiQuadInfo = struct {
         self.instance_info_buffer.deinit(renderer.vk_context.vma_allocator);
     }
 
-    pub fn set_instance_info(self: *const RenderUiQuadInfo, index: u32, info: UiQuadInfo) void {
-        var info_slice: []UiQuadInfo = undefined;
+    pub fn set_instance_infos(self: *const ScreenQuadsGpuInfo, infos: []const ScreenQuad) void {
+        var n = infos.len;
+        if (self.num_instances < infos.len) {
+            log.warn(
+                @src(),
+                "Trying to set more instances than available: {} < {}",
+                .{ self.num_instances, infos.len },
+            );
+            n = @min(self.num_instances, infos.len);
+        }
+        var info_slice: []ScreenQuad = undefined;
         info_slice.ptr = @alignCast(
             @ptrCast(self.instance_info_buffer.allocation_info.pMappedData),
         );
-        info_slice.len = self.num_instances;
-        info_slice[index] = info;
+        info_slice.len = n;
+        @memcpy(info_slice, infos[0..n]);
     }
 };
 
-pub const UiQuadPipeline = struct {
+pub const ScreenQuadsPipeline = struct {
     pipeline: Pipeline,
 
     const Self = @This();
@@ -98,7 +96,7 @@ pub const UiQuadPipeline = struct {
             &.{
                 vk.VkPushConstantRange{
                     .offset = 0,
-                    .size = @sizeOf(UiQuadPushConstant),
+                    .size = @sizeOf(GpuScreenQuadPushConstant),
                     .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
                 },
             },
@@ -206,7 +204,7 @@ pub const UiQuadPipeline = struct {
         );
     }
 
-    pub const Bundle = struct { *const RenderUiQuadInfo, u32 };
+    pub const Bundle = struct { *const ScreenQuadsGpuInfo, u32 };
     pub fn render(
         self: *const Self,
         frame_context: *const FrameContext,
@@ -233,7 +231,7 @@ pub const UiQuadPipeline = struct {
                 self.pipeline.pipeline_layout,
                 vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
                 0,
-                @sizeOf(UiQuadPushConstant),
+                @sizeOf(GpuScreenQuadPushConstant),
                 &bundle[0].push_constants,
             );
             vk.vkCmdDraw(frame_context.command.cmd, 6, bundle[1], 0, 0);

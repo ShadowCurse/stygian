@@ -6,16 +6,15 @@ const Image = @import("image.zig");
 const GpuImage = @import("vk_renderer/gpu_image.zig");
 
 const Font = @import("font.zig").Font;
-const FontInfo = @import("font.zig").FontInfo;
-const UiText = @import("font.zig").UiText;
+const ScreenQuads = @import("screen_quads.zig");
 
 const Memory = @import("memory.zig");
 const VkRenderer = @import("vk_renderer/renderer.zig");
 const CameraController = @import("camera.zig").CameraController;
 
-const _ui_quad = @import("vk_renderer/ui_quad.zig");
-const UiQuadPipeline = _ui_quad.UiQuadPipeline;
-const RenderUiQuadInfo = _ui_quad.RenderUiQuadInfo;
+const _screen_quads = @import("vk_renderer/screen_quads.zig");
+const ScreenQuadsPipeline = _screen_quads.ScreenQuadsPipeline;
+const ScreenQuadsGpuInfo = _screen_quads.ScreenQuadsGpuInfo;
 
 const _render_mesh = @import("vk_renderer/mesh.zig");
 const MeshPipeline = _render_mesh.MeshPipeline;
@@ -35,22 +34,19 @@ const _mesh = @import("mesh.zig");
 const CubeMesh = _mesh.CubeMesh;
 
 const Runtime = struct {
+    image: Image,
+    font: Font,
+    screen_quads: ScreenQuads,
+
     renderer: VkRenderer,
 
-    ui_quad_pipeline: UiQuadPipeline,
-    screen_quad: RenderUiQuadInfo,
-
-    mesh_pipeline: MeshPipeline,
-    cube_mesh: RenderMeshInfo,
-
-    image: Image,
     texture_image: GpuImage,
-
-    font: Font,
     font_image: GpuImage,
 
-    frame_time_text: UiText,
-    frame_alloc_text: UiText,
+    screen_quads_pipeline: ScreenQuadsPipeline,
+    screen_quads_gpu_info: ScreenQuadsGpuInfo,
+    mesh_pipeline: MeshPipeline,
+    cube_mesh: RenderMeshInfo,
 
     tile_map: TileMap,
 
@@ -65,8 +61,41 @@ const Runtime = struct {
         width: u32,
         height: u32,
     ) !void {
+        self.image = try Image.init(memory, "assets/a.png");
+        self.font = try Font.init(memory, "assets/font.ttf", 32);
+        self.screen_quads = try ScreenQuads.init(memory, 64);
+
         self.renderer = try VkRenderer.init(memory, window, width, height);
-        self.ui_quad_pipeline = try UiQuadPipeline.init(memory, &self.renderer);
+
+        self.texture_image = try self.renderer.create_texture(
+            self.image.width,
+            self.image.height,
+            self.image.channels,
+        );
+        self.font_image = try self.renderer.create_texture(
+            self.font.image.width,
+            self.font.image.height,
+            self.font.image.channels,
+        );
+
+        self.screen_quads_pipeline = try ScreenQuadsPipeline.init(memory, &self.renderer);
+        self.screen_quads_gpu_info = try ScreenQuadsGpuInfo.init(&self.renderer, 64);
+
+        try self.renderer.upload_texture_image(&self.texture_image, &self.image);
+
+        self.screen_quads_pipeline.set_color_texture(
+            &self.renderer,
+            self.texture_image.view,
+            self.renderer.debug_sampler,
+        );
+        try self.renderer.upload_texture_image(&self.font_image, &self.font.image);
+
+        self.screen_quads_pipeline.set_font_texture(
+            &self.renderer,
+            self.font_image.view,
+            self.renderer.debug_sampler,
+        );
+
         self.mesh_pipeline = try MeshPipeline.init(memory, &self.renderer);
         self.cube_mesh = try RenderMeshInfo.init(
             &self.renderer,
@@ -74,38 +103,7 @@ const Runtime = struct {
             &CubeMesh.vertices,
             2,
         );
-        self.screen_quad = try RenderUiQuadInfo.init(&self.renderer, 3);
 
-        self.image = try Image.init(memory, "assets/a.png");
-        self.texture_image = try self.renderer.create_texture(
-            self.image.width,
-            self.image.height,
-            self.image.channels,
-        );
-        try self.renderer.upload_texture_image(&self.texture_image, &self.image);
-
-        self.ui_quad_pipeline.set_color_texture(
-            &self.renderer,
-            self.texture_image.view,
-            self.renderer.debug_sampler,
-        );
-
-        self.font = try Font.init(memory, "assets/font.ttf", 32);
-        self.font_image = try self.renderer.create_texture(
-            self.font.image.width,
-            self.font.image.height,
-            self.font.image.channels,
-        );
-        try self.renderer.upload_texture_image(&self.font_image, &self.font.image);
-
-        self.ui_quad_pipeline.set_font_texture(
-            &self.renderer,
-            self.font_image.view,
-            self.renderer.debug_sampler,
-        );
-
-        self.frame_time_text = try UiText.init(&self.renderer, 32);
-        self.frame_alloc_text = try UiText.init(&self.renderer, 32);
         self.tile_map = try TileMap.init(memory, &self.renderer);
 
         self.camera_controller = CameraController.init();
@@ -121,7 +119,6 @@ export fn runtime_main(
     data: ?*anyopaque,
 ) *anyopaque {
     memory.reset_frame();
-
     var events: []sdl.SDL_Event = undefined;
     events.ptr = sdl_events;
     events.len = sdl_events_num;
@@ -139,12 +136,14 @@ export fn runtime_main(
     } else {
         var runtime = runtime_ptr.?;
 
+        runtime.screen_quads.reset();
+
         for (events) |*event| {
             runtime.camera_controller.process_input(event, dt);
         }
         runtime.camera_controller.update(dt);
 
-        runtime.frame_time_text.set_text(
+        runtime.screen_quads.add_text(
             &runtime.font,
             std.fmt.allocPrint(
                 memory.frame_alloc(),
@@ -161,7 +160,7 @@ export fn runtime_main(
             },
         );
 
-        runtime.frame_alloc_text.set_text(
+        runtime.screen_quads.add_text(
             &runtime.font,
             std.fmt.allocPrint(
                 memory.frame_alloc(),
@@ -209,7 +208,7 @@ export fn runtime_main(
                 .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
                 .y = -@as(f32, @floatFromInt(height)) / 2.0 + 100.0,
             };
-            runtime.screen_quad.set_instance_info(0, .{
+            runtime.screen_quads.add_quad(&.{
                 .color = .{},
                 .type = .VertColor,
                 .pos = .{
@@ -231,7 +230,7 @@ export fn runtime_main(
                 .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
                 .y = -@as(f32, @floatFromInt(height)) / 2.0 + 300.0,
             };
-            runtime.screen_quad.set_instance_info(1, .{
+            runtime.screen_quads.add_quad(&.{
                 .color = Color.MAGENTA.to_vec3(),
                 .type = .SolidColor,
                 .pos = .{
@@ -253,7 +252,7 @@ export fn runtime_main(
                 .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
                 .y = -@as(f32, @floatFromInt(height)) / 2.0 + 500.0,
             };
-            runtime.screen_quad.set_instance_info(2, .{
+            runtime.screen_quads.add_quad(&.{
                 .color = .{},
                 .type = .Texture,
                 .pos = .{
@@ -267,21 +266,15 @@ export fn runtime_main(
             });
         }
 
+        runtime.screen_quads_gpu_info.set_instance_infos(runtime.screen_quads.slice());
+
         const frame_context = runtime.renderer.start_rendering() catch unreachable;
         runtime.mesh_pipeline.render(&frame_context, &.{.{ &runtime.cube_mesh, 2 }});
         runtime.tile_map.render(&frame_context);
-        runtime.ui_quad_pipeline.render(
+        runtime.screen_quads_pipeline.render(
             &frame_context,
             &.{
-                .{ &runtime.screen_quad, 3 },
-                .{
-                    &runtime.frame_time_text.screen_quads,
-                    runtime.frame_time_text.current_text_len,
-                },
-                .{
-                    &runtime.frame_alloc_text.screen_quads,
-                    runtime.frame_alloc_text.current_text_len,
-                },
+                .{ &runtime.screen_quads_gpu_info, runtime.screen_quads.used_quads },
             },
         );
         runtime.renderer.end_rendering(frame_context) catch unreachable;
