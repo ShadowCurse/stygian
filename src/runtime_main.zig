@@ -193,8 +193,8 @@ export fn runtime_main(
                 .{ 1.0 / dt, dt },
             ) catch unreachable,
             .{
-                .x = -100.0,
-                .y = 300.0,
+                .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
+                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
             },
         );
         runtime.screen_quads.add_text(
@@ -205,16 +205,16 @@ export fn runtime_main(
                 .{memory.frame_allocator.end_index},
             ) catch unreachable,
             .{
-                .x = -100.0,
-                .y = 250.0,
+                .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
+                .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
             },
         );
         runtime.screen_quads.add_quad(&.{
             .color = .{},
             .type = .VertColor,
             .pos = .{
-                .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
-                .y = -@as(f32, @floatFromInt(height)) / 2.0 + 100.0,
+                .x = 100.0,
+                .y = 100.0,
             },
             .size = .{
                 .x = 200.0,
@@ -225,8 +225,8 @@ export fn runtime_main(
             .color = Color.MAGENTA.to_vec3(),
             .type = .SolidColor,
             .pos = .{
-                .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
-                .y = -@as(f32, @floatFromInt(height)) / 2.0 + 300.0,
+                .x = 100.0,
+                .y = 300.0,
             },
             .size = .{
                 .x = 200.0,
@@ -237,8 +237,8 @@ export fn runtime_main(
             .color = .{},
             .type = .Texture,
             .pos = .{
-                .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
-                .y = -@as(f32, @floatFromInt(height)) / 2.0 + 500.0,
+                .x = 100.0,
+                .y = 500.0,
             },
             .size = .{
                 .x = 200.0,

@@ -70,7 +70,7 @@ void main() {
     QuadInfo qi = PushConstants.instance_infos.infos[gl_InstanceIndex];
     vec2 screen_size = PushConstants.screen_size;
 
-    vec2 quad_pos = qi.pos / (screen_size / 2.0);
+    vec2 quad_pos = (qi.pos / (screen_size / 2.0)) - vec2(1.0);
     vec2 quad_scale = qi.scale / screen_size;
     vec4 new_position = vec4((v.position * quad_scale + quad_pos) , 1.0, 1.0);
     gl_Position = vec4(new_position.xy, 1.0, 1.0);
