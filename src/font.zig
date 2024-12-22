@@ -1,5 +1,6 @@
 const std = @import("std");
 const stb = @import("bindings/stb.zig");
+const platform = @import("platform/posix.zig");
 
 const Image = @import("image.zig");
 const Memory = @import("memory.zig");
@@ -14,32 +15,21 @@ pub const Font = struct {
     pub fn init(memory: *Memory, path: [:0]const u8, font_size: f32) !Self {
         const game_alloc = memory.game_alloc();
 
-        const fd = try std.posix.open(path, .{ .ACCMODE = .RDONLY }, 0);
-        defer std.posix.close(fd);
-
-        const stat = try std.posix.fstat(fd);
-        const file_mem = try std.posix.mmap(
-            null,
-            @intCast(stat.size),
-            std.posix.PROT.READ,
-            .{ .TYPE = .PRIVATE },
-            fd,
-            0,
-        );
-        defer std.posix.munmap(file_mem);
+        const fm = try platform.FileMem.init(path);
+        defer fm.deinit();
 
         var stb_font: stb.stbtt_fontinfo = undefined;
         _ = stb.stbtt_InitFont(
             &stb_font,
-            file_mem.ptr,
-            stb.stbtt_GetFontOffsetForIndex(file_mem.ptr, 0),
+            fm.mem.ptr,
+            stb.stbtt_GetFontOffsetForIndex(fm.mem.ptr, 0),
         );
 
         const char_info = try game_alloc.alloc(stb.stbtt_bakedchar, @intCast(stb_font.numGlyphs));
         const bitmap = try game_alloc.alloc(u8, 512 * 512);
 
         _ = stb.stbtt_BakeFontBitmap(
-            file_mem.ptr,
+            fm.mem.ptr,
             0,
             font_size,
             bitmap.ptr,
