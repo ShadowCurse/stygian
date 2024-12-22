@@ -17,6 +17,7 @@ const Mat4 = _math.Mat4;
 
 pub const GpuScreenQuadPushConstant = extern struct {
     buffer_address: vk.VkDeviceAddress,
+    screen_size: Vec2,
 };
 
 pub const ScreenQuadsGpuInfo = struct {
@@ -37,6 +38,7 @@ pub const ScreenQuadsGpuInfo = struct {
             .buffer_address = instance_info_buffer.get_device_address(
                 renderer.vk_context.logical_device.device,
             ),
+            .screen_size = .{},
         };
 
         return .{
@@ -48,6 +50,10 @@ pub const ScreenQuadsGpuInfo = struct {
 
     pub fn deinit(self: *const Self, renderer: *const VkRenderer) void {
         self.instance_info_buffer.deinit(renderer.vk_context.vma_allocator);
+    }
+
+    pub fn set_screen_size(self: *ScreenQuadsGpuInfo, screen_size: Vec2) void {
+        self.push_constants.screen_size = screen_size;
     }
 
     pub fn set_instance_infos(self: *const ScreenQuadsGpuInfo, infos: []const ScreenQuad) void {

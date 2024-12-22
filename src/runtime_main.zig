@@ -162,6 +162,9 @@ export fn runtime_main(
             10000.0,
         );
         runtime.cube_meshes.push_constants.view_proj = projection.mul(camera_transform.inverse());
+        runtime.screen_quads_gpu_info.set_screen_size(
+            .{ .x = @floatFromInt(width), .y = @floatFromInt(height) },
+        );
 
         const A = struct {
             var a: f32 = 0.0;
@@ -190,15 +193,10 @@ export fn runtime_main(
                 .{ 1.0 / dt, dt },
             ) catch unreachable,
             .{
-                .x = @floatFromInt(width),
-                .y = @floatFromInt(height),
-            },
-            .{
                 .x = -100.0,
                 .y = 300.0,
             },
         );
-
         runtime.screen_quads.add_text(
             &runtime.font,
             std.fmt.allocPrint(
@@ -207,81 +205,46 @@ export fn runtime_main(
                 .{memory.frame_allocator.end_index},
             ) catch unreachable,
             .{
-                .x = @floatFromInt(width),
-                .y = @floatFromInt(height),
-            },
-            .{
                 .x = -100.0,
                 .y = 250.0,
             },
         );
-
-        {
-            const size = Vec2{
-                .x = 200.0,
-                .y = 200.0,
-            };
-            const pos = Vec2{
+        runtime.screen_quads.add_quad(&.{
+            .color = .{},
+            .type = .VertColor,
+            .pos = .{
                 .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
                 .y = -@as(f32, @floatFromInt(height)) / 2.0 + 100.0,
-            };
-            runtime.screen_quads.add_quad(&.{
-                .color = .{},
-                .type = .VertColor,
-                .pos = .{
-                    .x = pos.x / (@as(f32, @floatFromInt(width)) / 2.0),
-                    .y = pos.y / (@as(f32, @floatFromInt(height)) / 2.0),
-                },
-                .scale = .{
-                    .x = size.x / @as(f32, @floatFromInt(width)),
-                    .y = size.y / @as(f32, @floatFromInt(height)),
-                },
-            });
-        }
-        {
-            const size = Vec2{
+            },
+            .size = .{
                 .x = 200.0,
                 .y = 200.0,
-            };
-            const pos = Vec2{
+            },
+        });
+        runtime.screen_quads.add_quad(&.{
+            .color = Color.MAGENTA.to_vec3(),
+            .type = .SolidColor,
+            .pos = .{
                 .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
                 .y = -@as(f32, @floatFromInt(height)) / 2.0 + 300.0,
-            };
-            runtime.screen_quads.add_quad(&.{
-                .color = Color.MAGENTA.to_vec3(),
-                .type = .SolidColor,
-                .pos = .{
-                    .x = pos.x / (@as(f32, @floatFromInt(width)) / 2.0),
-                    .y = pos.y / (@as(f32, @floatFromInt(height)) / 2.0),
-                },
-                .scale = .{
-                    .x = size.x / @as(f32, @floatFromInt(width)),
-                    .y = size.y / @as(f32, @floatFromInt(height)),
-                },
-            });
-        }
-        {
-            const size = Vec2{
+            },
+            .size = .{
                 .x = 200.0,
                 .y = 200.0,
-            };
-            const pos = Vec2{
+            },
+        });
+        runtime.screen_quads.add_quad(&.{
+            .color = .{},
+            .type = .Texture,
+            .pos = .{
                 .x = -@as(f32, @floatFromInt(width)) / 2.0 + 100.0,
                 .y = -@as(f32, @floatFromInt(height)) / 2.0 + 500.0,
-            };
-            runtime.screen_quads.add_quad(&.{
-                .color = .{},
-                .type = .Texture,
-                .pos = .{
-                    .x = pos.x / (@as(f32, @floatFromInt(width)) / 2.0),
-                    .y = pos.y / (@as(f32, @floatFromInt(height)) / 2.0),
-                },
-                .scale = .{
-                    .x = size.x / @as(f32, @floatFromInt(width)),
-                    .y = size.y / @as(f32, @floatFromInt(height)),
-                },
-            });
-        }
+            },
+            .size = .{
+                .x = 200.0,
+                .y = 200.0,
+            },
+        });
 
         runtime.screen_quads_gpu_info.set_instance_infos(runtime.screen_quads.slice());
 

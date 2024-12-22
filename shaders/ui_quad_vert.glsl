@@ -21,6 +21,7 @@ layout(buffer_reference, std430) readonly buffer QuadInfos {
 
 layout(push_constant) uniform constants {
     QuadInfos instance_infos;
+    vec2 screen_size;
 } PushConstants;
 
 struct Vertex {
@@ -67,8 +68,11 @@ Vertex[] vertices = {
 void main() {
     Vertex v = vertices[gl_VertexIndex];
     QuadInfo qi = PushConstants.instance_infos.infos[gl_InstanceIndex];
+    vec2 screen_size = PushConstants.screen_size;
 
-    vec4 new_position = vec4((v.position * qi.scale + qi.pos) , 1.0, 1.0);
+    vec2 quad_pos = qi.pos / (screen_size / 2.0);
+    vec2 quad_scale = qi.scale / screen_size;
+    vec4 new_position = vec4((v.position * quad_scale + quad_pos) , 1.0, 1.0);
     gl_Position = vec4(new_position.xy, 1.0, 1.0);
 
     outColor = v.color.xyz;

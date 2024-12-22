@@ -12,7 +12,7 @@ pub const ScreenQuad = extern struct {
     color: Vec3 = .{},
     type: ScreenQuadType = .VertColor,
     pos: Vec2 = .{},
-    scale: Vec2 = .{},
+    size: Vec2 = .{},
     uv_pos: Vec2 = .{},
     uv_scale: Vec2 = .{},
 };
@@ -67,7 +67,6 @@ pub fn add_text(
     self: *Self,
     font: *const Font,
     text: []const u8,
-    screen_size: Vec2,
     pos: Vec2,
 ) void {
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
@@ -88,12 +87,12 @@ pub fn add_text(
             .color = .{},
             .type = .Font,
             .pos = .{
-                .x = (pos.x + x_offset) / (screen_size.x / 2.0),
-                .y = pos.y / (screen_size.y / 2.0),
+                .x = pos.x + x_offset,
+                .y = pos.y,
             },
-            .scale = .{
-                .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)) / screen_size.x,
-                .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)) / screen_size.y,
+            .size = .{
+                .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)),
+                .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
             },
             .uv_pos = .{
                 .x = @as(f32, @floatFromInt(char_info.x0)) /
