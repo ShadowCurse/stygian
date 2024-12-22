@@ -19,6 +19,7 @@ const ScreenQuadsGpuInfo = _screen_quads.ScreenQuadsGpuInfo;
 const _render_mesh = @import("vk_renderer/mesh.zig");
 const MeshPipeline = _render_mesh.MeshPipeline;
 const RenderMeshInfo = _render_mesh.RenderMeshInfo;
+const MeshInfo = _render_mesh.MeshInfo;
 
 const TileMap = @import("tile_map.zig");
 
@@ -34,23 +35,21 @@ const _mesh = @import("mesh.zig");
 const CubeMesh = _mesh.CubeMesh;
 
 const Runtime = struct {
+    camera_controller: CameraController,
+
     image: Image,
     font: Font,
     screen_quads: ScreenQuads,
+    tile_map: TileMap,
 
     renderer: VkRenderer,
 
     texture_image: GpuImage,
     font_image: GpuImage,
-
     screen_quads_pipeline: ScreenQuadsPipeline,
     screen_quads_gpu_info: ScreenQuadsGpuInfo,
     mesh_pipeline: MeshPipeline,
-    cube_mesh: RenderMeshInfo,
-
-    tile_map: TileMap,
-
-    camera_controller: CameraController,
+    cube_meshes: RenderMeshInfo,
 
     const Self = @This();
 
@@ -61,9 +60,22 @@ const Runtime = struct {
         width: u32,
         height: u32,
     ) !void {
+        self.camera_controller = CameraController.init();
+
         self.image = try Image.init(memory, "assets/a.png");
         self.font = try Font.init(memory, "assets/font.ttf", 32);
         self.screen_quads = try ScreenQuads.init(memory, 64);
+        self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
+
+        var y: u32 = 0;
+        while (y < 5) : (y += 1) {
+            var x: u32 = 0;
+            while (x < 5) : (x += 1) {
+                if (!(0 < y and y < 4 and 0 < x and x < 4)) {
+                    self.tile_map.set_tile(x, y, .Wall);
+                }
+            }
+        }
 
         self.renderer = try VkRenderer.init(memory, window, width, height);
 
@@ -97,16 +109,12 @@ const Runtime = struct {
         );
 
         self.mesh_pipeline = try MeshPipeline.init(memory, &self.renderer);
-        self.cube_mesh = try RenderMeshInfo.init(
+        self.cube_meshes = try RenderMeshInfo.init(
             &self.renderer,
             &CubeMesh.indices,
             &CubeMesh.vertices,
-            2,
+            32,
         );
-
-        self.tile_map = try TileMap.init(memory, &self.renderer);
-
-        self.camera_controller = CameraController.init();
     }
 };
 
@@ -119,6 +127,8 @@ export fn runtime_main(
     data: ?*anyopaque,
 ) *anyopaque {
     memory.reset_frame();
+    const frame_alloc = memory.frame_alloc();
+
     var events: []sdl.SDL_Event = undefined;
     events.ptr = sdl_events;
     events.len = sdl_events_num;
@@ -137,11 +147,40 @@ export fn runtime_main(
         var runtime = runtime_ptr.?;
 
         runtime.screen_quads.reset();
+        runtime.cube_meshes.reset();
 
         for (events) |*event| {
             runtime.camera_controller.process_input(event, dt);
         }
         runtime.camera_controller.update(dt);
+
+        const camera_transform = runtime.camera_controller.transform();
+        const projection = Mat4.perspective(
+            std.math.degreesToRadians(70.0),
+            @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(height)),
+            0.1,
+            10000.0,
+        );
+        runtime.cube_meshes.push_constants.view_proj = projection.mul(camera_transform.inverse());
+
+        const A = struct {
+            var a: f32 = 0.0;
+        };
+        A.a += dt;
+        const ct = Mat4.rotation_z(A.a);
+        runtime.cube_meshes.add_instance_infos(&.{.{
+            .transform = ct,
+        }});
+        runtime.cube_meshes.add_instance_infos(&.{.{
+            .transform = Mat4.IDENDITY.translate(.{ .z = 4.0 }),
+        }});
+
+        const tile_positions = runtime.tile_map.get_positions(frame_alloc) catch unreachable;
+        const mesh_position = frame_alloc.alloc(MeshInfo, tile_positions.len) catch unreachable;
+        for (tile_positions, mesh_position) |*t, *m| {
+            m.transform = Mat4.IDENDITY.translate(t.extend(0.0));
+        }
+        runtime.cube_meshes.add_instance_infos(mesh_position);
 
         runtime.screen_quads.add_text(
             &runtime.font,
@@ -176,28 +215,6 @@ export fn runtime_main(
                 .y = 250.0,
             },
         );
-
-        const camera_transform = runtime.camera_controller.transform();
-        const projection = Mat4.perspective(
-            std.math.degreesToRadians(70.0),
-            @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(height)),
-            0.1,
-            10000.0,
-        );
-        runtime.cube_mesh.push_constants.view_proj = projection.mul(camera_transform.inverse());
-        runtime.tile_map.update(runtime.cube_mesh.push_constants.view_proj);
-
-        const A = struct {
-            var a: f32 = 0.0;
-        };
-        A.a += dt;
-        const ct = Mat4.rotation_z(A.a);
-        runtime.cube_mesh.set_instance_info(0, .{
-            .transform = ct,
-        });
-        runtime.cube_mesh.set_instance_info(1, .{
-            .transform = Mat4.IDENDITY.translate(.{ .y = 4.0 }),
-        });
 
         {
             const size = Vec2{
@@ -269,8 +286,10 @@ export fn runtime_main(
         runtime.screen_quads_gpu_info.set_instance_infos(runtime.screen_quads.slice());
 
         const frame_context = runtime.renderer.start_rendering() catch unreachable;
-        runtime.mesh_pipeline.render(&frame_context, &.{.{ &runtime.cube_mesh, 2 }});
-        runtime.tile_map.render(&frame_context);
+        runtime.mesh_pipeline.render(
+            &frame_context,
+            &.{.{ &runtime.cube_meshes, runtime.cube_meshes.num_instances_used }},
+        );
         runtime.screen_quads_pipeline.render(
             &frame_context,
             &.{

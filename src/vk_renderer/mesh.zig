@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = @import("../log.zig");
 const vk = @import("../bindings/vulkan.zig");
 
 const VkRenderer = @import("renderer.zig");
@@ -28,6 +29,7 @@ pub const RenderMeshInfo = struct {
     index_buffer: GpuBuffer,
     instance_info_buffer: GpuBuffer,
     num_instances: u32,
+    num_instances_used: u32,
     num_indices: u32,
     push_constants: MeshPushConstant,
 
@@ -80,6 +82,7 @@ pub const RenderMeshInfo = struct {
             .index_buffer = index_buffer,
             .instance_info_buffer = instance_info_buffer,
             .num_instances = instances,
+            .num_instances_used = 0,
             .num_indices = @intCast(indices.len),
             .push_constants = push_constants,
         };
@@ -91,13 +94,29 @@ pub const RenderMeshInfo = struct {
         self.vertex_buffer.deinit(renderer.vk_context.vma_allocator);
     }
 
-    pub fn set_instance_info(self: *const RenderMeshInfo, index: u32, info: MeshInfo) void {
+    pub fn reset(self: *Self) void {
+        self.num_instances_used = 0;
+    }
+
+    pub fn add_instance_infos(self: *RenderMeshInfo, infos: []const MeshInfo) void {
+        if (self.num_instances < self.num_instances_used + infos.len) {
+            log.warn(
+                @src(),
+                "Tryingt to use more instances than available: {} < {}",
+                .{ self.num_instances, self.num_instances_used + infos.len },
+            );
+            return;
+        }
         var info_slice: []MeshInfo = undefined;
         info_slice.ptr = @alignCast(
             @ptrCast(self.instance_info_buffer.allocation_info.pMappedData),
         );
         info_slice.len = self.num_instances;
-        info_slice[index] = info;
+        @memcpy(
+            info_slice[self.num_instances_used .. self.num_instances_used + infos.len],
+            infos,
+        );
+        self.num_instances_used += @intCast(infos.len);
     }
 };
 

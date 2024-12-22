@@ -11,6 +11,20 @@ pub const Vec2 = extern struct {
             .z = z,
         };
     }
+
+    pub inline fn add(self: Vec2, other: Vec2) Vec2 {
+        return .{
+            .x = self.x + other.x,
+            .y = self.y + other.y,
+        };
+    }
+
+    pub inline fn sub(self: Vec2, other: Vec2) Vec2 {
+        return .{
+            .x = self.x - other.x,
+            .y = self.y - other.y,
+        };
+    }
 };
 
 pub const Vec3 = extern struct {

@@ -1,26 +1,11 @@
 const std = @import("std");
 const log = @import("log.zig");
 
+const Allocator = std.mem.Allocator;
 const Memory = @import("memory.zig");
-const VkRenderer = @import("vk_renderer/renderer.zig");
-const FrameContext = VkRenderer.FrameContext;
-
-const _render_mesh = @import("vk_renderer/mesh.zig");
-const MeshPipeline = _render_mesh.MeshPipeline;
-const RenderMeshInfo = _render_mesh.RenderMeshInfo;
-
-const _mesh = @import("mesh.zig");
-const CubeMesh = _mesh.CubeMesh;
 
 const _math = @import("math.zig");
-const Vec3 = _math.Vec3;
-const Mat4 = _math.Mat4;
-
-pub const WIDTH = 5;
-pub const HEIGHT = 5;
-
-pub const GAP_W = 0.2;
-pub const GAP_H = 0.2;
+const Vec2 = _math.Vec2;
 
 const TileType = enum {
     None,
@@ -29,70 +14,74 @@ const TileType = enum {
 
 const Self = @This();
 
-pipeline: MeshPipeline,
-mesh: RenderMeshInfo,
+map: []TileType,
+width: u32,
+height: u32,
+gap_w: f32,
+gap_h: f32,
 
-map: [WIDTH][HEIGHT]TileType,
-meshes_set: u32,
-
-pub fn init(memory: *Memory, renderer: *VkRenderer) !Self {
-    const pipeline = try MeshPipeline.init(memory, renderer);
-    const mesh = try RenderMeshInfo.init(
-        renderer,
-        &CubeMesh.indices,
-        &CubeMesh.vertices,
-        WIDTH * HEIGHT,
-    );
+pub fn init(memory: *Memory, width: u32, height: u32, gap_w: f32, gap_h: f32) !Self {
+    const game_alloc = memory.game_alloc();
+    const map = try game_alloc.alloc(TileType, width * height);
 
     return .{
-        .pipeline = pipeline,
-        .mesh = mesh,
-        .map = .{
-            .{ .Wall, .Wall, .Wall, .Wall, .Wall },
-            .{ .Wall, .None, .None, .None, .Wall },
-            .{ .Wall, .None, .None, .None, .Wall },
-            .{ .Wall, .None, .None, .None, .Wall },
-            .{ .Wall, .Wall, .Wall, .Wall, .Wall },
-        },
-        .meshes_set = 0,
+        .map = map,
+        .width = width,
+        .height = height,
+        .gap_w = gap_w,
+        .gap_h = gap_h,
     };
 }
 
-pub fn deini(self: *Self, renderer: *VkRenderer) void {
-    self.pipeline.deinit(renderer);
-    self.mesh.deinit(renderer);
+pub fn deini(self: Self, memory: *Memory) void {
+    const game_alloc = memory.game_alloc();
+    game_alloc.free(self.map);
 }
 
-pub fn update(self: *Self, view_proj: Mat4) void {
-    self.mesh.push_constants.view_proj = view_proj;
-    self.meshes_set = 0;
-    var top_left: Vec3 = .{
-        .x = -(2.0 + GAP_W) / 2.0 * (WIDTH - 1),
-        .z = -(2.0 + GAP_H) / 2.0 * (HEIGHT - 1),
+pub fn set_tile(self: *Self, x: u32, y: u32, t: TileType) void {
+    const index = x + y * self.width;
+    if (self.map.len < index) {
+        log.warn(
+            @src(),
+            "Trying to set a tile outside range: {}/{} outside {}/{}",
+            .{ x, y, self.width, self.height },
+        );
+    } else {
+        self.map[index] = t;
+    }
+}
+
+pub fn get_positions(self: *const Self, allocator: Allocator) ![]Vec2 {
+    var filled: u32 = 0;
+    for (0..self.height) |y| {
+        for (0..self.width) |x| {
+            const index = x + y * self.width;
+            if (self.map[index] == .Wall) {
+                filled += 1;
+            }
+        }
+    }
+    const positions = try allocator.alloc(Vec2, filled);
+    var top_left: Vec2 = .{
+        .x = -(2.0 + self.gap_w) / 2.0 * @as(f32, @floatFromInt(self.width - 1)),
+        .y = -(2.0 + self.gap_h) / 2.0 * @as(f32, @floatFromInt(self.height - 1)),
     };
-    for (self.map, 0..) |row, r| {
-        for (row, 0..) |tile, c| {
+    var p: u32 = 0;
+    for (0..self.height) |y| {
+        for (0..self.width) |x| {
+            const index = x + y * self.width;
+            const tile = self.map[index];
             switch (tile) {
                 .None => {},
                 .Wall => {
-                    self.mesh.set_instance_info(self.meshes_set, .{
-                        .transform = Mat4.IDENDITY.translate(top_left.add(
-                            .{
-                                .x = @as(f32, @floatFromInt(c)) * (2.0 + GAP_W),
-                                .z = @as(f32, @floatFromInt(r)) * (2.0 + GAP_H),
-                            },
-                        )),
+                    positions[p] = top_left.add(.{
+                        .x = @as(f32, @floatFromInt(x)) * (2.0 + self.gap_w),
+                        .y = @as(f32, @floatFromInt(y)) * (2.0 + self.gap_h),
                     });
-                    self.meshes_set += 1;
+                    p += 1;
                 },
             }
         }
     }
-}
-
-pub fn render(
-    self: *const Self,
-    frame_context: *const FrameContext,
-) void {
-    self.pipeline.render(frame_context, &.{.{ &self.mesh, self.meshes_set }});
+    return positions;
 }
