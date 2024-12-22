@@ -21,7 +21,6 @@ window_width: u32,
 window_height: u32,
 
 vk_context: VkContext,
-draw_image: GpuImage,
 depth_image: GpuImage,
 
 current_framme_idx: usize,
@@ -38,16 +37,6 @@ pub fn init(
     height: u32,
 ) !Self {
     var vk_context = try VkContext.init(memory, window);
-
-    const draw_image = try vk_context.create_image(
-        vk_context.swap_chain.extent.width,
-        vk_context.swap_chain.extent.height,
-        vk.VK_FORMAT_R16G16B16A16_SFLOAT,
-        vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-            vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-            vk.VK_IMAGE_USAGE_STORAGE_BIT |
-            vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-    );
 
     const depth_image = try vk_context.create_image(
         vk_context.swap_chain.extent.width,
@@ -117,7 +106,6 @@ pub fn init(
         .window_width = width,
         .window_height = height,
         .vk_context = vk_context,
-        .draw_image = draw_image,
         .depth_image = depth_image,
         .current_framme_idx = 0,
         .commands = commands,
@@ -223,9 +211,12 @@ pub fn start_rendering(self: *const Self) !FrameContext {
     };
     try vk.check_result(vk.vkBeginCommandBuffer(command.cmd, &begin_info));
 
+    const sc_image = self.vk_context.swap_chain.images[image_index];
+    const sc_view = self.vk_context.swap_chain.image_views[image_index];
+
     GpuImage.transition_image(
         command.cmd,
-        self.draw_image.image,
+        sc_image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
     );
@@ -239,7 +230,7 @@ pub fn start_rendering(self: *const Self) !FrameContext {
 
     const color_attachment = vk.VkRenderingAttachmentInfo{
         .sType = vk.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = self.draw_image.view,
+        .imageView = sc_view,
         .imageLayout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
         .clearValue = .{ .color = .{ .float32 = .{ 0.0, 0.0, 0.0, 0.0 } } },
@@ -259,10 +250,7 @@ pub fn start_rendering(self: *const Self) !FrameContext {
         .pColorAttachments = &color_attachment,
         .colorAttachmentCount = 1,
         .pDepthAttachment = &depth_attachment,
-        .renderArea = .{ .extent = .{
-            .width = self.draw_image.extent.width,
-            .height = self.draw_image.extent.height,
-        } },
+        .renderArea = .{ .extent = self.vk_context.swap_chain.extent },
         .layerCount = 1,
     };
     vk.vkCmdBeginRendering(command.cmd, &render_info);
@@ -270,19 +258,19 @@ pub fn start_rendering(self: *const Self) !FrameContext {
     const viewport = vk.VkViewport{
         .x = 0.0,
         .y = 0.0,
-        .width = @floatFromInt(self.draw_image.extent.width),
-        .height = @floatFromInt(self.draw_image.extent.height),
+        .width = @floatFromInt(self.vk_context.swap_chain.extent.width),
+        .height = @floatFromInt(self.vk_context.swap_chain.extent.height),
         .minDepth = 0.0,
         .maxDepth = 1.0,
     };
     vk.vkCmdSetViewport(command.cmd, 0, 1, &viewport);
-    const scissor = vk.VkRect2D{ .offset = .{
-        .x = 0.0,
-        .y = 0.0,
-    }, .extent = .{
-        .width = self.draw_image.extent.width,
-        .height = self.draw_image.extent.height,
-    } };
+    const scissor = vk.VkRect2D{
+        .offset = .{
+            .x = 0.0,
+            .y = 0.0,
+        },
+        .extent = self.vk_context.swap_chain.extent,
+    };
     vk.vkCmdSetScissor(command.cmd, 0, 1, &scissor);
 
     return .{
@@ -301,30 +289,8 @@ pub fn end_rendering(self: *Self, frame_context: FrameContext) !void {
 
     GpuImage.transition_image(
         command.cmd,
-        self.draw_image.image,
+        self.vk_context.swap_chain.images[image_index],
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-        vk.VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-    );
-    GpuImage.transition_image(
-        command.cmd,
-        self.vk_context.swap_chain.images[image_index],
-        vk.VK_IMAGE_LAYOUT_UNDEFINED,
-        vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-    );
-    GpuImage.copy_image_to_image(
-        command.cmd,
-        self.draw_image.image,
-        .{
-            .width = self.draw_image.extent.width,
-            .height = self.draw_image.extent.height,
-        },
-        self.vk_context.swap_chain.images[image_index],
-        self.vk_context.swap_chain.extent,
-    );
-    GpuImage.transition_image(
-        command.cmd,
-        self.vk_context.swap_chain.images[image_index],
-        vk.VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     );
 

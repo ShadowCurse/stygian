@@ -104,7 +104,7 @@ pub const UiQuadPipeline = struct {
             },
             "ui_quad_vert.spv",
             "ui_quad_frag.spv",
-            vk.VK_FORMAT_R16G16B16A16_SFLOAT,
+            vk.VK_FORMAT_B8G8R8A8_UNORM,
             vk.VK_FORMAT_D32_SFLOAT,
             .Alpha,
         );

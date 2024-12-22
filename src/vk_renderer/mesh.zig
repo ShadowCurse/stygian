@@ -126,7 +126,7 @@ pub const MeshPipeline = struct {
             },
             "mesh_vert.spv",
             "mesh_frag.spv",
-            vk.VK_FORMAT_R16G16B16A16_SFLOAT,
+            vk.VK_FORMAT_B8G8R8A8_UNORM,
             vk.VK_FORMAT_D32_SFLOAT,
             .None,
         );
