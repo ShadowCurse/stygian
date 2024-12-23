@@ -16,17 +16,26 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const options = b.addOptions();
-    const software_render = b.option(bool, "software_render", "Use software renderer") orelse false;
+    const software_render = b.option(
+        bool,
+        "software_render",
+        "Use software renderer",
+    ) orelse false;
     options.addOption(
         bool,
         "software_render",
         software_render,
     );
+    const vulkan_render = b.option(
+        bool,
+        "vulkan_render",
+        "Use Vulkan renderer",
+    ) orelse
+        if (software_render) false else true;
     options.addOption(
         bool,
         "vulkan_render",
-        b.option(bool, "vulkan_render", "Use Vulkan renderer") orelse
-            if (software_render) false else true,
+        vulkan_render,
     );
     const options_module = options.createModule();
 
@@ -58,16 +67,20 @@ pub fn build(b: *std.Build) !void {
     });
     runtime.root_module.addImport("build_options", options_module);
     runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
-    runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
-
-    runtime.addIncludePath(b.path("thirdparty/vma"));
     runtime.addIncludePath(b.path("thirdparty/stb"));
-    runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
     runtime.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
-
     runtime.linkSystemLibrary("SDL2");
-    runtime.linkSystemLibrary("vulkan");
-    runtime.linkLibCpp();
+
+    if (vulkan_render) {
+        runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
+        runtime.addIncludePath(b.path("thirdparty/vma"));
+        runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
+        runtime.linkSystemLibrary("vulkan");
+        runtime.linkLibCpp();
+    } else {
+        runtime.linkLibC();
+    }
+
     b.installArtifact(runtime);
 
     const run_cmd = b.addRunArtifact(platform);
