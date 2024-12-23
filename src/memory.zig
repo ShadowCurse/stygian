@@ -1,4 +1,6 @@
 const std = @import("std");
+const builtin = @import("builtin");
+
 const Allocator = std.mem.Allocator;
 const GeneralPurposeAllocator = std.heap.GeneralPurposeAllocator(.{
     .enable_memory_limit = true,
@@ -25,8 +27,8 @@ pub fn init() !Self {
     var game_allocator = GeneralPurposeAllocator{};
     game_allocator.setRequestedMemoryLimit(GAME_MEMORY_SIZE);
 
-    const prot = std.os.linux.PROT.READ | std.os.linux.PROT.WRITE;
-    const flags = std.os.linux.MAP{
+    const prot = std.posix.PROT.READ | std.posix.PROT.WRITE;
+    const flags = std.posix.MAP{
         .TYPE = .PRIVATE,
         .ANONYMOUS = true,
     };
@@ -70,39 +72,15 @@ const ScratchAllocator = struct {
 
     pub fn init(size: u64) !ScratchAllocator {
         try std.testing.expect(size % HOST_PAGE_SIZE == 0);
-        const memfd = try std.posix.memfd_create("scratch_allocator", std.os.linux.FD_CLOEXEC);
-        try std.posix.ftruncate(memfd, size);
         const mem = try std.posix.mmap(
             null,
-            size * 2,
-            std.posix.PROT.NONE,
+            @as(usize, @intCast(size)),
+            std.posix.PROT.READ | std.posix.PROT.WRITE,
             std.posix.MAP{
                 .TYPE = .PRIVATE,
                 .ANONYMOUS = true,
             },
             -1,
-            0,
-        );
-        _ = try std.posix.mmap(
-            mem.ptr,
-            size,
-            std.posix.PROT.READ | std.posix.PROT.WRITE,
-            std.posix.MAP{
-                .TYPE = .SHARED,
-                .FIXED = true,
-            },
-            memfd,
-            0,
-        );
-        _ = try std.posix.mmap(
-            @alignCast(mem.ptr + size),
-            size,
-            std.posix.PROT.READ | std.posix.PROT.WRITE,
-            std.posix.MAP{
-                .TYPE = .SHARED,
-                .FIXED = true,
-            },
-            memfd,
             0,
         );
         return .{
