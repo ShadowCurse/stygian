@@ -11,6 +11,8 @@ pkgs.mkShell {
   VULKAN_INCLUDE_PATH = "${pkgs.lib.makeIncludePath [pkgs.vulkan-headers]}";
   VULKAN_SDK = "${pkgs.vulkan-headers}";
   VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
+  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [pkgs.vulkan-loader]}";
+  EM_CACHE="/home/antaraz/.emscripten_cache";
 
   buildInputs = with pkgs; [
     SDL2
@@ -20,5 +22,7 @@ pkgs.mkShell {
     vulkan-validation-layers
     pkg-config
     shaderc
+
+    emscripten
   ];
 }

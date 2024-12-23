@@ -8,3 +8,6 @@ zig-out/
 .envrc
 .direnv
 *.spv
+/wasm/stygian.js
+/wasm/stygian.wasm
+/wasm/assets/*

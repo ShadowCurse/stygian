@@ -16,27 +16,14 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const options = b.addOptions();
-    const software_render = b.option(
-        bool,
-        "software_render",
-        "Use software renderer",
-    ) orelse false;
-    options.addOption(
-        bool,
-        "software_render",
-        software_render,
-    );
-    const vulkan_render = b.option(
-        bool,
-        "vulkan_render",
-        "Use Vulkan renderer",
-    ) orelse
+    const software_render = b.option(bool, "software_render", "Use software renderer") orelse false;
+    options.addOption(bool, "software_render", software_render);
+    const vulkan_render = b.option(bool, "vulkan_render", "Use Vulkan renderer") orelse
         if (software_render) false else true;
-    options.addOption(
-        bool,
-        "vulkan_render",
-        vulkan_render,
-    );
+    options.addOption(bool, "vulkan_render", vulkan_render);
+    const unibuild = b.option(bool, "unibuild", "Compile as a single binary") orelse
+        false;
+    options.addOption(bool, "unibuild", unibuild);
     const options_module = options.createModule();
 
     if (b.option(bool, "compile_shaders", "Compile shaders")) |_| {
@@ -47,63 +34,125 @@ pub fn build(b: *std.Build) !void {
     var env_map = try std.process.getEnvMap(b.allocator);
     defer env_map.deinit();
 
-    const platform = b.addExecutable(.{
-        .name = "stygian_platform",
-        .root_source_file = b.path("src/platform_main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    platform.root_module.addImport("build_options", options_module);
-    platform.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
-    platform.linkSystemLibrary("SDL2");
-    platform.linkLibC();
-    b.installArtifact(platform);
+    const exe = if (unibuild) blk: {
+        if (target.result.os.tag == .emscripten and !software_render)
+            @panic("Only software_render is supported for emscripten");
 
-    const runtime = b.addSharedLibrary(.{
-        .name = "stygian_runtime",
-        .root_source_file = b.path("src/runtime_main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-    runtime.root_module.addImport("build_options", options_module);
-    runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
-    runtime.addIncludePath(b.path("thirdparty/stb"));
-    runtime.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
-    runtime.linkSystemLibrary("SDL2");
+        const name = if (target.result.os.tag == .emscripten)
+            "stygian_unibuild_software_emscripten"
+        else if (software_render)
+            "stygian_unibuild_software"
+        else
+            "stygian_unibuild_vulkan";
 
-    if (vulkan_render) {
-        runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
-        runtime.addIncludePath(b.path("thirdparty/vma"));
-        runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
-        runtime.linkSystemLibrary("vulkan");
-        runtime.linkLibCpp();
-    } else {
-        runtime.linkLibC();
-    }
+        const runtime = if (target.result.os.tag == .emscripten)
+            b.addStaticLibrary(.{
+                .name = name,
+                .root_source_file = b.path("src/platform_main.zig"),
+                .target = target,
+                .optimize = optimize,
+            })
+        else
+            b.addExecutable(.{
+                .name = name,
+                .root_source_file = b.path("src/platform_main.zig"),
+                .target = target,
+                .optimize = optimize,
+            });
+        runtime.root_module.addImport("build_options", options_module);
+        runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
+        runtime.addIncludePath(b.path("thirdparty/stb"));
+        runtime.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
+        runtime.linkSystemLibrary("SDL2");
 
-    b.installArtifact(runtime);
+        if (target.result.os.tag == .emscripten) {
+            const cache_include = std.fs.path.join(
+                b.allocator,
+                &.{
+                    b.sysroot.?,
+                    "cache",
+                    "sysroot",
+                    "include",
+                },
+            ) catch @panic("Out of memory");
+            defer b.allocator.free(cache_include);
+            const cache_path = std.Build.LazyPath{ .cwd_relative = cache_include };
+            runtime.addIncludePath(cache_path);
+        }
 
-    const run_cmd = b.addRunArtifact(platform);
+        if (vulkan_render) {
+            runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
+            runtime.addIncludePath(b.path("thirdparty/vma"));
+            runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
+            runtime.linkSystemLibrary("vulkan");
+            runtime.linkLibCpp();
+        } else {
+            runtime.linkLibC();
+        }
 
+        b.installArtifact(runtime);
+
+        break :blk runtime;
+    } else blk: {
+        if (target.result.os.tag == .emscripten) {
+            @panic("Cannot build platform + runtime bundle for emscripten");
+        }
+
+        const platform = b.addExecutable(.{
+            .name = "stygian_platform",
+            .root_source_file = b.path("src/platform_main.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        platform.root_module.addImport("build_options", options_module);
+        platform.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
+        platform.linkSystemLibrary("SDL2");
+        platform.linkLibC();
+        // if (vulkan_render) {
+        //     platform.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
+        //     platform.linkSystemLibrary("vulkan");
+        // }
+        b.installArtifact(platform);
+
+        const runtime_name = if (software_render)
+            "stygian_runtime_software"
+        else
+            "stygian_runtime_vulkan";
+        const runtime = b.addSharedLibrary(.{
+            .name = runtime_name,
+            .root_source_file = b.path("src/runtime_main.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        runtime.root_module.addImport("build_options", options_module);
+        runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
+        runtime.addIncludePath(b.path("thirdparty/stb"));
+        runtime.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
+        runtime.linkSystemLibrary("SDL2");
+
+        if (vulkan_render) {
+            runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
+            runtime.addIncludePath(b.path("thirdparty/vma"));
+            runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
+            runtime.linkSystemLibrary("vulkan");
+            runtime.linkLibCpp();
+        } else {
+            runtime.linkLibC();
+        }
+
+        b.installArtifact(runtime);
+
+        break :blk platform;
+    };
+
+    const run_cmd = b.addRunArtifact(exe);
     if (b.option(bool, "X11", "Use X11 backend") == null) {
         run_cmd.setEnvironmentVariable("SDL_VIDEODRIVER", "wayland");
     }
-
-    // By making the run step depend on the install step, it will be run from the
-    // installation directory rather than directly from within the cache directory.
-    // This is not necessary, however, if the application depends on other installed
-    // files, this ensures they will be present and in the expected location.
     run_cmd.step.dependOn(b.getInstallStep());
-
-    // This allows the user to pass arguments to the application in the build
-    // command itself, like this: `zig build run -- arg1 arg2 etc`
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-
-    // This creates a build step. It will be visible in the `zig build --help` menu,
-    // and can be selected like this: `zig build run`
-    // This will evaluate the `run` step rather than the default, which is "install".
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
@@ -112,12 +161,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
-
-    // Similar to creating the run step earlier, this exposes a `test` step to
-    // the `zig build --help` menu, providing a way for the user to request
-    // running the unit tests.
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_exe_unit_tests.step);
 }

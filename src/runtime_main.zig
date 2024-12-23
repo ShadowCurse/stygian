@@ -81,7 +81,6 @@ const SoftwareRuntime = struct {
         height: i32,
     ) void {
         _ = events;
-
         self.screen_quads.reset();
 
         self.screen_quads.add_text(
@@ -178,7 +177,6 @@ const SoftwareRuntime = struct {
                     else => {},
                 }
             }
-
             self.soft_renderer.end_rendering();
         }
     }
@@ -398,7 +396,7 @@ else if (build_options.vulkan_render)
 else
     @panic("No renderer type selected");
 
-export fn runtime_main(
+pub export fn runtime_main(
     window: *sdl.SDL_Window,
     sdl_events: [*]sdl.SDL_Event,
     sdl_events_num: usize,
