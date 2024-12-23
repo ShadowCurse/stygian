@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_options = @import("build_options");
 const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
@@ -59,13 +60,20 @@ pub fn main() !void {
         log.err(@src(), "Cannot init SDL: {s}", .{sdl.SDL_GetError()});
         return error.SDLInit;
     }
+    const flags = if (build_options.software_render)
+        0
+    else if (build_options.vulkan_render)
+        sdl.SDL_WINDOW_VULKAN
+    else
+        @panic("No renderer type selected");
+
     const window = sdl.SDL_CreateWindow(
         "stygian",
         sdl.SDL_WINDOWPOS_UNDEFINED,
         sdl.SDL_WINDOWPOS_UNDEFINED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        sdl.SDL_WINDOW_VULKAN,
+        flags,
     ) orelse {
         log.err(@src(), "Cannot create a window: {s}", .{sdl.SDL_GetError()});
         return error.SDLCreateWindow;
