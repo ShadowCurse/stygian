@@ -165,5 +165,11 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
             src_data_start += src_pitch;
             src_data_end += src_pitch;
         }
+    } else {
+        log.warn(
+            @src(),
+            "Skipping drawing image as channel numbers are incopatible: self: {}, image: {}",
+            .{ self.image.channels, image_rect.image.channels },
+        );
     }
 }

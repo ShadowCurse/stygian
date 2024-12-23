@@ -42,6 +42,7 @@ pub fn init(memory: *Memory, path: [:0]const u8) !Self {
             .data = bytes,
         };
     } else {
+        log.err(@src(), "Cannot load an image from path: {s}", .{path});
         return error.ImageInit;
     }
 }
