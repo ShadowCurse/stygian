@@ -15,6 +15,21 @@ pub fn build(b: *std.Build) !void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const options = b.addOptions();
+    const software_render = b.option(bool, "software_render", "Use software renderer") orelse false;
+    options.addOption(
+        bool,
+        "software_render",
+        software_render,
+    );
+    options.addOption(
+        bool,
+        "vulkan_render",
+        b.option(bool, "vulkan_render", "Use Vulkan renderer") orelse
+            if (software_render) false else true,
+    );
+    const options_module = options.createModule();
+
     if (b.option(bool, "compile_shaders", "Compile shaders")) |_| {
         const shader_step = compile_shaders(b);
         b.default_step.dependOn(shader_step);
@@ -29,6 +44,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+    platform.root_module.addImport("build_options", options_module);
     platform.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
     platform.linkSystemLibrary("SDL2");
     platform.linkLibC();
@@ -40,6 +56,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+    runtime.root_module.addImport("build_options", options_module);
     runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
     runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
 
