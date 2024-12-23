@@ -25,6 +25,39 @@ pub const Vec2 = extern struct {
             .y = self.y - other.y,
         };
     }
+
+    pub inline fn len_squared(self: Vec2) f32 {
+        return self.dot(self);
+    }
+
+    pub inline fn normalize(self: Vec2) Vec2 {
+        return self.div_f32(@sqrt(self.len_squared()));
+    }
+
+    pub inline fn mul_f32(self: Vec2, v: f32) Vec2 {
+        return .{
+            .x = self.x * v,
+            .y = self.y * v,
+        };
+    }
+
+    pub inline fn div_f32(self: Vec2, v: f32) Vec2 {
+        return .{
+            .x = self.x / v,
+            .y = self.y / v,
+        };
+    }
+
+    pub inline fn dot(self: Vec2, other: Vec2) f32 {
+        return self.x * other.x + self.y * other.y;
+    }
+
+    pub inline fn perp(self: Vec2) Vec2 {
+        return .{
+            .x = -self.y,
+            .y = self.x,
+        };
+    }
 };
 
 pub const Vec3 = extern struct {

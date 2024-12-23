@@ -177,6 +177,40 @@ const SoftwareRuntime = struct {
                     else => {},
                 }
             }
+
+            const A = struct {
+                var a: f32 = 0;
+            };
+            A.a += dt;
+            // 1, 0
+            const x_axis = Vec2{
+                .x = @cos(A.a),
+                .y = @sin(A.a),
+            };
+            // 0, -1
+            const y_axis = Vec2{
+                .x = @sin(A.a),
+                .y = -@cos(A.a),
+            };
+            self.soft_renderer.draw_image_axis(
+                .{
+                    .x = 300.0,
+                    .y = 300.0,
+                },
+                .{
+                    .image = &self.image,
+                    .position = .{
+                        .x = 0.0,
+                        .y = 0.0,
+                    },
+                    .size = .{
+                        .x = @as(f32, @floatFromInt(self.image.width)),
+                        .y = @as(f32, @floatFromInt(self.image.height)),
+                    },
+                },
+                x_axis.normalize().mul_f32(2.0),
+                y_axis.normalize().mul_f32(2.0),
+            );
             self.soft_renderer.end_rendering();
         }
     }
