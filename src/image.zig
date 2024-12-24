@@ -1,6 +1,7 @@
 const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 
+const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 
 width: u32,
@@ -50,4 +51,12 @@ pub fn init(memory: *Memory, path: [:0]const u8) !Self {
 pub fn deinit(self: Self, memory: *Memory) void {
     const game_alloc = memory.game_alloc();
     game_alloc.free(self.data);
+}
+
+pub fn as_color_slice(self: Self) []Color {
+    // TODO add assert
+    var slice: []Color = undefined;
+    slice.ptr = @alignCast(@ptrCast(self.data.ptr));
+    slice.len = self.data.len / 4;
+    return slice;
 }

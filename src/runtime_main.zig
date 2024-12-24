@@ -162,6 +162,25 @@ const SoftwareRuntime = struct {
                 .y = @as(f32, @floatFromInt(self.image.height)),
             },
         });
+        var color = Color.ORAGE;
+        color.a = 60;
+        self.screen_quads.add_quad(&.{
+            .color = color,
+            .type = .SolidColor,
+            .pos = .{
+                .x = 150.0,
+                .y = 500.0,
+            },
+            .size = .{
+                .x = 200.0,
+                .y = 200.0,
+            },
+            .uv_offset = .{},
+            .uv_size = .{
+                .x = @as(f32, @floatFromInt(self.image.width)),
+                .y = @as(f32, @floatFromInt(self.image.height)),
+            },
+        });
 
         {
             self.soft_renderer.start_rendering();

@@ -126,45 +126,52 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.image.width * self.image.channels;
-    const src_pitch = image_rect.image.width * image_rect.image.channels;
+    if (image_rect.image.channels == 4) {
+        const dst_pitch = self.image.width;
+        const src_pitch = image_rect.image.width;
 
-    const dst_start_x: u32 = @intFromFloat(intersection.min.x);
-    const dst_start_y: u32 = @intFromFloat(intersection.min.y);
-    const src_start_x: u32 = @intFromFloat(image_rect.position.x);
-    const src_start_y: u32 = @intFromFloat(image_rect.position.y);
+        const dst_start_x: u32 = @intFromFloat(intersection.min.x);
+        const dst_start_y: u32 = @intFromFloat(intersection.min.y);
+        const src_start_x: u32 = @intFromFloat(image_rect.position.x);
+        const src_start_y: u32 = @intFromFloat(image_rect.position.y);
 
-    var dst_data_start = dst_start_x * self.image.channels + dst_start_y * dst_pitch;
-    var dst_data_end = dst_data_start + width * self.image.channels;
-    var src_data_start = src_start_x * image_rect.image.channels + src_start_y * src_pitch;
-    var src_data_end = src_data_start + width * image_rect.image.channels;
+        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
+        var src_data_start = src_start_x + src_start_y * src_pitch;
 
-    if (self.image.channels == image_rect.image.channels) {
+        const dst_data_color = self.image.as_color_slice();
+        const src_data_color = image_rect.image.as_color_slice();
         for (0..height) |_| {
-            @memcpy(
-                self.image.data[dst_data_start..dst_data_end],
-                image_rect.image.data[src_data_start..src_data_end],
-            );
-            dst_data_start += dst_pitch;
-            dst_data_end += dst_pitch;
-            src_data_start += src_pitch;
-            src_data_end += src_pitch;
-        }
-    } else if (self.image.channels == 4 and image_rect.image.channels == 1) {
-        for (0..height) |_| {
-            const dst = self.image.data[dst_data_start..dst_data_end];
-            const src = image_rect.image.data[src_data_start..src_data_end];
             for (0..width) |x| {
-                const byte = src[x];
-                dst[x * 4] = byte;
-                dst[x * 4 + 1] = byte;
-                dst[x * 4 + 2] = byte;
-                dst[x * 4 + 3] = 0xFF;
+                const src = src_data_color[src_data_start + x];
+                const dst = &dst_data_color[dst_data_start + x];
+                dst.* = src.mix_colors(dst.*);
             }
             dst_data_start += dst_pitch;
-            dst_data_end += dst_pitch;
             src_data_start += src_pitch;
-            src_data_end += src_pitch;
+        }
+    } else if (image_rect.image.channels == 1) {
+        const dst_pitch = self.image.width;
+        const src_pitch = image_rect.image.width * image_rect.image.channels;
+
+        const dst_start_x: u32 = @intFromFloat(intersection.min.x);
+        const dst_start_y: u32 = @intFromFloat(intersection.min.y);
+        const src_start_x: u32 = @intFromFloat(image_rect.position.x);
+        const src_start_y: u32 = @intFromFloat(image_rect.position.y);
+
+        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
+        var src_data_start = src_start_x * image_rect.image.channels + src_start_y * src_pitch;
+
+        const dst_data_color = self.image.as_color_slice();
+        const src_data_u8 = image_rect.image.data;
+        for (0..height) |_| {
+            for (0..width) |x| {
+                const src_u8 = src_data_u8[src_data_start + x];
+                const src: Color = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = 255 };
+                const dst = &dst_data_color[dst_data_start + x];
+                dst.* = src.mix_colors(dst.*);
+            }
+            dst_data_start += dst_pitch;
+            src_data_start += src_pitch;
         }
     } else {
         log.warn(
@@ -229,81 +236,117 @@ pub fn draw_image_with_scale_and_rotation(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.image.width * self.image.channels;
-    const src_pitch = image_rect.image.width * image_rect.image.channels;
-
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
     const src_start_x: u32 = @intFromFloat(@round(image_rect.position.x));
     const src_start_y: u32 = @intFromFloat(@round(image_rect.position.y));
-
-    var dst_data_start = dst_start_x * self.image.channels + dst_start_y * dst_pitch;
-    var dst_data_end = dst_data_start + width * self.image.channels;
-    const src_data_start = src_start_x * image_rect.image.channels + src_start_y * src_pitch;
 
     const ab = p_b.sub(p_a);
     const bd = p_d.sub(p_b);
     const dc = p_c.sub(p_d);
     const ca = p_a.sub(p_c);
 
-    for (0..height) |y| {
-        for (0..width) |x| {
-            const p: Vec2 = .{
-                .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-            };
-            const ap = p.sub(p_a);
-            const bp = p.sub(p_b);
-            const dp = p.sub(p_d);
-            const cp = p.sub(p_c);
+    if (image_rect.image.channels == 4) {
+        const dst_pitch = self.image.width;
+        const src_pitch = image_rect.image.width;
 
-            const ab_test = ab.perp().dot(ap);
-            const bd_test = bd.perp().dot(bp);
-            const dc_test = dc.perp().dot(dp);
-            const ca_test = ca.perp().dot(cp);
+        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
+        const src_data_start = src_start_x + src_start_y * src_pitch;
 
-            if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis) / x_axis.len_squared()));
-                var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis) / y_axis.len_squared()));
-                u_i32 = @min(@max(0, u_i32), image_rect.image.width - 1);
-                v_i32 = @min(@max(0, v_i32), image_rect.image.height - 1);
+        const dst_data_u32 = self.image.as_color_slice();
+        const src_data_u32 = image_rect.image.as_color_slice();
 
-                const u: u32 = @intCast(u_i32);
-                const v: u32 = (image_rect.image.height - 1) - @as(u32, @intCast(v_i32));
+        for (0..height) |y| {
+            for (0..width) |x| {
+                const p: Vec2 = .{
+                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+                };
+                const ap = p.sub(p_a);
+                const bp = p.sub(p_b);
+                const dp = p.sub(p_d);
+                const cp = p.sub(p_c);
 
-                const color_0 = image_rect.image.data[
-                    src_data_start +
-                        u * image_rect.image.channels +
-                        v * src_pitch + 0
-                ];
-                const color_1 = image_rect.image.data[
-                    src_data_start +
-                        u * image_rect.image.channels +
-                        v * src_pitch + 1
-                ];
-                const color_2 = image_rect.image.data[
-                    src_data_start +
-                        u * image_rect.image.channels +
-                        v * src_pitch + 2
-                ];
-                const color_3 = image_rect.image.data[
-                    src_data_start +
-                        u * image_rect.image.channels +
-                        v * src_pitch + 3
-                ];
-                self.image.data[dst_data_start + x * 4 + 0] = color_0;
-                self.image.data[dst_data_start + x * 4 + 1] = color_1;
-                self.image.data[dst_data_start + x * 4 + 2] = color_2;
-                self.image.data[dst_data_start + x * 4 + 3] = color_3;
-            } else {
-                self.image.data[dst_data_start + x * 4 + 0] = 0xF0;
-                self.image.data[dst_data_start + x * 4 + 1] = 0xF0;
-                self.image.data[dst_data_start + x * 4 + 2] = 0x00;
-                self.image.data[dst_data_start + x * 4 + 3] = 0xF0;
+                const ab_test = ab.perp().dot(ap);
+                const bd_test = bd.perp().dot(bp);
+                const dc_test = dc.perp().dot(dp);
+                const ca_test = ca.perp().dot(cp);
+
+                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis) / x_axis.len_squared()));
+                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis) / y_axis.len_squared()));
+                    u_i32 = @min(@max(0, u_i32), image_rect.image.width - 1);
+                    v_i32 = @min(@max(0, v_i32), image_rect.image.height - 1);
+
+                    const u: u32 = @intCast(u_i32);
+                    const v: u32 = (image_rect.image.height - 1) - @as(u32, @intCast(v_i32));
+
+                    const src = src_data_u32[
+                        src_data_start +
+                            u +
+                            v * src_pitch
+                    ];
+                    const dst = &dst_data_u32[dst_data_start + x];
+                    dst.* = src.mix_colors(dst.*);
+                }
             }
+            dst_data_start += dst_pitch;
         }
-        dst_data_start += dst_pitch;
-        dst_data_end += dst_pitch;
+    } else if (image_rect.image.channels == 1) {
+        const dst_pitch = self.image.width;
+        const src_pitch = image_rect.image.width;
+
+        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
+        var dst_data_end = dst_data_start + width;
+        const src_data_start = src_start_x + src_start_y * src_pitch;
+
+        const dst_data_color = self.image.as_color_slice();
+        const src_data_u8 = image_rect.image.data;
+
+        for (0..height) |y| {
+            for (0..width) |x| {
+                const p: Vec2 = .{
+                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+                };
+                const ap = p.sub(p_a);
+                const bp = p.sub(p_b);
+                const dp = p.sub(p_d);
+                const cp = p.sub(p_c);
+
+                const ab_test = ab.perp().dot(ap);
+                const bd_test = bd.perp().dot(bp);
+                const dc_test = dc.perp().dot(dp);
+                const ca_test = ca.perp().dot(cp);
+
+                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis) / x_axis.len_squared()));
+                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis) / y_axis.len_squared()));
+                    u_i32 = @min(@max(0, u_i32), image_rect.image.width - 1);
+                    v_i32 = @min(@max(0, v_i32), image_rect.image.height - 1);
+
+                    const u: u32 = @intCast(u_i32);
+                    const v: u32 = (image_rect.image.height - 1) - @as(u32, @intCast(v_i32));
+
+                    const src_u8 = src_data_u8[
+                        src_data_start +
+                            u +
+                            v * src_pitch
+                    ];
+                    const src: Color = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = 255 };
+                    const dst = &dst_data_color[dst_data_start + x];
+                    dst.* = src.mix_colors(dst.*);
+                }
+            }
+            dst_data_start += dst_pitch;
+            dst_data_end += dst_pitch;
+        }
+    } else {
+        log.warn(
+            @src(),
+            "Skipping drawing image as channel numbers are incopatible: self: {}, image: {}",
+            .{ self.image.channels, image_rect.image.channels },
+        );
     }
 }
 
@@ -343,24 +386,20 @@ pub fn draw_color_rect(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.image.width * self.image.channels;
+    const dst_pitch = self.image.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
 
-    var dst_data_start = dst_start_x * self.image.channels + dst_start_y * dst_pitch;
-    var dst_data_end = dst_data_start + width * self.image.channels;
+    var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
 
+    const dst_data_color = self.image.as_color_slice();
     for (0..height) |_| {
-        const dst = self.image.data[dst_data_start..dst_data_end];
         for (0..width) |x| {
-            dst[x * 4] = color.r;
-            dst[x * 4 + 1] = color.g;
-            dst[x * 4 + 2] = color.b;
-            dst[x * 4 + 3] = color.a;
+            const dst = &dst_data_color[dst_data_start + x];
+            dst.* = color.mix_colors(dst.*);
         }
         dst_data_start += dst_pitch;
-        dst_data_end += dst_pitch;
     }
 }
 
@@ -410,19 +449,19 @@ pub fn draw_color_rect_with_rotation(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.image.width * self.image.channels;
+    const dst_pitch = self.image.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
 
-    var dst_data_start = dst_start_x * self.image.channels + dst_start_y * dst_pitch;
-    var dst_data_end = dst_data_start + width * self.image.channels;
+    var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
 
     const ab = p_b.sub(p_a);
     const bd = p_d.sub(p_b);
     const dc = p_c.sub(p_d);
     const ca = p_a.sub(p_c);
 
+    const dst_data_color = self.image.as_color_slice();
     for (0..height) |y| {
         for (0..width) |x| {
             const p: Vec2 = .{
@@ -440,18 +479,10 @@ pub fn draw_color_rect_with_rotation(
             const ca_test = ca.perp().dot(cp);
 
             if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                self.image.data[dst_data_start + x * 4 + 0] = color.r;
-                self.image.data[dst_data_start + x * 4 + 1] = color.g;
-                self.image.data[dst_data_start + x * 4 + 2] = color.b;
-                self.image.data[dst_data_start + x * 4 + 3] = color.a;
-            } else {
-                self.image.data[dst_data_start + x * 4 + 0] = 0xF0;
-                self.image.data[dst_data_start + x * 4 + 1] = 0xF0;
-                self.image.data[dst_data_start + x * 4 + 2] = 0x00;
-                self.image.data[dst_data_start + x * 4 + 3] = 0xF0;
+                const dst = &dst_data_color[dst_data_start + x];
+                dst.* = color.mix_colors(dst.*);
             }
         }
         dst_data_start += dst_pitch;
-        dst_data_end += dst_pitch;
     }
 }
