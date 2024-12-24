@@ -22,7 +22,7 @@ else if (build_options.vulkan_render)
     "./zig-out/lib/libstygian_runtime_vulkan.so"
 else
     @panic("No renderer type selected");
-const SDL_INIT_FLAGS = if (build_options.software_render)
+const SDL_CREATE_WINDOW_FLAGS = if (build_options.software_render)
     0
 else if (build_options.vulkan_render)
     sdl.SDL_WINDOW_VULKAN
@@ -88,7 +88,7 @@ fn get_sdl_events(events_buffer: []sdl.SDL_Event) []sdl.SDL_Event {
 }
 
 pub fn main() !void {
-    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
+    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO) != 0) {
         log.err(@src(), "Cannot init SDL: {s}", .{sdl.SDL_GetError()});
         return error.SDLInit;
     }
@@ -98,7 +98,7 @@ pub fn main() !void {
         sdl.SDL_WINDOWPOS_UNDEFINED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_INIT_FLAGS,
+        SDL_CREATE_WINDOW_FLAGS,
     ) orelse {
         log.err(@src(), "Cannot create a window: {s}", .{sdl.SDL_GetError()});
         return error.SDLCreateWindow;

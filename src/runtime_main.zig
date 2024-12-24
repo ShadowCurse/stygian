@@ -3,6 +3,10 @@ const build_options = @import("build_options");
 const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
+const _audio = @import("audio.zig");
+const Audio = _audio.Audio;
+const SoundtrackId = _audio.SoundtrackId;
+
 const Image = @import("image.zig");
 const GpuImage = @import("vk_renderer/gpu_image.zig");
 
@@ -42,6 +46,9 @@ const SoftwareRuntime = struct {
     screen_quads: ScreenQuads,
     tile_map: TileMap,
 
+    audio: Audio,
+    soundtrack_id: SoundtrackId,
+
     soft_renderer: SoftRenderer,
 
     const Self = @This();
@@ -69,6 +76,10 @@ const SoftwareRuntime = struct {
                 }
             }
         }
+        self.audio.init() catch unreachable;
+        self.soundtrack_id = self.audio.load_wav(memory, "assets/background.wav") catch
+            unreachable;
+        self.audio.play(self.soundtrack_id);
         self.soft_renderer = SoftRenderer.init(window);
     }
 
