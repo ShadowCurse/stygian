@@ -2,6 +2,7 @@ const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
 const Image = @import("../image.zig");
+const Color = @import("../color.zig").Color;
 
 const _math = @import("../math.zig");
 const Vec2 = _math.Vec2;
@@ -294,6 +295,155 @@ pub fn draw_image_with_scale_and_rotation(
                 self.image.data[dst_data_start + x * 4 + 1] = color_1;
                 self.image.data[dst_data_start + x * 4 + 2] = color_2;
                 self.image.data[dst_data_start + x * 4 + 3] = color_3;
+            } else {
+                self.image.data[dst_data_start + x * 4 + 0] = 0xF0;
+                self.image.data[dst_data_start + x * 4 + 1] = 0xF0;
+                self.image.data[dst_data_start + x * 4 + 2] = 0x00;
+                self.image.data[dst_data_start + x * 4 + 3] = 0xF0;
+            }
+        }
+        dst_data_start += dst_pitch;
+        dst_data_end += dst_pitch;
+    }
+}
+
+pub fn draw_color_rect(
+    self: *Self,
+    position: Vec2,
+    size: Vec2,
+    color: Color,
+) void {
+    const x_axis = Vec2.X.mul_f32(size.x / 2.0);
+    const y_axis = Vec2.NEG_Y.mul_f32(size.y / 2.0);
+
+    const p_a = position.add(x_axis.neg()).add(y_axis.neg());
+    const p_b = position.add(x_axis).add(y_axis.neg());
+    const p_c = position.add(x_axis.neg()).add(y_axis);
+    const p_d = position.add(x_axis).add(y_axis);
+
+    const dst_aabb = AABB{
+        .min = .{
+            .x = @min(@min(p_a.x, p_b.x), @min(p_c.x, p_d.x)),
+            .y = @min(@min(p_a.y, p_b.y), @min(p_c.y, p_d.y)),
+        },
+        .max = .{
+            .x = @max(@max(p_a.x, p_b.x), @max(p_c.x, p_d.x)),
+            .y = @max(@max(p_a.y, p_b.y), @max(p_c.y, p_d.y)),
+        },
+    };
+
+    const self_rect = self.as_image_rect();
+    const self_aabb = self_rect.to_aabb();
+
+    if (!self_aabb.intersects(dst_aabb)) {
+        return;
+    }
+
+    const intersection = self_aabb.intersection(dst_aabb);
+    const width: u32 = @intFromFloat(intersection.width());
+    const height: u32 = @intFromFloat(intersection.height());
+
+    const dst_pitch = self.image.width * self.image.channels;
+
+    const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
+    const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
+
+    var dst_data_start = dst_start_x * self.image.channels + dst_start_y * dst_pitch;
+    var dst_data_end = dst_data_start + width * self.image.channels;
+
+    for (0..height) |_| {
+        const dst = self.image.data[dst_data_start..dst_data_end];
+        for (0..width) |x| {
+            dst[x * 4] = color.b;
+            dst[x * 4 + 1] = color.g;
+            dst[x * 4 + 2] = color.r;
+            dst[x * 4 + 3] = color.a;
+        }
+        dst_data_start += dst_pitch;
+        dst_data_end += dst_pitch;
+    }
+}
+
+pub fn draw_color_rect_with_rotation(
+    self: *Self,
+    position: Vec2,
+    size: Vec2,
+    rotation: f32,
+    rotation_offset: Vec2,
+    color: Color,
+) void {
+    const c = @cos(-rotation);
+    const s = @sin(-rotation);
+    const new_position = position.add(rotation_offset).add(
+        Vec2{
+            .x = c * -rotation_offset.x - s * -rotation_offset.y,
+            .y = s * -rotation_offset.x + c * -rotation_offset.y,
+        },
+    );
+    const x_axis = (Vec2{ .x = c, .y = s }).mul_f32(size.x / 2.0);
+    const y_axis = (Vec2{ .x = s, .y = -c }).mul_f32(size.y / 2.0);
+
+    const p_a = new_position.add(x_axis.neg()).add(y_axis.neg());
+    const p_b = new_position.add(x_axis).add(y_axis.neg());
+    const p_c = new_position.add(x_axis.neg()).add(y_axis);
+    const p_d = new_position.add(x_axis).add(y_axis);
+
+    const dst_aabb = AABB{
+        .min = .{
+            .x = @min(@min(p_a.x, p_b.x), @min(p_c.x, p_d.x)),
+            .y = @min(@min(p_a.y, p_b.y), @min(p_c.y, p_d.y)),
+        },
+        .max = .{
+            .x = @max(@max(p_a.x, p_b.x), @max(p_c.x, p_d.x)),
+            .y = @max(@max(p_a.y, p_b.y), @max(p_c.y, p_d.y)),
+        },
+    };
+
+    const self_rect = self.as_image_rect();
+    const self_aabb = self_rect.to_aabb();
+
+    if (!self_aabb.intersects(dst_aabb)) {
+        return;
+    }
+
+    const intersection = self_aabb.intersection(dst_aabb);
+    const width: u32 = @intFromFloat(intersection.width());
+    const height: u32 = @intFromFloat(intersection.height());
+
+    const dst_pitch = self.image.width * self.image.channels;
+
+    const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
+    const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
+
+    var dst_data_start = dst_start_x * self.image.channels + dst_start_y * dst_pitch;
+    var dst_data_end = dst_data_start + width * self.image.channels;
+
+    const ab = p_b.sub(p_a);
+    const bd = p_d.sub(p_b);
+    const dc = p_c.sub(p_d);
+    const ca = p_a.sub(p_c);
+
+    for (0..height) |y| {
+        for (0..width) |x| {
+            const p: Vec2 = .{
+                .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+            };
+            const ap = p.sub(p_a);
+            const bp = p.sub(p_b);
+            const dp = p.sub(p_d);
+            const cp = p.sub(p_c);
+
+            const ab_test = ab.perp().dot(ap);
+            const bd_test = bd.perp().dot(bp);
+            const dc_test = dc.perp().dot(dp);
+            const ca_test = ca.perp().dot(cp);
+
+            if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                self.image.data[dst_data_start + x * 4 + 0] = color.a;
+                self.image.data[dst_data_start + x * 4 + 1] = color.r;
+                self.image.data[dst_data_start + x * 4 + 2] = color.g;
+                self.image.data[dst_data_start + x * 4 + 3] = color.b;
             } else {
                 self.image.data[dst_data_start + x * 4 + 0] = 0xF0;
                 self.image.data[dst_data_start + x * 4 + 1] = 0xF0;

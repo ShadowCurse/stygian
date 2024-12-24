@@ -39,6 +39,13 @@ pub const Vec2 = extern struct {
         return self.div_f32(@sqrt(self.len_squared()));
     }
 
+    pub inline fn neg(self: Vec2) Vec2 {
+        return .{
+            .x = -self.x,
+            .y = -self.y,
+        };
+    }
+
     pub inline fn mul_f32(self: Vec2, v: f32) Vec2 {
         return .{
             .x = self.x * v,

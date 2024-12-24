@@ -126,7 +126,7 @@ const SoftwareRuntime = struct {
         });
         self.screen_quads.add_quad(&.{
             .color = Color.MAGENTA.to_vec3(),
-            .type = .Texture,
+            .type = .SolidColor,
             .pos = .{
                 .x = 100.0,
                 .y = 300.0,
@@ -200,6 +200,23 @@ const SoftwareRuntime = struct {
                                     .position = sq.uv_offset,
                                     .size = sq.uv_size,
                                 },
+                            );
+                        }
+                    },
+                    .SolidColor => {
+                        if (sq.rotation == 0.0) {
+                            self.soft_renderer.draw_color_rect(
+                                sq.pos,
+                                sq.size,
+                                Color.WHITE,
+                            );
+                        } else {
+                            self.soft_renderer.draw_color_rect_with_rotation(
+                                sq.pos,
+                                sq.size,
+                                sq.rotation,
+                                sq.rotation_offset,
+                                Color.WHITE,
                             );
                         }
                     },
