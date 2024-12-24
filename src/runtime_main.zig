@@ -113,7 +113,6 @@ const SoftwareRuntime = struct {
             },
         );
         self.screen_quads.add_quad(&.{
-            .color = .{},
             .type = .VertColor,
             .pos = .{
                 .x = 100.0,
@@ -125,7 +124,7 @@ const SoftwareRuntime = struct {
             },
         });
         self.screen_quads.add_quad(&.{
-            .color = Color.MAGENTA.to_vec3(),
+            .color = Color.MAGENTA,
             .type = .SolidColor,
             .pos = .{
                 .x = 100.0,
@@ -143,7 +142,6 @@ const SoftwareRuntime = struct {
             },
         });
         self.screen_quads.add_quad(&.{
-            .color = .{},
             .type = .Texture,
             .pos = .{
                 .x = 100.0,
@@ -208,7 +206,7 @@ const SoftwareRuntime = struct {
                             self.soft_renderer.draw_color_rect(
                                 sq.pos,
                                 sq.size,
-                                Color.WHITE,
+                                sq.color,
                             );
                         } else {
                             self.soft_renderer.draw_color_rect_with_rotation(
@@ -216,7 +214,7 @@ const SoftwareRuntime = struct {
                                 sq.size,
                                 sq.rotation,
                                 sq.rotation_offset,
-                                Color.WHITE,
+                                sq.color,
                             );
                         }
                     },
@@ -382,7 +380,6 @@ const VulkanRuntime = struct {
             },
         );
         self.screen_quads.add_quad(&.{
-            .color = .{},
             .type = .VertColor,
             .pos = .{
                 .x = 100.0,
@@ -394,7 +391,7 @@ const VulkanRuntime = struct {
             },
         });
         self.screen_quads.add_quad(&.{
-            .color = Color.MAGENTA.to_vec3(),
+            .color = Color.MAGENTA,
             .type = .SolidColor,
             .pos = .{
                 .x = 100.0,
@@ -406,7 +403,6 @@ const VulkanRuntime = struct {
             },
         });
         self.screen_quads.add_quad(&.{
-            .color = .{},
             .type = .Texture,
             .pos = .{
                 .x = 100.0,

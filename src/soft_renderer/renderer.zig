@@ -354,9 +354,9 @@ pub fn draw_color_rect(
     for (0..height) |_| {
         const dst = self.image.data[dst_data_start..dst_data_end];
         for (0..width) |x| {
-            dst[x * 4] = color.b;
+            dst[x * 4] = color.r;
             dst[x * 4 + 1] = color.g;
-            dst[x * 4 + 2] = color.r;
+            dst[x * 4 + 2] = color.b;
             dst[x * 4 + 3] = color.a;
         }
         dst_data_start += dst_pitch;
@@ -440,10 +440,10 @@ pub fn draw_color_rect_with_rotation(
             const ca_test = ca.perp().dot(cp);
 
             if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                self.image.data[dst_data_start + x * 4 + 0] = color.a;
-                self.image.data[dst_data_start + x * 4 + 1] = color.r;
-                self.image.data[dst_data_start + x * 4 + 2] = color.g;
-                self.image.data[dst_data_start + x * 4 + 3] = color.b;
+                self.image.data[dst_data_start + x * 4 + 0] = color.r;
+                self.image.data[dst_data_start + x * 4 + 1] = color.g;
+                self.image.data[dst_data_start + x * 4 + 2] = color.b;
+                self.image.data[dst_data_start + x * 4 + 3] = color.a;
             } else {
                 self.image.data[dst_data_start + x * 4 + 0] = 0xF0;
                 self.image.data[dst_data_start + x * 4 + 1] = 0xF0;

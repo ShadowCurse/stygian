@@ -14,12 +14,14 @@ layout(set = 0, binding = 0) uniform sampler2D colorTex;
 layout(set = 0, binding = 1) uniform sampler2D fontTex;
 
 struct QuadInfo {
-    vec3 color;
+    uint color;
+    float __reserved0;
+    float __reserved1;
     uint type;
     vec2 pos;
     vec2 size;
     float rotation;
-    float __reserved0;
+    float __reserved2;
     vec2 rotation_center;
     vec2 uv_offset;
     vec2 uv_size;
@@ -39,7 +41,11 @@ void main() {
     if (qi.type == 0) {
       outFragColor = vec4(inColor, 1.0);
     } else if (qi.type == 1) {
-      outFragColor = vec4(qi.color, 1.0);
+      float a = float(qi.color >> 24 & 0xFF) / 255.0;
+      float b = float(qi.color >> 16 & 0xFF) / 255.0;
+      float g = float(qi.color >> 8 & 0xFF) / 255.0;
+      float r = float(qi.color & 0xFF) / 255.0;
+      outFragColor = vec4(r, g, b, a);
     } else if (qi.type == 2) {
       outFragColor = texture(colorTex, inUV);
     } else {

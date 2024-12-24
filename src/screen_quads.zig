@@ -2,6 +2,7 @@ const log = @import("log.zig");
 
 const Font = @import("font.zig").Font;
 const Memory = @import("memory.zig");
+const Color = @import("color.zig").Color;
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
@@ -9,14 +10,15 @@ const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
 
 pub const ScreenQuad = extern struct {
-    color: Vec3 = .{},
+    color: Color = Color.WHITE,
+    __reserved0: Vec2 = .{},
     type: ScreenQuadType = .VertColor,
     // position in pixels
     pos: Vec2 = .{},
     // size in pixels
     size: Vec2 = .{},
     rotation: f32 = 0.0,
-    __reserved0: f32 = 0.0,
+    __reserved1: f32 = 0.0,
     rotation_offset: Vec2 = .{},
     // offset into the texture in pixels
     uv_offset: Vec2 = .{},
