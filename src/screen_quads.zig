@@ -17,11 +17,11 @@ pub const ScreenQuad = extern struct {
     size: Vec2 = .{},
     rotation: f32 = 0.0,
     __reserved0: f32 = 0.0,
+    rotation_offset: Vec2 = .{},
     // offset into the texture in pixels
     uv_offset: Vec2 = .{},
     // size of the area to fetch from a texture
     uv_size: Vec2 = .{},
-    __reserved1: Vec2 = .{},
 };
 pub const ScreenQuadType = enum(u32) {
     VertColor = 0,

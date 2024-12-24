@@ -126,7 +126,7 @@ const SoftwareRuntime = struct {
         });
         self.screen_quads.add_quad(&.{
             .color = Color.MAGENTA.to_vec3(),
-            .type = .SolidColor,
+            .type = .Texture,
             .pos = .{
                 .x = 100.0,
                 .y = 300.0,
@@ -134,6 +134,12 @@ const SoftwareRuntime = struct {
             .size = .{
                 .x = 200.0,
                 .y = 200.0,
+            },
+            .rotation = A.a,
+            .uv_offset = .{},
+            .uv_size = .{
+                .x = @as(f32, @floatFromInt(self.image.width)),
+                .y = @as(f32, @floatFromInt(self.image.height)),
             },
         });
         self.screen_quads.add_quad(&.{
@@ -148,6 +154,10 @@ const SoftwareRuntime = struct {
                 .y = 200.0,
             },
             .rotation = A.a,
+            .rotation_offset = .{
+                .x = 100.0,
+                .y = -100.0,
+            },
             .uv_offset = .{},
             .uv_size = .{
                 .x = @as(f32, @floatFromInt(self.image.width)),
@@ -180,10 +190,11 @@ const SoftwareRuntime = struct {
                                 },
                             );
                         } else {
-                            self.soft_renderer.draw_image_axis(
+                            self.soft_renderer.draw_image_with_scale_and_rotation(
                                 sq.pos,
                                 sq.size,
                                 sq.rotation,
+                                sq.rotation_offset,
                                 .{
                                     .image = &self.image,
                                     .position = sq.uv_offset,
@@ -389,6 +400,10 @@ const VulkanRuntime = struct {
                 .y = 200.0,
             },
             .rotation = A.a,
+            .rotation_offset = .{
+                .x = 100.0,
+                .y = -100.0,
+            },
         });
 
         self.screen_quads_gpu_info.set_instance_infos(self.screen_quads.slice());

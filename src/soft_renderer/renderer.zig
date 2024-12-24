@@ -174,29 +174,36 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
     }
 }
 
-pub fn draw_image_axis(
+pub fn draw_image_with_scale_and_rotation(
     self: *Self,
     position: Vec2,
     size: Vec2,
     rotation: f32,
+    rotation_offset: Vec2,
     image_rect: ImageRect,
 ) void {
     const scale: Vec2 = .{
         .x = size.x / @as(f32, @floatFromInt(image_rect.image.width)),
         .y = size.y / @as(f32, @floatFromInt(image_rect.image.height)),
     };
-    const c = @cos(rotation);
-    const s = @sin(rotation);
+    const c = @cos(-rotation);
+    const s = @sin(-rotation);
+    const new_position = position.add(rotation_offset).add(
+        Vec2{
+            .x = c * -rotation_offset.x - s * -rotation_offset.y,
+            .y = s * -rotation_offset.x + c * -rotation_offset.y,
+        },
+    );
     const x_axis = (Vec2{ .x = c, .y = s }).mul_f32(scale.x);
-    const y_axis = (Vec2{ .x = s, .y = -c }).mul_f32(scale.x);
+    const y_axis = (Vec2{ .x = s, .y = -c }).mul_f32(scale.y);
 
-    const p_a = position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
+    const p_a = new_position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
         .add(y_axis.mul_f32(-image_rect.size.y / 2.0));
-    const p_b = position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
+    const p_b = new_position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
         .add(y_axis.mul_f32(-image_rect.size.y / 2.0));
-    const p_c = position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
+    const p_c = new_position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
         .add(y_axis.mul_f32(image_rect.size.y / 2.0));
-    const p_d = position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
+    const p_d = new_position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
         .add(y_axis.mul_f32(image_rect.size.y / 2.0));
 
     const dst_aabb = AABB{
@@ -261,7 +268,7 @@ pub fn draw_image_axis(
                 v_i32 = @min(@max(0, v_i32), image_rect.image.height - 1);
 
                 const u: u32 = @intCast(u_i32);
-                const v: u32 = @intCast(v_i32);
+                const v: u32 = (image_rect.image.height - 1) - @as(u32, @intCast(v_i32));
 
                 const color_0 = image_rect.image.data[
                     src_data_start +

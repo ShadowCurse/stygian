@@ -20,9 +20,9 @@ struct QuadInfo {
     vec2 size;
     float rotation;
     float __reserved0;
+    vec2 rotation_center;
     vec2 uv_offset;
     vec2 uv_size;
-    vec2 __reserved1;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
