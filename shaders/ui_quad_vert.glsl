@@ -10,9 +10,12 @@ struct QuadInfo {
     vec3 color;
     uint type;
     vec2 pos;
-    vec2 scale;
-    vec2 uv_pos;
-    vec2 uv_scale;
+    vec2 size;
+    float rotation;
+    float __reserved0;
+    vec2 uv_offset;
+    vec2 uv_size;
+    vec2 __reserved1;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
@@ -70,9 +73,14 @@ void main() {
     QuadInfo qi = PushConstants.instance_infos.infos[gl_InstanceIndex];
     vec2 screen_size = PushConstants.screen_size;
 
+    float c = cos(qi.rotation);
+    float s = sin(qi.rotation);
+    mat2 rotation = mat2(c, -s, s, c);
+    vec2 vertex_position = rotation * v.position;
+
     vec2 quad_pos = (qi.pos / (screen_size / 2.0)) - vec2(1.0);
-    vec2 quad_scale = qi.scale / screen_size;
-    vec4 new_position = vec4((v.position * quad_scale + quad_pos) , 1.0, 1.0);
+    vec2 quad_size = qi.size / screen_size;
+    vec4 new_position = vec4((vertex_position * quad_size + quad_pos) , 1.0, 1.0);
     gl_Position = vec4(new_position.xy, 1.0, 1.0);
 
     outColor = v.color.xyz;

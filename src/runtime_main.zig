@@ -83,6 +83,11 @@ const SoftwareRuntime = struct {
         _ = events;
         self.screen_quads.reset();
 
+        const A = struct {
+            var a: f32 = 0;
+        };
+        A.a += dt;
+
         self.screen_quads.add_text(
             &self.font,
             std.fmt.allocPrint(
@@ -142,6 +147,12 @@ const SoftwareRuntime = struct {
                 .x = 200.0,
                 .y = 200.0,
             },
+            .rotation = A.a,
+            .uv_offset = .{},
+            .uv_size = .{
+                .x = @as(f32, @floatFromInt(self.image.width)),
+                .y = @as(f32, @floatFromInt(self.image.height)),
+            },
         });
 
         {
@@ -153,64 +164,37 @@ const SoftwareRuntime = struct {
                             sq.pos,
                             .{
                                 .image = &self.font.image,
-                                .position = sq.uv_pos,
-                                .size = sq.uv_scale,
+                                .position = sq.uv_offset,
+                                .size = sq.uv_size,
                             },
                         );
                     },
                     .Texture => {
-                        self.soft_renderer.draw_image(
-                            sq.pos,
-                            .{
-                                .image = &self.image,
-                                .position = .{
-                                    .x = 0.0,
-                                    .y = 0.0,
+                        if (sq.rotation == 0.0) {
+                            self.soft_renderer.draw_image(
+                                sq.pos,
+                                .{
+                                    .image = &self.image,
+                                    .position = sq.uv_offset,
+                                    .size = sq.uv_size,
                                 },
-                                .size = .{
-                                    .x = @as(f32, @floatFromInt(self.image.width)),
-                                    .y = @as(f32, @floatFromInt(self.image.height)),
+                            );
+                        } else {
+                            self.soft_renderer.draw_image_axis(
+                                sq.pos,
+                                sq.size,
+                                sq.rotation,
+                                .{
+                                    .image = &self.image,
+                                    .position = sq.uv_offset,
+                                    .size = sq.uv_size,
                                 },
-                            },
-                        );
+                            );
+                        }
                     },
                     else => {},
                 }
             }
-
-            const A = struct {
-                var a: f32 = 0;
-            };
-            A.a += dt;
-            // 1, 0
-            const x_axis = Vec2{
-                .x = @cos(A.a),
-                .y = @sin(A.a),
-            };
-            // 0, -1
-            const y_axis = Vec2{
-                .x = @sin(A.a),
-                .y = -@cos(A.a),
-            };
-            self.soft_renderer.draw_image_axis(
-                .{
-                    .x = 300.0,
-                    .y = 300.0,
-                },
-                .{
-                    .image = &self.image,
-                    .position = .{
-                        .x = 0.0,
-                        .y = 0.0,
-                    },
-                    .size = .{
-                        .x = @as(f32, @floatFromInt(self.image.width)),
-                        .y = @as(f32, @floatFromInt(self.image.height)),
-                    },
-                },
-                x_axis.normalize().mul_f32(2.0),
-                y_axis.normalize().mul_f32(2.0),
-            );
             self.soft_renderer.end_rendering();
         }
     }
@@ -404,6 +388,7 @@ const VulkanRuntime = struct {
                 .x = 200.0,
                 .y = 200.0,
             },
+            .rotation = A.a,
         });
 
         self.screen_quads_gpu_info.set_instance_infos(self.screen_quads.slice());

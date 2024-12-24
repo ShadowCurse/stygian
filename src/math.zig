@@ -4,6 +4,11 @@ pub const Vec2 = extern struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
 
+    pub const X: Vec2 = .{ .x = 1.0, .y = 0.0 };
+    pub const NEG_X: Vec2 = .{ .x = -1.0, .y = 0.0 };
+    pub const Y: Vec2 = .{ .x = 0.0, .y = 1.0 };
+    pub const NEG_Y: Vec2 = .{ .x = 0.0, .y = -1.0 };
+
     pub inline fn extend(self: Vec2, z: f32) Vec3 {
         return .{
             .x = self.x,

@@ -177,10 +177,19 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
 pub fn draw_image_axis(
     self: *Self,
     position: Vec2,
+    size: Vec2,
+    rotation: f32,
     image_rect: ImageRect,
-    x_axis: Vec2,
-    y_axis: Vec2,
 ) void {
+    const scale: Vec2 = .{
+        .x = size.x / @as(f32, @floatFromInt(image_rect.image.width)),
+        .y = size.y / @as(f32, @floatFromInt(image_rect.image.height)),
+    };
+    const c = @cos(rotation);
+    const s = @sin(rotation);
+    const x_axis = (Vec2{ .x = c, .y = s }).mul_f32(scale.x);
+    const y_axis = (Vec2{ .x = s, .y = -c }).mul_f32(scale.x);
+
     const p_a = position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
         .add(y_axis.mul_f32(-image_rect.size.y / 2.0));
     const p_b = position.add(x_axis.mul_f32(image_rect.size.x / 2.0))

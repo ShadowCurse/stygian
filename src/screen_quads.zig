@@ -11,10 +11,17 @@ const Mat4 = _math.Mat4;
 pub const ScreenQuad = extern struct {
     color: Vec3 = .{},
     type: ScreenQuadType = .VertColor,
+    // position in pixels
     pos: Vec2 = .{},
+    // size in pixels
     size: Vec2 = .{},
-    uv_pos: Vec2 = .{},
-    uv_scale: Vec2 = .{},
+    rotation: f32 = 0.0,
+    __reserved0: f32 = 0.0,
+    // offset into the texture in pixels
+    uv_offset: Vec2 = .{},
+    // size of the area to fetch from a texture
+    uv_size: Vec2 = .{},
+    __reserved1: Vec2 = .{},
 };
 pub const ScreenQuadType = enum(u32) {
     VertColor = 0,
@@ -94,11 +101,11 @@ pub fn add_text(
                 .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)),
                 .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
             },
-            .uv_pos = .{
+            .uv_offset = .{
                 .x = @as(f32, @floatFromInt(char_info.x0)),
                 .y = @as(f32, @floatFromInt(char_info.y0)),
             },
-            .uv_scale = .{
+            .uv_size = .{
                 .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)),
                 .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
             },

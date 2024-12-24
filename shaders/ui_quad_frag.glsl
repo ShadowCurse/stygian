@@ -17,9 +17,12 @@ struct QuadInfo {
     vec3 color;
     uint type;
     vec2 pos;
-    vec2 scale;
-    vec2 uv_pos;
-    vec2 uv_scale;
+    vec2 size;
+    float rotation;
+    float __reserved0;
+    vec2 uv_offset;
+    vec2 uv_size;
+    vec2 __reserved1;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
@@ -41,8 +44,8 @@ void main() {
       outFragColor = texture(colorTex, inUV);
     } else {
       vec2 size = textureSize(fontTex, 0);
-      vec2 uv_pos = qi.uv_pos / size;
-      vec2 uv_scale = qi.uv_scale / size;
-      outFragColor = vec4(texture(fontTex, inUV * uv_scale + uv_pos).r);
+      vec2 uv_offset = qi.uv_offset / size;
+      vec2 uv_size = qi.uv_size / size;
+      outFragColor = vec4(texture(fontTex, inUV * uv_size + uv_offset).r);
     }
 }
