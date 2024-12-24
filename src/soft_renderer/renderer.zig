@@ -181,11 +181,14 @@ pub fn draw_image_axis(
     x_axis: Vec2,
     y_axis: Vec2,
 ) void {
-    const p_a = position;
-    const p_b = position.add(x_axis.mul_f32(image_rect.size.x));
-    const p_c = position.add(y_axis.mul_f32(image_rect.size.y));
-    const p_d = position.add(x_axis.mul_f32(image_rect.size.x))
-        .add(y_axis.mul_f32(image_rect.size.y));
+    const p_a = position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(-image_rect.size.y / 2.0));
+    const p_b = position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(-image_rect.size.y / 2.0));
+    const p_c = position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(image_rect.size.y / 2.0));
+    const p_d = position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(image_rect.size.y / 2.0));
 
     const dst_aabb = AABB{
         .min = .{
