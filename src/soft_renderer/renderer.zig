@@ -168,7 +168,7 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
         for (0..height) |_| {
             for (0..width) |x| {
                 const src_u8 = src_data_u8[src_data_start + x];
-                const src: Color = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = 255 };
+                const src: Color = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = src_u8 };
                 const dst = &dst_data_color[dst_data_start + x];
                 dst.* = src.mix_colors(dst.*);
             }
