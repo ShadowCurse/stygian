@@ -1,10 +1,11 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
-const DEFAULT_COLOR = "\x1b[0m";
-const WHITE = "\x1b[37m";
-const HIGH_WHITE = "\x1b[90m";
-const YELLOW = "\x1b[33m";
-const RED = "\x1b[31m";
+const DEFAULT_COLOR = if (builtin.os.tag == .emscripten) "" else "\x1b[0m";
+const WHITE = if (builtin.os.tag == .emscripten) "" else "\x1b[37m";
+const HIGH_WHITE = if (builtin.os.tag == .emscripten) "" else "\x1b[90m";
+const YELLOW = if (builtin.os.tag == .emscripten) "" else "\x1b[33m";
+const RED = if (builtin.os.tag == .emscripten) "" else "\x1b[31m";
 
 pub fn info(
     src: std.builtin.SourceLocation,
