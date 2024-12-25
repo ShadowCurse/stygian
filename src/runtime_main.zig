@@ -41,6 +41,10 @@ const Mat4 = _math.Mat4;
 const _mesh = @import("mesh.zig");
 const CubeMesh = _mesh.CubeMesh;
 
+const _objects = @import("objects.zig");
+const Object2d = _objects.Object2d;
+const Transform2d = _objects.Transform2d;
+
 const SoftwareRuntime = struct {
     camera_controller: CameraController2d,
 
@@ -113,48 +117,53 @@ const SoftwareRuntime = struct {
         };
         A.a += dt;
 
-        const ObjectTransform2d = struct {
-            position: Vec2 = .{},
-            rotation: f32 = 0.0,
-            rotation_offset: Vec2 = .{},
-        };
-
-        const objects_transforms = [_]ObjectTransform2d{
+        const objects = [_]Object2d{
             .{
-                .position = .{
-                    .x = 0.0,
-                    .y = 0.0,
+                .type = .{ .Image = &self.image },
+                .transform = .{
+                    .position = .{
+                        .x = 0.0,
+                        .y = 0.0,
+                    },
+                    .rotation = A.a,
                 },
-                .rotation = 0.0,
+                .size = .{
+                    .x = 32.0,
+                    .y = 32.0,
+                },
             },
             .{
-                .position = .{
-                    .x = 100.0,
-                    .y = 0.0,
+                .type = .{ .Color = Color.ORAGE },
+                .transform = .{
+                    .position = .{
+                        .x = 100.0,
+                        .y = 0.0,
+                    },
+                    .rotation = 0.0,
                 },
-                .rotation = 0.0,
-            },
-            .{
-                .position = .{
-                    .x = -100.0,
-                    .y = 0.0,
-                },
-                .rotation = 0.0,
-            },
-        };
-
-        for (objects_transforms) |ot| {
-            self.screen_quads.add_quad(&.{
-                .color = Color.ORAGE,
-                .type = .SolidColor,
-                .pos = ot.position.sub(self.camera_controller.position.xy()),
                 .size = .{
                     .x = 50.0,
                     .y = 50.0,
                 },
-                .rotation = ot.rotation,
-                .rotation_offset = ot.rotation_offset,
-            });
+            },
+            .{
+                .type = .{ .Color = Color.ORAGE },
+                .transform = .{
+                    .position = .{
+                        .x = -100.0,
+                        .y = 0.0,
+                    },
+                    .rotation = A.a,
+                },
+                .size = .{
+                    .x = 50.0,
+                    .y = 50.0,
+                },
+            },
+        };
+
+        for (&objects) |*object| {
+            object.to_screen_quad(&self.camera_controller, &self.screen_quads);
         }
 
         self.screen_quads.add_text(
@@ -224,25 +233,6 @@ const SoftwareRuntime = struct {
             .rotation_offset = .{
                 .x = 100.0,
                 .y = -100.0,
-            },
-            .uv_offset = .{},
-            .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.image.width)),
-                .y = @as(f32, @floatFromInt(self.image.height)),
-            },
-        });
-        var color = Color.ORAGE;
-        color.a = 60;
-        self.screen_quads.add_quad(&.{
-            .color = color,
-            .type = .SolidColor,
-            .pos = .{
-                .x = 150.0,
-                .y = 500.0,
-            },
-            .size = .{
-                .x = 200.0,
-                .y = 200.0,
             },
             .uv_offset = .{},
             .uv_size = .{
