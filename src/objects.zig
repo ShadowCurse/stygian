@@ -15,7 +15,7 @@ const Mat4 = _math.Mat4;
 const Quat = _math.Quat;
 
 pub const Transform2d = struct {
-    position: Vec2 = .{},
+    position: Vec3 = .{},
     rotation: f32 = 0.0,
     rotation_offset: Vec2 = .{},
 };
@@ -38,14 +38,14 @@ pub const Object2d = struct {
         images: []const Image,
         screen_quads: *ScreenQuads,
     ) void {
+        const position = camera_controller.transform(self.transform.position);
         switch (self.type) {
             .Color => |color| {
                 screen_quads.add_quad(.{
                     .color = color,
                     .texture_id = ScreenQuads.TextureIdSolidColor,
-                    .pos = self.transform.position
-                        .sub(camera_controller.position.xy()),
-                    .size = self.size,
+                    .pos = position.xy(),
+                    .size = self.size.mul_f32(position.z),
                     .rotation = self.transform.rotation,
                     .rotation_offset = self.transform.rotation_offset,
                 });
@@ -58,9 +58,8 @@ pub const Object2d = struct {
                 };
                 screen_quads.add_quad(.{
                     .texture_id = texture_id,
-                    .pos = self.transform.position
-                        .sub(camera_controller.position.xy()),
-                    .size = self.size,
+                    .pos = position.xy(),
+                    .size = self.size.mul_f32(position.z),
                     .rotation = self.transform.rotation,
                     .rotation_offset = self.transform.rotation_offset,
                     .uv_size = image_size,

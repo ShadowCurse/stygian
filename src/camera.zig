@@ -2,16 +2,19 @@ const std = @import("std");
 const sdl = @import("bindings/sdl.zig");
 
 const _math = @import("math.zig");
+const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
 const Quaterion = _math.Quat;
 const Mat4 = _math.Mat4;
 
 pub const CameraController2d = struct {
     velocity: Vec3 = .{},
-    speed: f32 = 200.0,
+    speed: f32 = 10.0,
     position: Vec3 = .{ .x = 0.0, .y = 0.0, .z = 0.0 },
+    screen_size: Vec2 = .{},
     rotation: f32 = 0.0,
     sensitivity: f32 = 20.0,
+    near: f32 = 1.0,
     active: bool = false,
 
     const Self = @This();
@@ -20,6 +23,8 @@ pub const CameraController2d = struct {
         var self: Self = .{};
         self.position.x -= @floatFromInt(width / 2);
         self.position.y -= @floatFromInt(height / 2);
+        self.position.z = 2.0;
+        self.screen_size = .{ .x = @floatFromInt(width), .y = @floatFromInt(height) };
         return self;
     }
 
@@ -30,8 +35,8 @@ pub const CameraController2d = struct {
                 sdl.SDLK_s => self.velocity.y = 1.0,
                 sdl.SDLK_a => self.velocity.x = -1.0,
                 sdl.SDLK_d => self.velocity.x = 1.0,
-                sdl.SDLK_SPACE => self.velocity.z = -1.0,
-                sdl.SDLK_LCTRL => self.velocity.z = 1.0,
+                sdl.SDLK_SPACE => self.velocity.z = 1.0,
+                sdl.SDLK_LCTRL => self.velocity.z = -1.0,
                 else => {},
             }
         }
@@ -63,6 +68,19 @@ pub const CameraController2d = struct {
 
     pub fn update(self: *Self, dt: f32) void {
         self.position = self.position.add(self.velocity.mul_f32(self.speed * dt));
+    }
+
+    pub fn transform(self: Self, point: Vec3) Vec3 {
+        const z_diff = self.position.z - point.z;
+        const scale = self.near / z_diff;
+        const half_screen = self.screen_size.mul_f32(0.5);
+        const position =
+            point.xy()
+            .sub(self.position.xy())
+            .sub(half_screen)
+            .mul(.{ .x = scale, .y = scale })
+            .add(half_screen);
+        return position.extend(scale);
     }
 };
 
