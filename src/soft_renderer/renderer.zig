@@ -108,6 +108,7 @@ pub fn as_image_rect(self: *const Self) ImageRect {
     };
 }
 
+// TODO add an option to skip alpha blend and do a simple memcopy instead.
 pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
     const self_rect = self.as_image_rect();
     const self_aabb = self_rect.to_aabb();

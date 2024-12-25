@@ -190,6 +190,26 @@ const SoftwareRuntime = struct {
             );
         }
 
+        const frame_alloc = memory.frame_alloc();
+        const tile_positions = self.tile_map.get_positions(frame_alloc) catch unreachable;
+        for (tile_positions) |tile_pos| {
+            const object = Object2d{
+                .type = .{ .Color = Color.ORAGE },
+                .transform = .{
+                    .position = tile_pos.mul_f32(40.0).extend(0.0),
+                },
+                .size = .{
+                    .x = 80.0,
+                    .y = 80.0,
+                },
+            };
+            object.to_screen_quad(
+                &self.camera_controller,
+                &self.images,
+                &self.screen_quads,
+            );
+        }
+
         self.screen_quads.add_text(
             &self.font,
             std.fmt.allocPrint(
