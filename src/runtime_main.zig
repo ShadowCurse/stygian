@@ -16,7 +16,8 @@ const ScreenQuads = @import("screen_quads.zig");
 const Memory = @import("memory.zig");
 const SoftRenderer = @import("soft_renderer/renderer.zig");
 const VkRenderer = @import("vk_renderer/renderer.zig");
-const CameraController = @import("camera.zig").CameraController;
+const CameraController2d = @import("camera.zig").CameraController2d;
+const CameraController3d = @import("camera.zig").CameraController3d;
 
 const _screen_quads = @import("vk_renderer/screen_quads.zig");
 const ScreenQuadsPipeline = _screen_quads.ScreenQuadsPipeline;
@@ -41,6 +42,8 @@ const _mesh = @import("mesh.zig");
 const CubeMesh = _mesh.CubeMesh;
 
 const SoftwareRuntime = struct {
+    camera_controller: CameraController2d,
+
     image: Image,
     font: Font,
     screen_quads: ScreenQuads,
@@ -60,8 +63,7 @@ const SoftwareRuntime = struct {
         width: u32,
         height: u32,
     ) !void {
-        _ = width;
-        _ = height;
+        self.camera_controller = CameraController2d.init(width, height);
 
         self.image = try Image.init(memory, "assets/a.png");
         self.font = try Font.init(memory, "assets/font.ttf", 32);
@@ -92,7 +94,8 @@ const SoftwareRuntime = struct {
     ) void {
         self.screen_quads.reset();
 
-        for (events) |event| {
+        for (events) |*event| {
+            self.camera_controller.process_input(event, dt);
             if (event.type == sdl.SDL_KEYDOWN) {
                 switch (event.key.keysym.sym) {
                     sdl.SDLK_g => self.audio.play(self.soundtrack_id),
@@ -103,11 +106,56 @@ const SoftwareRuntime = struct {
                 }
             }
         }
+        self.camera_controller.update(dt);
 
         const A = struct {
             var a: f32 = 0;
         };
         A.a += dt;
+
+        const ObjectTransform2d = struct {
+            position: Vec2 = .{},
+            rotation: f32 = 0.0,
+            rotation_offset: Vec2 = .{},
+        };
+
+        const objects_transforms = [_]ObjectTransform2d{
+            .{
+                .position = .{
+                    .x = 0.0,
+                    .y = 0.0,
+                },
+                .rotation = 0.0,
+            },
+            .{
+                .position = .{
+                    .x = 100.0,
+                    .y = 0.0,
+                },
+                .rotation = 0.0,
+            },
+            .{
+                .position = .{
+                    .x = -100.0,
+                    .y = 0.0,
+                },
+                .rotation = 0.0,
+            },
+        };
+
+        for (objects_transforms) |ot| {
+            self.screen_quads.add_quad(&.{
+                .color = Color.ORAGE,
+                .type = .SolidColor,
+                .pos = ot.position.sub(self.camera_controller.position.xy()),
+                .size = .{
+                    .x = 50.0,
+                    .y = 50.0,
+                },
+                .rotation = ot.rotation,
+                .rotation_offset = ot.rotation_offset,
+            });
+        }
 
         self.screen_quads.add_text(
             &self.font,
@@ -267,7 +315,7 @@ const SoftwareRuntime = struct {
 };
 
 const VulkanRuntime = struct {
-    camera_controller: CameraController,
+    camera_controller: CameraController3d,
 
     image: Image,
     font: Font,
@@ -291,7 +339,7 @@ const VulkanRuntime = struct {
         width: u32,
         height: u32,
     ) !void {
-        self.camera_controller = CameraController.init();
+        self.camera_controller = CameraController3d.init();
 
         self.image = try Image.init(memory, "assets/a.png");
         self.font = try Font.init(memory, "assets/font.ttf", 32);

@@ -84,6 +84,10 @@ pub const Vec3 = extern struct {
     pub const Z: Vec3 = .{ .z = 1.0 };
     pub const NEG_Z: Vec3 = .{ .z = -1.0 };
 
+    pub inline fn xy(self: Vec3) Vec2 {
+        return .{ .x = self.x, .y = self.y };
+    }
+
     pub inline fn extend(self: Vec3, w: f32) Vec4 {
         return .{ .x = self.x, .y = self.y, .z = self.z, .w = w };
     }
