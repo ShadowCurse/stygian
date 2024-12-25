@@ -19,9 +19,9 @@ const VkRenderer = @import("vk_renderer/renderer.zig");
 const CameraController2d = @import("camera.zig").CameraController2d;
 const CameraController3d = @import("camera.zig").CameraController3d;
 
-const _screen_quads = @import("vk_renderer/screen_quads.zig");
-const ScreenQuadsPipeline = _screen_quads.ScreenQuadsPipeline;
-const ScreenQuadsGpuInfo = _screen_quads.ScreenQuadsGpuInfo;
+const _vk_screen_quads = @import("vk_renderer/screen_quads.zig");
+const ScreenQuadsPipeline = _vk_screen_quads.ScreenQuadsPipeline;
+const ScreenQuadsGpuInfo = _vk_screen_quads.ScreenQuadsGpuInfo;
 
 const _render_mesh = @import("vk_renderer/mesh.zig");
 const MeshPipeline = _render_mesh.MeshPipeline;
@@ -48,8 +48,9 @@ const Transform2d = _objects.Transform2d;
 const SoftwareRuntime = struct {
     camera_controller: CameraController2d,
 
-    image: Image,
     font: Font,
+    images: [4]Image,
+
     screen_quads: ScreenQuads,
     tile_map: TileMap,
 
@@ -69,8 +70,13 @@ const SoftwareRuntime = struct {
     ) !void {
         self.camera_controller = CameraController2d.init(width, height);
 
-        self.image = try Image.init(memory, "assets/a.png");
         self.font = try Font.init(memory, "assets/font.ttf", 32);
+        self.font.image_id = 0;
+        self.images[0] = self.font.image;
+        self.images[1] = try Image.init(memory, "assets/a.png");
+        self.images[2] = try Image.init(memory, "assets/item_pot.png");
+        self.images[3] = try Image.init(memory, "assets/item_coffecup.png");
+
         self.screen_quads = try ScreenQuads.init(memory, 64);
         self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
         var y: u32 = 0;
@@ -119,7 +125,7 @@ const SoftwareRuntime = struct {
 
         const objects = [_]Object2d{
             .{
-                .type = .{ .Image = &self.image },
+                .type = .{ .TextureId = 2 },
                 .transform = .{
                     .position = .{
                         .x = 0.0,
@@ -128,8 +134,22 @@ const SoftwareRuntime = struct {
                     .rotation = A.a,
                 },
                 .size = .{
-                    .x = 32.0,
-                    .y = 32.0,
+                    .x = 64.0,
+                    .y = 64.0,
+                },
+            },
+            .{
+                .type = .{ .TextureId = 3 },
+                .transform = .{
+                    .position = .{
+                        .x = 0.0,
+                        .y = -100.0,
+                    },
+                    .rotation = -A.a,
+                },
+                .size = .{
+                    .x = 64.0,
+                    .y = 64.0,
                 },
             },
             .{
@@ -163,7 +183,11 @@ const SoftwareRuntime = struct {
         };
 
         for (&objects) |*object| {
-            object.to_screen_quad(&self.camera_controller, &self.screen_quads);
+            object.to_screen_quad(
+                &self.camera_controller,
+                &self.images,
+                &self.screen_quads,
+            );
         }
 
         self.screen_quads.add_text(
@@ -190,20 +214,9 @@ const SoftwareRuntime = struct {
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
             },
         );
-        self.screen_quads.add_quad(&.{
-            .type = .VertColor,
-            .pos = .{
-                .x = 100.0,
-                .y = 100.0,
-            },
-            .size = .{
-                .x = 200.0,
-                .y = 200.0,
-            },
-        });
-        self.screen_quads.add_quad(&.{
+        self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
-            .type = .SolidColor,
+            .texture_id = ScreenQuads.TextureIdSolidColor,
             .pos = .{
                 .x = 100.0,
                 .y = 300.0,
@@ -213,14 +226,9 @@ const SoftwareRuntime = struct {
                 .y = 200.0,
             },
             .rotation = A.a,
-            .uv_offset = .{},
-            .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.image.width)),
-                .y = @as(f32, @floatFromInt(self.image.height)),
-            },
         });
-        self.screen_quads.add_quad(&.{
-            .type = .Texture,
+        self.screen_quads.add_quad(.{
+            .texture_id = 1,
             .pos = .{
                 .x = 100.0,
                 .y = 500.0,
@@ -236,50 +244,17 @@ const SoftwareRuntime = struct {
             },
             .uv_offset = .{},
             .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.image.width)),
-                .y = @as(f32, @floatFromInt(self.image.height)),
+                .x = @as(f32, @floatFromInt(self.images[1].width)),
+                .y = @as(f32, @floatFromInt(self.images[1].height)),
             },
         });
 
         {
             self.soft_renderer.start_rendering();
             for (self.screen_quads.slice()) |sq| {
-                switch (sq.type) {
-                    .Font => {
-                        self.soft_renderer.draw_image(
-                            sq.pos,
-                            .{
-                                .image = &self.font.image,
-                                .position = sq.uv_offset,
-                                .size = sq.uv_size,
-                            },
-                        );
-                    },
-                    .Texture => {
-                        if (sq.rotation == 0.0) {
-                            self.soft_renderer.draw_image(
-                                sq.pos,
-                                .{
-                                    .image = &self.image,
-                                    .position = sq.uv_offset,
-                                    .size = sq.uv_size,
-                                },
-                            );
-                        } else {
-                            self.soft_renderer.draw_image_with_scale_and_rotation(
-                                sq.pos,
-                                sq.size,
-                                sq.rotation,
-                                sq.rotation_offset,
-                                .{
-                                    .image = &self.image,
-                                    .position = sq.uv_offset,
-                                    .size = sq.uv_size,
-                                },
-                            );
-                        }
-                    },
-                    .SolidColor => {
+                switch (sq.texture_id) {
+                    ScreenQuads.TextureIdVertColor => {},
+                    ScreenQuads.TextureIdSolidColor => {
                         if (sq.rotation == 0.0) {
                             self.soft_renderer.draw_color_rect(
                                 sq.pos,
@@ -296,7 +271,31 @@ const SoftwareRuntime = struct {
                             );
                         }
                     },
-                    else => {},
+                    else => |texture_id| {
+                        const image = &self.images[texture_id];
+                        if (sq.rotation == 0.0) {
+                            self.soft_renderer.draw_image(
+                                sq.pos,
+                                .{
+                                    .image = image,
+                                    .position = sq.uv_offset,
+                                    .size = sq.uv_size,
+                                },
+                            );
+                        } else {
+                            self.soft_renderer.draw_image_with_scale_and_rotation(
+                                sq.pos,
+                                sq.size,
+                                sq.rotation,
+                                sq.rotation_offset,
+                                .{
+                                    .image = image,
+                                    .position = sq.uv_offset,
+                                    .size = sq.uv_size,
+                                },
+                            );
+                        }
+                    },
                 }
             }
             self.soft_renderer.end_rendering();
@@ -362,18 +361,13 @@ const VulkanRuntime = struct {
         self.screen_quads_gpu_info = try ScreenQuadsGpuInfo.init(&self.vk_renderer, 64);
 
         try self.vk_renderer.upload_texture_image(&self.texture_image, &self.image);
-
-        self.screen_quads_pipeline.set_color_texture(
-            &self.vk_renderer,
-            self.texture_image.view,
-            self.vk_renderer.debug_sampler,
-        );
         try self.vk_renderer.upload_texture_image(&self.font_image, &self.font.image);
-
-        self.screen_quads_pipeline.set_font_texture(
+        self.screen_quads_pipeline.set_textures(
             &self.vk_renderer,
             self.font_image.view,
             self.vk_renderer.debug_sampler,
+            self.texture_image.view,
+            self.vk_renderer.debug_sampler_2,
         );
 
         self.mesh_pipeline = try MeshPipeline.init(memory, &self.vk_renderer);
@@ -457,8 +451,8 @@ const VulkanRuntime = struct {
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
             },
         );
-        self.screen_quads.add_quad(&.{
-            .type = .VertColor,
+        self.screen_quads.add_quad(.{
+            .texture_id = ScreenQuads.TextureIdVertColor,
             .pos = .{
                 .x = 100.0,
                 .y = 100.0,
@@ -468,9 +462,9 @@ const VulkanRuntime = struct {
                 .y = 200.0,
             },
         });
-        self.screen_quads.add_quad(&.{
+        self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
-            .type = .SolidColor,
+            .texture_id = ScreenQuads.TextureIdSolidColor,
             .pos = .{
                 .x = 100.0,
                 .y = 300.0,
@@ -480,8 +474,8 @@ const VulkanRuntime = struct {
                 .y = 200.0,
             },
         });
-        self.screen_quads.add_quad(&.{
-            .type = .Texture,
+        self.screen_quads.add_quad(.{
+            .texture_id = 1,
             .pos = .{
                 .x = 100.0,
                 .y = 500.0,
@@ -494,6 +488,11 @@ const VulkanRuntime = struct {
             .rotation_offset = .{
                 .x = 100.0,
                 .y = -100.0,
+            },
+            .uv_offset = .{},
+            .uv_size = .{
+                .x = @as(f32, @floatFromInt(self.image.width)),
+                .y = @as(f32, @floatFromInt(self.image.height)),
             },
         });
 

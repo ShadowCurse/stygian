@@ -29,6 +29,7 @@ immediate_command: ImmediateCommand,
 
 debug_texture: GpuImage,
 debug_sampler: vk.VkSampler,
+debug_sampler_2: vk.VkSampler,
 
 pub fn init(
     memory: *Memory,
@@ -101,6 +102,10 @@ pub fn init(
         vk.VK_FILTER_NEAREST,
         vk.VK_FILTER_NEAREST,
     );
+    const debug_sampler_2 = try vk_context.create_sampler(
+        vk.VK_FILTER_NEAREST,
+        vk.VK_FILTER_NEAREST,
+    );
 
     return .{
         .window_width = width,
@@ -112,6 +117,7 @@ pub fn init(
         .immediate_command = immediate_command,
         .debug_texture = debug_texture,
         .debug_sampler = debug_sampler,
+        .debug_sampler_2 = debug_sampler_2,
     };
 }
 

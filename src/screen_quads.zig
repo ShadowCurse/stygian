@@ -1,3 +1,4 @@
+const std = @import("std");
 const log = @import("log.zig");
 
 const Font = @import("font.zig").Font;
@@ -11,26 +12,24 @@ const Mat4 = _math.Mat4;
 
 pub const ScreenQuad = extern struct {
     color: Color = Color.WHITE,
-    __reserved0: Vec2 = .{},
-    type: ScreenQuadType = .VertColor,
+    texture_id: u32,
+    __reserved0: f32 = 0.0,
+    __reserved1: f32 = 0.0,
     // position in pixels
     pos: Vec2 = .{},
     // size in pixels
     size: Vec2 = .{},
     rotation: f32 = 0.0,
-    __reserved1: f32 = 0.0,
+    __reserved2: f32 = 0.0,
     rotation_offset: Vec2 = .{},
     // offset into the texture in pixels
     uv_offset: Vec2 = .{},
     // size of the area to fetch from a texture
     uv_size: Vec2 = .{},
 };
-pub const ScreenQuadType = enum(u32) {
-    VertColor = 0,
-    SolidColor = 1,
-    Texture = 2,
-    Font = 3,
-};
+
+pub const TextureIdVertColor = std.math.maxInt(u32);
+pub const TextureIdSolidColor = std.math.maxInt(u32) - 1;
 
 quads: []ScreenQuad,
 used_quads: u32,
@@ -58,7 +57,7 @@ pub fn slice(self: *const Self) []const ScreenQuad {
     return self.quads[0..self.used_quads];
 }
 
-pub fn add_quad(self: *Self, quad: *const ScreenQuad) void {
+pub fn add_quad(self: *Self, quad: ScreenQuad) void {
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
     if (remaining_quads < 1) {
         log.warn(
@@ -69,7 +68,7 @@ pub fn add_quad(self: *Self, quad: *const ScreenQuad) void {
         return;
     }
     defer self.used_quads += 1;
-    self.quads[self.used_quads] = quad.*;
+    self.quads[self.used_quads] = quad;
 }
 
 pub fn add_text(
@@ -94,7 +93,7 @@ pub fn add_text(
         const char_info = font.char_info[c];
         tile.* = .{
             .color = .{},
-            .type = .Font,
+            .texture_id = font.image_id,
             .pos = .{
                 .x = pos.x + x_offset,
                 .y = pos.y,

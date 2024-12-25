@@ -8,9 +8,9 @@ layout (location = 2) out int outInstanceId;
 
 struct QuadInfo {
     uint color;
+    uint texture_id;
     float __reserved0;
     float __reserved1;
-    uint type;
     vec2 pos;
     vec2 size;
     float rotation;

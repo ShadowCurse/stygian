@@ -84,17 +84,10 @@ pub const ScreenQuadsPipeline = struct {
         const pipeline = try renderer.vk_context.create_pipeline(
             memory,
             &.{
-                // Color texture
+                // Texture array
                 .{
                     .binding = 0,
-                    .descriptorCount = 1,
-                    .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                    .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
-                },
-                // Font texture
-                .{
-                    .binding = 1,
-                    .descriptorCount = 1,
+                    .descriptorCount = 2,
                     .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                     .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
                 },
@@ -113,35 +106,35 @@ pub const ScreenQuadsPipeline = struct {
             .Alpha,
         );
 
-        const desc_image_info = vk.VkDescriptorImageInfo{
-            .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .imageView = renderer.debug_texture.view,
-            .sampler = renderer.debug_sampler,
-        };
-        const color_desc_set_update = vk.VkWriteDescriptorSet{
-            .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstBinding = 0,
-            .dstSet = pipeline.descriptor_set,
-            .descriptorCount = 1,
-            .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &desc_image_info,
-        };
-        const font_desc_set_update = vk.VkWriteDescriptorSet{
-            .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstBinding = 1,
-            .dstSet = pipeline.descriptor_set,
-            .descriptorCount = 1,
-            .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &desc_image_info,
-        };
-        const updates = [_]vk.VkWriteDescriptorSet{ color_desc_set_update, font_desc_set_update };
-        vk.vkUpdateDescriptorSets(
-            renderer.vk_context.logical_device.device,
-            updates.len,
-            @ptrCast(&updates),
-            0,
-            null,
-        );
+        // const desc_image_info = vk.VkDescriptorImageInfo{
+        //     .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        //     .imageView = renderer.debug_texture.view,
+        //     .sampler = renderer.debug_sampler,
+        // };
+        // const color_desc_set_update = vk.VkWriteDescriptorSet{
+        //     .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        //     .dstBinding = 0,
+        //     .dstSet = pipeline.descriptor_set,
+        //     .descriptorCount = 1,
+        //     .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        //     .pImageInfo = &desc_image_info,
+        // };
+        // const font_desc_set_update = vk.VkWriteDescriptorSet{
+        //     .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        //     .dstBinding = 1,
+        //     .dstSet = pipeline.descriptor_set,
+        //     .descriptorCount = 1,
+        //     .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        //     .pImageInfo = &desc_image_info,
+        // };
+        // const updates = [_]vk.VkWriteDescriptorSet{ color_desc_set_update, font_desc_set_update };
+        // vk.vkUpdateDescriptorSets(
+        //     renderer.vk_context.logical_device.device,
+        //     updates.len,
+        //     @ptrCast(&updates),
+        //     0,
+        //     null,
+        // );
 
         return .{
             .pipeline = pipeline,
@@ -152,22 +145,32 @@ pub const ScreenQuadsPipeline = struct {
         self.pipeline.deinit(renderer.vk_context.logical_device.device);
     }
 
-    pub fn set_color_texture(
+    pub fn set_textures(
         self: *const Self,
         renderer: *const VkRenderer,
-        view: vk.VkImageView,
-        sampler: vk.VkSampler,
+        font_view: vk.VkImageView,
+        font_sampler: vk.VkSampler,
+        color_view: vk.VkImageView,
+        color_sampler: vk.VkSampler,
     ) void {
-        const desc_image_info = vk.VkDescriptorImageInfo{
-            .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .imageView = view,
-            .sampler = sampler,
+        const desc_image_info = [_]vk.VkDescriptorImageInfo{
+            .{
+                .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .imageView = font_view,
+                .sampler = font_sampler,
+            },
+            .{
+                .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .imageView = color_view,
+                .sampler = color_sampler,
+            },
         };
         const desc_image_write = vk.VkWriteDescriptorSet{
             .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstBinding = 0,
             .dstSet = self.pipeline.descriptor_set,
-            .descriptorCount = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = 2,
             .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .pImageInfo = &desc_image_info,
         };
@@ -181,34 +184,93 @@ pub const ScreenQuadsPipeline = struct {
         );
     }
 
-    pub fn set_font_texture(
-        self: *const Self,
-        renderer: *const VkRenderer,
-        view: vk.VkImageView,
-        sampler: vk.VkSampler,
-    ) void {
-        const desc_image_info = vk.VkDescriptorImageInfo{
-            .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .imageView = view,
-            .sampler = sampler,
-        };
-        const desc_image_write = vk.VkWriteDescriptorSet{
-            .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstBinding = 1,
-            .dstSet = self.pipeline.descriptor_set,
-            .descriptorCount = 1,
-            .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &desc_image_info,
-        };
-        const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
-        vk.vkUpdateDescriptorSets(
-            renderer.vk_context.logical_device.device,
-            updates.len,
-            @ptrCast(&updates),
-            0,
-            null,
-        );
-    }
+    // pub fn set_color_texture(
+    //     self: *const Self,
+    //     renderer: *const VkRenderer,
+    //     view: vk.VkImageView,
+    //     sampler: vk.VkSampler,
+    // ) void {
+    //     const desc_image_info = vk.VkDescriptorImageInfo{
+    //         .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    //         .imageView = view,
+    //         .sampler = sampler,
+    //     };
+    //     const desc_image_write = vk.VkWriteDescriptorSet{
+    //         .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+    //         .dstBinding = 0,
+    //         .dstSet = self.pipeline.descriptor_set,
+    //         .dstArrayElement = 1,
+    //         .descriptorCount = 1,
+    //         .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    //         .pImageInfo = &desc_image_info,
+    //     };
+    //     const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
+    //     vk.vkUpdateDescriptorSets(
+    //         renderer.vk_context.logical_device.device,
+    //         updates.len,
+    //         @ptrCast(&updates),
+    //         0,
+    //         null,
+    //     );
+    // }
+    // pub fn set_font_texture(
+    //     self: *const Self,
+    //     renderer: *const VkRenderer,
+    //     view: vk.VkImageView,
+    //     sampler: vk.VkSampler,
+    // ) void {
+    //     const desc_image_info = vk.VkDescriptorImageInfo{
+    //         .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    //         .imageView = view,
+    //         .sampler = sampler,
+    //     };
+    //     const desc_image_write = vk.VkWriteDescriptorSet{
+    //         .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+    //         .dstBinding = 0,
+    //         .dstSet = self.pipeline.descriptor_set,
+    //         .dstArrayElement = 0,
+    //         .descriptorCount = 1,
+    //         .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    //         .pImageInfo = &desc_image_info,
+    //     };
+    //     const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
+    //     vk.vkUpdateDescriptorSets(
+    //         renderer.vk_context.logical_device.device,
+    //         updates.len,
+    //         @ptrCast(&updates),
+    //         0,
+    //         null,
+    //     );
+    // }
+
+    // pub fn set_font_texture(
+    //     self: *const Self,
+    //     renderer: *const VkRenderer,
+    //     view: vk.VkImageView,
+    //     sampler: vk.VkSampler,
+    // ) void {
+    //     const desc_image_info = vk.VkDescriptorImageInfo{
+    //         .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    //         .imageView = view,
+    //         .sampler = sampler,
+    //     };
+    //     const desc_image_write = vk.VkWriteDescriptorSet{
+    //         .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+    //         .dstBinding = 1,
+    //         .dstSet = self.pipeline.descriptor_set,
+    //         .descriptorCount = 1,
+    //         .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    //         .pImageInfo = &desc_image_info,
+    //     };
+    //     const updates = [_]vk.VkWriteDescriptorSet{desc_image_write};
+    //     vk.vkUpdateDescriptorSets(
+    //         renderer.vk_context.logical_device.device,
+    //         updates.len,
+    //         @ptrCast(&updates),
+    //         0,
+    //         null,
+    //     );
+    // }
 
     pub const Bundle = struct { *const ScreenQuadsGpuInfo, u32 };
     pub fn render(

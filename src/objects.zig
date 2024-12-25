@@ -22,7 +22,7 @@ pub const Transform2d = struct {
 
 pub const Object2dType = union(enum) {
     Color: Color,
-    Image: *Image,
+    TextureId: u32,
 };
 
 pub const Object2d = struct {
@@ -35,13 +35,14 @@ pub const Object2d = struct {
     pub fn to_screen_quad(
         self: Self,
         camera_controller: *const CameraController2d,
+        images: []const Image,
         screen_quads: *ScreenQuads,
     ) void {
         switch (self.type) {
             .Color => |color| {
-                screen_quads.add_quad(&.{
+                screen_quads.add_quad(.{
                     .color = color,
-                    .type = .SolidColor,
+                    .texture_id = ScreenQuads.TextureIdSolidColor,
                     .pos = self.transform.position
                         .sub(camera_controller.position.xy()),
                     .size = self.size,
@@ -49,13 +50,14 @@ pub const Object2d = struct {
                     .rotation_offset = self.transform.rotation_offset,
                 });
             },
-            .Image => |image| {
+            .TextureId => |texture_id| {
+                const image = &images[texture_id];
                 const image_size = Vec2{
                     .x = @as(f32, @floatFromInt(image.width)),
                     .y = @as(f32, @floatFromInt(image.height)),
                 };
-                screen_quads.add_quad(&.{
-                    .type = .Texture,
+                screen_quads.add_quad(.{
+                    .texture_id = texture_id,
                     .pos = self.transform.position
                         .sub(camera_controller.position.xy()),
                     .size = self.size,

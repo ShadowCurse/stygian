@@ -11,6 +11,7 @@ pub const Font = struct {
     size: f32,
     char_info: []stb.stbtt_bakedchar,
     image: Image,
+    image_id: u32,
 
     pub fn init(memory: *Memory, path: [:0]const u8, font_size: f32) !Self {
         const game_alloc = memory.game_alloc();
@@ -51,6 +52,7 @@ pub const Font = struct {
             .size = font_size,
             .char_info = char_info,
             .image = image,
+            .image_id = 0,
         };
     }
 
