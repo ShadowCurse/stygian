@@ -17,6 +17,7 @@ pub const Soundtrack = struct {
 // This type assumes it will never be moved after init.
 pub const Audio = struct {
     audio_device_id: sdl.SDL_AudioDeviceID,
+    volume: f32,
 
     soundtracks: [MAX_SOUNDTRACKS]Soundtrack,
     soundtracks_num: u32,
@@ -26,6 +27,8 @@ pub const Audio = struct {
     const MAX_SOUNDTRACKS = 4;
     const Self = @This();
 
+    // This assummes everything is in i16.
+    // TODO maybe move to f32 for simplicity
     pub fn callback(self: *Self, stream_ptr: [*]u8, stream_len: i32) callconv(.C) void {
         const stream_len_u32 = @as(u32, @intCast(stream_len));
         if (self.playing_soundtrack) |*ps| {
@@ -35,22 +38,27 @@ pub const Audio = struct {
                 return;
             }
 
-            var stream: []u8 = undefined;
-            stream.ptr = @ptrCast(stream_ptr);
-            stream.len = stream_len_u32;
+            var stream_i16: []i16 = undefined;
+            stream_i16.ptr = @alignCast(@ptrCast(stream_ptr));
+            stream_i16.len = stream_len_u32 / 2;
+
+            var data_i16: []i16 = undefined;
+            data_i16.ptr = @alignCast(@ptrCast(soundtrack.data.ptr));
+            data_i16.len = soundtrack.data.len / 2;
+            const data_start = ps.progress_bytes / 2;
 
             const remain_bytes = soundtrack.data.len - ps.progress_bytes;
             const copy_bytes = @min(remain_bytes, stream_len_u32);
-            const copy = copy_bytes;
-            @memcpy(
-                stream[0..copy],
-                soundtrack.data[ps.progress_bytes .. ps.progress_bytes + copy],
-            );
+            const copy = copy_bytes / 2;
+            for (stream_i16[0..copy], data_i16[data_start .. data_start + copy]) |*s, d| {
+                const new_d = @as(f32, @floatFromInt(d)) * self.volume;
+                s.* = @intFromFloat(new_d);
+            }
             ps.progress_bytes += copy_bytes;
         }
     }
 
-    pub fn init(self: *Self) !void {
+    pub fn init(self: *Self, volume: f32) !void {
         var wanted = sdl.SDL_AudioSpec{
             .freq = 44100,
             .format = sdl.AUDIO_S16,
@@ -61,6 +69,7 @@ pub const Audio = struct {
         };
 
         self.audio_device_id = sdl.SDL_OpenAudioDevice(null, 0, &wanted, null, 0);
+        self.volume = volume;
         self.soundtracks_num = 0;
         self.playing_soundtrack = null;
     }
@@ -79,6 +88,11 @@ pub const Audio = struct {
             .progress_bytes = 0,
         };
         self.unpause();
+    }
+
+    pub fn stop(self: *Self) void {
+        self.playing_soundtrack = null;
+        self.pause();
     }
 
     pub fn load_wav(self: *Self, memory: *Memory, path: [:0]const u8) !SoundtrackId {

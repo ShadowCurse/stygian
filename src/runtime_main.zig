@@ -76,10 +76,9 @@ const SoftwareRuntime = struct {
                 }
             }
         }
-        self.audio.init() catch unreachable;
+        self.audio.init(0.5) catch unreachable;
         self.soundtrack_id = self.audio.load_wav(memory, "assets/background.wav") catch
             unreachable;
-        self.audio.play(self.soundtrack_id);
         self.soft_renderer = SoftRenderer.init(window);
     }
 
@@ -91,8 +90,19 @@ const SoftwareRuntime = struct {
         width: i32,
         height: i32,
     ) void {
-        _ = events;
         self.screen_quads.reset();
+
+        for (events) |event| {
+            if (event.type == sdl.SDL_KEYDOWN) {
+                switch (event.key.keysym.sym) {
+                    sdl.SDLK_g => self.audio.play(self.soundtrack_id),
+                    sdl.SDLK_p => self.audio.stop(),
+                    sdl.SDLK_4 => self.audio.volume += 0.1,
+                    sdl.SDLK_5 => self.audio.volume -= 0.1,
+                    else => {},
+                }
+            }
+        }
 
         const A = struct {
             var a: f32 = 0;
