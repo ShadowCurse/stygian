@@ -220,6 +220,7 @@ const SoftwareRuntime = struct {
             .{
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
+                .z = 2.0,
             },
         );
         self.screen_quads.add_text(
@@ -232,12 +233,13 @@ const SoftwareRuntime = struct {
             .{
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
+                .z = 2.0,
             },
         );
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
             .texture_id = ScreenQuads.TextureIdSolidColor,
-            .pos = .{
+            .position = .{
                 .x = 100.0,
                 .y = 300.0,
             },
@@ -249,7 +251,7 @@ const SoftwareRuntime = struct {
         });
         self.screen_quads.add_quad(.{
             .texture_id = 1,
-            .pos = .{
+            .position = .{
                 .x = 100.0,
                 .y = 500.0,
             },
@@ -269,57 +271,9 @@ const SoftwareRuntime = struct {
             },
         });
 
-        {
-            self.soft_renderer.start_rendering();
-            for (self.screen_quads.slice()) |sq| {
-                switch (sq.texture_id) {
-                    ScreenQuads.TextureIdVertColor => {},
-                    ScreenQuads.TextureIdSolidColor => {
-                        if (sq.rotation == 0.0) {
-                            self.soft_renderer.draw_color_rect(
-                                sq.pos,
-                                sq.size,
-                                sq.color,
-                            );
-                        } else {
-                            self.soft_renderer.draw_color_rect_with_rotation(
-                                sq.pos,
-                                sq.size,
-                                sq.rotation,
-                                sq.rotation_offset,
-                                sq.color,
-                            );
-                        }
-                    },
-                    else => |texture_id| {
-                        const image = &self.images[texture_id];
-                        if (sq.rotation == 0.0) {
-                            self.soft_renderer.draw_image(
-                                sq.pos,
-                                .{
-                                    .image = image,
-                                    .position = sq.uv_offset,
-                                    .size = sq.uv_size,
-                                },
-                            );
-                        } else {
-                            self.soft_renderer.draw_image_with_scale_and_rotation(
-                                sq.pos,
-                                sq.size,
-                                sq.rotation,
-                                sq.rotation_offset,
-                                .{
-                                    .image = image,
-                                    .position = sq.uv_offset,
-                                    .size = sq.uv_size,
-                                },
-                            );
-                        }
-                    },
-                }
-            }
-            self.soft_renderer.end_rendering();
-        }
+        self.soft_renderer.start_rendering();
+        self.screen_quads.render(&self.soft_renderer, &self.images);
+        self.soft_renderer.end_rendering();
     }
 };
 
@@ -473,7 +427,7 @@ const VulkanRuntime = struct {
         );
         self.screen_quads.add_quad(.{
             .texture_id = ScreenQuads.TextureIdVertColor,
-            .pos = .{
+            .position = .{
                 .x = 100.0,
                 .y = 100.0,
             },
@@ -485,7 +439,7 @@ const VulkanRuntime = struct {
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
             .texture_id = ScreenQuads.TextureIdSolidColor,
-            .pos = .{
+            .position = .{
                 .x = 100.0,
                 .y = 300.0,
             },
@@ -496,7 +450,7 @@ const VulkanRuntime = struct {
         });
         self.screen_quads.add_quad(.{
             .texture_id = 1,
-            .pos = .{
+            .position = .{
                 .x = 100.0,
                 .y = 500.0,
             },

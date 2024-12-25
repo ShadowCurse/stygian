@@ -7,17 +7,18 @@ layout (location = 1) out vec2 outUV;
 layout (location = 2) out int outInstanceId;
 
 struct QuadInfo {
-    uint color;
-    uint texture_id;
+    vec3 position;
     float __reserved0;
-    float __reserved1;
-    vec2 pos;
+
     vec2 size;
-    float rotation;
-    float __reserved2;
     vec2 rotation_offset;
     vec2 uv_offset;
     vec2 uv_size;
+
+    float rotation;
+    uint color;
+    uint texture_id;
+    float __reserved1;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
@@ -80,7 +81,7 @@ void main() {
     mat2 rotation = mat2(c, -s, s, c);
     vec2 vertex_position = rotation * v.position;
 
-    vec2 qp = qi.pos + qi.rotation_offset + rotation * qi.rotation_offset;
+    vec2 qp = qi.position.xy + qi.rotation_offset + rotation * qi.rotation_offset;
     vec2 quad_pos = (qp / (screen_size / 2.0)) - vec2(1.0);
     vec2 quad_size = qi.size / screen_size;
     vec4 new_position = vec4(

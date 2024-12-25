@@ -13,17 +13,18 @@ layout (location = 0) out vec4 outFragColor;
 layout(set = 0, binding = 0) uniform sampler2D textures[2];
 
 struct QuadInfo {
-    uint color;
-    uint texture_id;
+    vec3 position;
     float __reserved0;
-    float __reserved1;
-    vec2 pos;
+
     vec2 size;
-    float rotation;
-    float __reserved2;
     vec2 rotation_offset;
     vec2 uv_offset;
     vec2 uv_size;
+
+    float rotation;
+    uint color;
+    uint texture_id;
+    float __reserved1;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 

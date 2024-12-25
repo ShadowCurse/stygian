@@ -44,7 +44,7 @@ pub const Object2d = struct {
                 screen_quads.add_quad(.{
                     .color = color,
                     .texture_id = ScreenQuads.TextureIdSolidColor,
-                    .pos = position.xy(),
+                    .position = position.xy().extend(self.transform.position.z),
                     .size = self.size.mul_f32(position.z),
                     .rotation = self.transform.rotation,
                     .rotation_offset = self.transform.rotation_offset,
@@ -58,7 +58,7 @@ pub const Object2d = struct {
                 };
                 screen_quads.add_quad(.{
                     .texture_id = texture_id,
-                    .pos = position.xy(),
+                    .position = position.xy().extend(self.transform.position.z),
                     .size = self.size.mul_f32(position.z),
                     .rotation = self.transform.rotation,
                     .rotation_offset = self.transform.rotation_offset,

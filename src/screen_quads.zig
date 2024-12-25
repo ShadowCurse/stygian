@@ -1,9 +1,11 @@
 const std = @import("std");
 const log = @import("log.zig");
 
+const Image = @import("image.zig");
 const Font = @import("font.zig").Font;
 const Memory = @import("memory.zig");
 const Color = @import("color.zig").Color;
+const SoftRenderer = @import("soft_renderer/renderer.zig");
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
@@ -11,21 +13,24 @@ const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
 
 pub const ScreenQuad = extern struct {
-    color: Color = Color.WHITE,
-    texture_id: u32,
-    __reserved0: f32 = 0.0,
-    __reserved1: f32 = 0.0,
     // position in pixels
-    pos: Vec2 = .{},
+    position: Vec3 = .{},
+    // padding because Vec3 is treated as Vec4
+    // in GLSL
+    __reserved0: f32 = 0.0,
     // size in pixels
     size: Vec2 = .{},
-    rotation: f32 = 0.0,
-    __reserved2: f32 = 0.0,
+    // rotation_offset in pixels
     rotation_offset: Vec2 = .{},
     // offset into the texture in pixels
     uv_offset: Vec2 = .{},
     // size of the area to fetch from a texture
     uv_size: Vec2 = .{},
+
+    rotation: f32 = 0.0,
+    color: Color = Color.WHITE,
+    texture_id: u32,
+    __reserved1: f32 = 0.0,
 };
 
 pub const TextureIdVertColor = std.math.maxInt(u32);
@@ -53,7 +58,7 @@ pub fn reset(self: *Self) void {
     self.used_quads = 0;
 }
 
-pub fn slice(self: *const Self) []const ScreenQuad {
+pub fn slice(self: *Self) []ScreenQuad {
     return self.quads[0..self.used_quads];
 }
 
@@ -75,7 +80,7 @@ pub fn add_text(
     self: *Self,
     font: *const Font,
     text: []const u8,
-    pos: Vec2,
+    position: Vec3,
 ) void {
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
     if (remaining_quads < text.len) {
@@ -94,9 +99,10 @@ pub fn add_text(
         tile.* = .{
             .color = .{},
             .texture_id = font.image_id,
-            .pos = .{
-                .x = pos.x + x_offset,
-                .y = pos.y,
+            .position = .{
+                .x = position.x + x_offset,
+                .y = position.y,
+                .z = position.z,
             },
             .size = .{
                 .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)),
@@ -112,5 +118,66 @@ pub fn add_text(
             },
         };
         x_offset += char_info.xadvance;
+    }
+}
+
+pub fn render(
+    self: *Self,
+    soft_renderer: *SoftRenderer,
+    images: []const Image,
+) void {
+    const quads = self.slice();
+    const Compare = struct {
+        pub fn inner(_: void, a: ScreenQuad, b: ScreenQuad) bool {
+            return a.position.z < b.position.z;
+        }
+    };
+    std.mem.sort(ScreenQuad, quads, {}, Compare.inner);
+    for (quads) |quad| {
+        switch (quad.texture_id) {
+            TextureIdVertColor => {},
+            TextureIdSolidColor => {
+                if (quad.rotation == 0.0) {
+                    soft_renderer.draw_color_rect(
+                        quad.position.xy(),
+                        quad.size,
+                        quad.color,
+                    );
+                } else {
+                    soft_renderer.draw_color_rect_with_rotation(
+                        quad.position.xy(),
+                        quad.size,
+                        quad.rotation,
+                        quad.rotation_offset,
+                        quad.color,
+                    );
+                }
+            },
+            else => |texture_id| {
+                const image = &images[texture_id];
+                if (quad.rotation == 0.0) {
+                    soft_renderer.draw_image(
+                        quad.position.xy(),
+                        .{
+                            .image = image,
+                            .position = quad.uv_offset,
+                            .size = quad.uv_size,
+                        },
+                    );
+                } else {
+                    soft_renderer.draw_image_with_scale_and_rotation(
+                        quad.position.xy(),
+                        quad.size,
+                        quad.rotation,
+                        quad.rotation_offset,
+                        .{
+                            .image = image,
+                            .position = quad.uv_offset,
+                            .size = quad.uv_size,
+                        },
+                    );
+                }
+            },
+        }
     }
 }
