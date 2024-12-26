@@ -53,7 +53,7 @@ pub const Pipeline = struct {
         push_constants: []const vk.VkPushConstantRange,
         vertex_shader_path: [:0]const u8,
         fragment_shader_path: [:0]const u8,
-        image_format: vk.VkFormat,
+        color_attachment_format: vk.VkFormat,
         depth_format: vk.VkFormat,
         blending: BlendingType,
     ) !Pipeline {
@@ -120,7 +120,7 @@ pub const Pipeline = struct {
             .polygon_mode(vk.VK_POLYGON_MODE_FILL)
             .cull_mode(vk.VK_CULL_MODE_NONE, vk.VK_FRONT_FACE_CLOCKWISE)
             .multisampling_none()
-            .color_attachment_format(image_format)
+            .color_attachment_format(color_attachment_format)
             .depthtest(true, vk.VK_COMPARE_OP_GREATER_OR_EQUAL)
             .depth_format(depth_format);
         switch (blending) {

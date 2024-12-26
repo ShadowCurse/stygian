@@ -1,7 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 
-const Image = @import("image.zig");
+const Texture = @import("texture.zig");
 const Font = @import("font.zig").Font;
 const Memory = @import("memory.zig");
 const Color = @import("color.zig").Color;
@@ -98,7 +98,7 @@ pub fn add_text(
         const char_info = font.char_info[c];
         tile.* = .{
             .color = .{},
-            .texture_id = font.image_id,
+            .texture_id = font.texture_id,
             .position = .{
                 .x = position.x + x_offset,
                 .y = position.y,
@@ -124,7 +124,7 @@ pub fn add_text(
 pub fn render(
     self: *Self,
     soft_renderer: *SoftRenderer,
-    images: []const Image,
+    textures: []const Texture,
 ) void {
     const quads = self.slice();
     const Compare = struct {
@@ -154,24 +154,24 @@ pub fn render(
                 }
             },
             else => |texture_id| {
-                const image = &images[texture_id];
+                const texture = &textures[texture_id];
                 if (quad.rotation == 0.0) {
-                    soft_renderer.draw_image(
+                    soft_renderer.draw_texture(
                         quad.position.xy(),
                         .{
-                            .image = image,
+                            .texture = texture,
                             .position = quad.uv_offset,
                             .size = quad.uv_size,
                         },
                     );
                 } else {
-                    soft_renderer.draw_image_with_scale_and_rotation(
+                    soft_renderer.draw_texture_with_scale_and_rotation(
                         quad.position.xy(),
                         quad.size,
                         quad.rotation,
                         quad.rotation_offset,
                         .{
-                            .image = image,
+                            .texture = texture,
                             .position = quad.uv_offset,
                             .size = quad.uv_size,
                         },

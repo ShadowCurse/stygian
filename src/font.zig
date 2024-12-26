@@ -2,7 +2,7 @@ const std = @import("std");
 const stb = @import("bindings/stb.zig");
 const platform = @import("platform/posix.zig");
 
-const Image = @import("image.zig");
+const Texture = @import("texture.zig");
 const Memory = @import("memory.zig");
 
 pub const Font = struct {
@@ -10,8 +10,8 @@ pub const Font = struct {
 
     size: f32,
     char_info: []stb.stbtt_bakedchar,
-    image: Image,
-    image_id: u32,
+    texture: Texture,
+    texture_id: u32,
 
     pub fn init(memory: *Memory, path: [:0]const u8, font_size: f32) !Self {
         const game_alloc = memory.game_alloc();
@@ -41,7 +41,7 @@ pub const Font = struct {
             char_info.ptr,
         );
 
-        const image = Image{
+        const texture = Texture{
             .data = bitmap,
             .width = 512,
             .height = 512,
@@ -51,8 +51,8 @@ pub const Font = struct {
         return .{
             .size = font_size,
             .char_info = char_info,
-            .image = image,
-            .image_id = 0,
+            .texture = texture,
+            .texture_id = 0,
         };
     }
 

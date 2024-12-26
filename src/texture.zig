@@ -26,7 +26,7 @@ pub fn init(memory: *Memory, path: [:0]const u8) !Self {
 
         log.debug(
             @src(),
-            "loaded image from path: {s} width: {} height: {} channels: {}",
+            "loaded texture from path: {s} width: {} height: {} channels: {}",
             .{ path, width, height, channels },
         );
 
@@ -43,8 +43,8 @@ pub fn init(memory: *Memory, path: [:0]const u8) !Self {
             .data = bytes,
         };
     } else {
-        log.err(@src(), "Cannot load an image from path: {s}", .{path});
-        return error.ImageInit;
+        log.err(@src(), "Cannot load an texture from path: {s}", .{path});
+        return error.TextureInit;
     }
 }
 

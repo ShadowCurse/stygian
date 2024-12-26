@@ -5,14 +5,14 @@ const sdl = @import("../bindings/sdl.zig");
 const stb = @import("../bindings/stb.zig");
 
 const Memory = @import("../memory.zig");
-const Image = @import("../image.zig");
+const Texture = @import("../texture.zig");
 const Color = @import("../color.zig").Color;
 
 const VkContext = @import("context.zig");
 const RenderCommand = VkContext.RenderCommand;
 const ImmediateCommand = VkContext.ImmediateCommand;
 
-const GpuImage = @import("gpu_image.zig");
+const GpuTexture = @import("gpu_texture.zig");
 
 const FRAMES = 2;
 
@@ -21,13 +21,13 @@ window_width: u32,
 window_height: u32,
 
 vk_context: VkContext,
-depth_image: GpuImage,
+depth_texture: GpuTexture,
 
 current_framme_idx: usize,
 commands: [FRAMES]RenderCommand,
 immediate_command: ImmediateCommand,
 
-debug_texture: GpuImage,
+debug_texture: GpuTexture,
 debug_sampler: vk.VkSampler,
 debug_sampler_2: vk.VkSampler,
 
@@ -39,7 +39,7 @@ pub fn init(
 ) !Self {
     var vk_context = try VkContext.init(memory, window);
 
-    const depth_image = try vk_context.create_image(
+    const depth_texture = try vk_context.create_texture(
         vk_context.swap_chain.extent.width,
         vk_context.swap_chain.extent.height,
         vk.VK_FORMAT_D32_SFLOAT,
@@ -53,7 +53,7 @@ pub fn init(
 
     const immediate_command = try vk_context.create_immediate_command();
 
-    const debug_texture = try vk_context.create_image(
+    const debug_texture = try vk_context.create_texture(
         16,
         16,
         vk.VK_FORMAT_B8G8R8A8_UNORM,
@@ -87,7 +87,7 @@ pub fn init(
             vk_context.logical_device.graphics_queue,
         ) catch @panic("immediate_command error");
 
-        GpuImage.copy_buffer_to_image(
+        GpuTexture.copy_buffer_to_image(
             immediate_command.cmd,
             staging_buffer.buffer,
             debug_texture.image,
@@ -111,7 +111,7 @@ pub fn init(
         .window_width = width,
         .window_height = height,
         .vk_context = vk_context,
-        .depth_image = depth_image,
+        .depth_texture = depth_texture,
         .current_framme_idx = 0,
         .commands = commands,
         .immediate_command = immediate_command,
@@ -133,42 +133,39 @@ pub fn deinit(self: *Self, memory: *Memory) void {
         c.deinit(self.vk_context.logical_device.device);
     }
 
-    self.depth_image.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
-    self.draw_image.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
+    self.depth_texture.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
 
     self.vk_context.deinit(memory);
 }
 
-pub fn create_texture(self: *Self, width: u32, height: u32, channels: u32) !GpuImage {
+pub fn create_texture(self: *Self, width: u32, height: u32, channels: u32) !GpuTexture {
     const format: vk.VkFormat = switch (channels) {
         4 => vk.VK_FORMAT_R8G8B8A8_SRGB,
         1 => vk.VK_FORMAT_R8_SRGB,
         else => unreachable,
     };
-    return try self.vk_context.create_image(
+    return try self.vk_context.create_texture(
         width,
         height,
-        // vk.VK_FORMAT_B8G8R8A8_UNORM,
-        // vk.VK_FORMAT_R8G8B8A8_SRGB,
         format,
         vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | vk.VK_IMAGE_USAGE_SAMPLED_BIT,
     );
 }
 
-pub fn delete_texture(self: *Self, texture: *const GpuImage) void {
-    self.vk_context.delete_image(texture);
+pub fn delete_texture(self: *Self, texture: *const GpuTexture) void {
+    self.vk_context.delete_texture(texture);
 }
 
-pub fn upload_texture_image(self: *Self, texture: *const GpuImage, image: *const Image) !void {
-    if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= texture.format and
-        texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and
-        image.channels != 4)
+pub fn upload_texture_to_gpu(self: *Self, gpu_texture: *const GpuTexture, texture: *const Texture) !void {
+    if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= gpu_texture.format and
+        gpu_texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and
+        texture.channels != 4)
     {
         return error.TextureAndImageIncopatibleChannelDepth;
     }
 
     const staging_buffer = try self.vk_context.create_buffer(
-        image.width * image.height * image.channels,
+        texture.width * texture.height * texture.channels,
         vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
     );
@@ -176,8 +173,8 @@ pub fn upload_texture_image(self: *Self, texture: *const GpuImage, image: *const
 
     var buffer_slice: []u8 = undefined;
     buffer_slice.ptr = @alignCast(@ptrCast(staging_buffer.allocation_info.pMappedData));
-    buffer_slice.len = image.width * image.height * image.channels;
-    @memcpy(buffer_slice, image.data);
+    buffer_slice.len = texture.width * texture.height * texture.channels;
+    @memcpy(buffer_slice, texture.data);
 
     try self.immediate_command.begin(self.vk_context.logical_device.device);
     defer self.immediate_command.end(
@@ -185,13 +182,13 @@ pub fn upload_texture_image(self: *Self, texture: *const GpuImage, image: *const
         self.vk_context.logical_device.graphics_queue,
     ) catch @panic("immediate_command error");
 
-    GpuImage.copy_buffer_to_image(
+    GpuTexture.copy_buffer_to_image(
         self.immediate_command.cmd,
         staging_buffer.buffer,
-        texture.image,
+        gpu_texture.image,
         .{
-            .height = image.height,
-            .width = image.width,
+            .height = texture.height,
+            .width = texture.width,
             .depth = 1,
         },
     );
@@ -220,16 +217,16 @@ pub fn start_rendering(self: *const Self) !FrameContext {
     const sc_image = self.vk_context.swap_chain.images[image_index];
     const sc_view = self.vk_context.swap_chain.image_views[image_index];
 
-    GpuImage.transition_image(
+    GpuTexture.transition_image(
         command.cmd,
         sc_image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
     );
 
-    GpuImage.transition_image(
+    GpuTexture.transition_image(
         command.cmd,
-        self.depth_image.image,
+        self.depth_texture.image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
     );
@@ -244,7 +241,7 @@ pub fn start_rendering(self: *const Self) !FrameContext {
     };
     const depth_attachment = vk.VkRenderingAttachmentInfo{
         .sType = vk.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = self.depth_image.view,
+        .imageView = self.depth_texture.view,
         .imageLayout = vk.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
         .loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
@@ -293,7 +290,7 @@ pub fn end_rendering(self: *Self, frame_context: FrameContext) !void {
 
     vk.vkCmdEndRendering(command.cmd);
 
-    GpuImage.transition_image(
+    GpuTexture.transition_image(
         command.cmd,
         self.vk_context.swap_chain.images[image_index],
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,

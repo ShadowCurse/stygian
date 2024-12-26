@@ -3,7 +3,7 @@ const CameraController2d = _camera.CameraController2d;
 
 const ScreenQuads = @import("screen_quads.zig");
 
-const Image = @import("image.zig");
+const Texture = @import("texture.zig");
 
 const _color = @import("color.zig");
 const Color = _color.Color;
@@ -35,7 +35,7 @@ pub const Object2d = struct {
     pub fn to_screen_quad(
         self: Self,
         camera_controller: *const CameraController2d,
-        images: []const Image,
+        textures: []const Texture,
         screen_quads: *ScreenQuads,
     ) void {
         const position = camera_controller.transform(self.transform.position);
@@ -51,10 +51,10 @@ pub const Object2d = struct {
                 });
             },
             .TextureId => |texture_id| {
-                const image = &images[texture_id];
-                const image_size = Vec2{
-                    .x = @as(f32, @floatFromInt(image.width)),
-                    .y = @as(f32, @floatFromInt(image.height)),
+                const texture = &textures[texture_id];
+                const texture_size = Vec2{
+                    .x = @as(f32, @floatFromInt(texture.width)),
+                    .y = @as(f32, @floatFromInt(texture.height)),
                 };
                 screen_quads.add_quad(.{
                     .texture_id = texture_id,
@@ -62,7 +62,7 @@ pub const Object2d = struct {
                     .size = self.size.mul_f32(position.z),
                     .rotation = self.transform.rotation,
                     .rotation_offset = self.transform.rotation_offset,
-                    .uv_size = image_size,
+                    .uv_size = texture_size,
                 });
             },
         }

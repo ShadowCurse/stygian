@@ -7,8 +7,8 @@ const _audio = @import("audio.zig");
 const Audio = _audio.Audio;
 const SoundtrackId = _audio.SoundtrackId;
 
-const Image = @import("image.zig");
-const GpuImage = @import("vk_renderer/gpu_image.zig");
+const Texture = @import("texture.zig");
+const GpuTexture = @import("vk_renderer/gpu_texture.zig");
 
 const Font = @import("font.zig").Font;
 const ScreenQuads = @import("screen_quads.zig");
@@ -50,7 +50,7 @@ const SoftwareRuntime = struct {
     camera_controller: CameraController2d,
 
     font: Font,
-    images: [4]Image,
+    textures: [4]Texture,
 
     screen_quads: ScreenQuads,
     tile_map: TileMap,
@@ -72,11 +72,11 @@ const SoftwareRuntime = struct {
         self.camera_controller = CameraController2d.init(width, height);
 
         self.font = try Font.init(memory, "assets/font.ttf", 32);
-        self.font.image_id = 0;
-        self.images[0] = self.font.image;
-        self.images[1] = try Image.init(memory, "assets/a.png");
-        self.images[2] = try Image.init(memory, "assets/item_pot.png");
-        self.images[3] = try Image.init(memory, "assets/item_coffecup.png");
+        self.font.texture_id = 0;
+        self.textures[0] = self.font.texture;
+        self.textures[1] = try Texture.init(memory, "assets/a.png");
+        self.textures[2] = try Texture.init(memory, "assets/item_pot.png");
+        self.textures[3] = try Texture.init(memory, "assets/item_coffecup.png");
 
         self.screen_quads = try ScreenQuads.init(memory, 64);
         self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
@@ -189,7 +189,7 @@ const SoftwareRuntime = struct {
         for (&objects) |*object| {
             object.to_screen_quad(
                 &self.camera_controller,
-                &self.images,
+                &self.textures,
                 &self.screen_quads,
             );
         }
@@ -209,7 +209,7 @@ const SoftwareRuntime = struct {
             };
             object.to_screen_quad(
                 &self.camera_controller,
-                &self.images,
+                &self.textures,
                 &self.screen_quads,
             );
         }
@@ -270,13 +270,13 @@ const SoftwareRuntime = struct {
             },
             .uv_offset = .{},
             .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.images[1].width)),
-                .y = @as(f32, @floatFromInt(self.images[1].height)),
+                .x = @as(f32, @floatFromInt(self.textures[1].width)),
+                .y = @as(f32, @floatFromInt(self.textures[1].height)),
             },
         });
 
         self.soft_renderer.start_rendering();
-        self.screen_quads.render(&self.soft_renderer, &self.images);
+        self.screen_quads.render(&self.soft_renderer, &self.textures);
         self.soft_renderer.end_rendering();
     }
 };
@@ -284,14 +284,14 @@ const SoftwareRuntime = struct {
 const VulkanRuntime = struct {
     camera_controller: CameraController3d,
 
-    image: Image,
+    texture: Texture,
     font: Font,
     screen_quads: ScreenQuads,
     tile_map: TileMap,
 
     vk_renderer: VkRenderer,
-    texture_image: GpuImage,
-    font_image: GpuImage,
+    gpu_texture: GpuTexture,
+    gpu_font_texture: GpuTexture,
     screen_quads_pipeline: ScreenQuadsPipeline,
     screen_quads_gpu_info: ScreenQuadsGpuInfo,
     mesh_pipeline: MeshPipeline,
@@ -308,7 +308,7 @@ const VulkanRuntime = struct {
     ) !void {
         self.camera_controller = CameraController3d.init();
 
-        self.image = try Image.init(memory, "assets/a.png");
+        self.texture = try Texture.init(memory, "assets/a.png");
         self.font = try Font.init(memory, "assets/font.ttf", 32);
         self.screen_quads = try ScreenQuads.init(memory, 64);
         self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
@@ -324,27 +324,27 @@ const VulkanRuntime = struct {
 
         self.vk_renderer = try VkRenderer.init(memory, window, width, height);
 
-        self.texture_image = try self.vk_renderer.create_texture(
-            self.image.width,
-            self.image.height,
-            self.image.channels,
+        self.gpu_texture = try self.vk_renderer.create_texture(
+            self.texture.width,
+            self.texture.height,
+            self.texture.channels,
         );
-        self.font_image = try self.vk_renderer.create_texture(
-            self.font.image.width,
-            self.font.image.height,
-            self.font.image.channels,
+        self.gpu_font_texture = try self.vk_renderer.create_texture(
+            self.font.texture.width,
+            self.font.texture.height,
+            self.font.texture.channels,
         );
 
         self.screen_quads_pipeline = try ScreenQuadsPipeline.init(memory, &self.vk_renderer);
         self.screen_quads_gpu_info = try ScreenQuadsGpuInfo.init(&self.vk_renderer, 64);
 
-        try self.vk_renderer.upload_texture_image(&self.texture_image, &self.image);
-        try self.vk_renderer.upload_texture_image(&self.font_image, &self.font.image);
+        try self.vk_renderer.upload_texture_to_gpu(&self.gpu_texture, &self.texture);
+        try self.vk_renderer.upload_texture_to_gpu(&self.gpu_font_texture, &self.font.texture);
         self.screen_quads_pipeline.set_textures(
             &self.vk_renderer,
-            self.font_image.view,
+            self.gpu_font_texture.view,
             self.vk_renderer.debug_sampler,
-            self.texture_image.view,
+            self.gpu_texture.view,
             self.vk_renderer.debug_sampler_2,
         );
 
@@ -469,8 +469,8 @@ const VulkanRuntime = struct {
             },
             .uv_offset = .{},
             .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.image.width)),
-                .y = @as(f32, @floatFromInt(self.image.height)),
+                .x = @as(f32, @floatFromInt(self.texture.width)),
+                .y = @as(f32, @floatFromInt(self.texture.height)),
             },
         });
 

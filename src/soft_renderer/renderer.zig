@@ -1,19 +1,19 @@
 const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
-const Image = @import("../image.zig");
+const Texture = @import("../texture.zig");
 const Color = @import("../color.zig").Color;
 
 const _math = @import("../math.zig");
 const Vec2 = _math.Vec2;
 
-// Image rectangle with 0,0 at the top left
-pub const ImageRect = struct {
-    image: *const Image,
+// Texture rectangle with 0,0 at the top left
+pub const TextureRect = struct {
+    texture: *const Texture,
     position: Vec2,
     size: Vec2,
 
-    pub fn to_aabb(self: ImageRect) AABB {
+    pub fn to_aabb(self: TextureRect) AABB {
         return .{
             .min = .{
                 .x = self.position.x,
@@ -66,7 +66,7 @@ pub const AABB = struct {
 
 window: *sdl.SDL_Window,
 surface: *sdl.SDL_Surface,
-image: Image,
+texture: Texture,
 
 const Self = @This();
 
@@ -86,7 +86,7 @@ pub fn init(
     data.ptr = @ptrCast(surface.*.pixels);
     data.len = @intCast(surface.*.w * surface.*.h * surface.*.format.*.BytesPerPixel);
 
-    const image: Image = .{
+    const texture: Texture = .{
         .width = @intCast(surface.*.w),
         .height = @intCast(surface.*.h),
         .channels = @intCast(surface.*.format.*.BytesPerPixel),
@@ -96,7 +96,7 @@ pub fn init(
     return .{
         .window = window,
         .surface = surface,
-        .image = image,
+        .texture = texture,
     };
 }
 
@@ -108,23 +108,26 @@ pub fn end_rendering(self: *const Self) void {
     _ = sdl.SDL_UpdateWindowSurface(self.window);
 }
 
-pub fn as_image_rect(self: *const Self) ImageRect {
+pub fn as_texture_rect(self: *const Self) TextureRect {
     return .{
-        .image = &self.image,
+        .texture = &self.texture,
         .position = .{},
-        .size = .{ .x = @floatFromInt(self.image.width), .y = @floatFromInt(self.image.height) },
+        .size = .{
+            .x = @floatFromInt(self.texture.width),
+            .y = @floatFromInt(self.texture.height),
+        },
     };
 }
 
 // TODO add an option to skip alpha blend and do a simple memcopy instead.
-pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
-    const self_rect = self.as_image_rect();
+pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void {
+    const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
     // Positon is the center of the destination
-    const dst_rect: ImageRect = .{
-        .image = undefined,
-        .position = position.sub(image_rect.size.mul_f32(0.5)),
-        .size = image_rect.size,
+    const dst_rect: TextureRect = .{
+        .texture = undefined,
+        .position = position.sub(texture_rect.size.mul_f32(0.5)),
+        .size = texture_rect.size,
     };
     const dst_aabb = dst_rect.to_aabb();
 
@@ -136,20 +139,20 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    if (image_rect.image.channels == 4) {
-        const dst_pitch = self.image.width;
-        const src_pitch = image_rect.image.width;
+    if (texture_rect.texture.channels == 4) {
+        const dst_pitch = self.texture.width;
+        const src_pitch = texture_rect.texture.width;
 
         const dst_start_x: u32 = @intFromFloat(intersection.min.x);
         const dst_start_y: u32 = @intFromFloat(intersection.min.y);
-        const src_start_x: u32 = @intFromFloat(image_rect.position.x);
-        const src_start_y: u32 = @intFromFloat(image_rect.position.y);
+        const src_start_x: u32 = @intFromFloat(texture_rect.position.x);
+        const src_start_y: u32 = @intFromFloat(texture_rect.position.y);
 
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
         var src_data_start = src_start_x + src_start_y * src_pitch;
 
-        const dst_data_color = self.image.as_color_slice();
-        const src_data_color = image_rect.image.as_color_slice();
+        const dst_data_color = self.texture.as_color_slice();
+        const src_data_color = texture_rect.texture.as_color_slice();
         for (0..height) |_| {
             for (0..width) |x| {
                 const src = src_data_color[src_data_start + x];
@@ -159,20 +162,20 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
             dst_data_start += dst_pitch;
             src_data_start += src_pitch;
         }
-    } else if (image_rect.image.channels == 1) {
-        const dst_pitch = self.image.width;
-        const src_pitch = image_rect.image.width * image_rect.image.channels;
+    } else if (texture_rect.texture.channels == 1) {
+        const dst_pitch = self.texture.width;
+        const src_pitch = texture_rect.texture.width * texture_rect.texture.channels;
 
         const dst_start_x: u32 = @intFromFloat(intersection.min.x);
         const dst_start_y: u32 = @intFromFloat(intersection.min.y);
-        const src_start_x: u32 = @intFromFloat(image_rect.position.x);
-        const src_start_y: u32 = @intFromFloat(image_rect.position.y);
+        const src_start_x: u32 = @intFromFloat(texture_rect.position.x);
+        const src_start_y: u32 = @intFromFloat(texture_rect.position.y);
 
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
-        var src_data_start = src_start_x * image_rect.image.channels + src_start_y * src_pitch;
+        var src_data_start = src_start_x * texture_rect.texture.channels + src_start_y * src_pitch;
 
-        const dst_data_color = self.image.as_color_slice();
-        const src_data_u8 = image_rect.image.data;
+        const dst_data_color = self.texture.as_color_slice();
+        const src_data_u8 = texture_rect.texture.data;
         for (0..height) |_| {
             for (0..width) |x| {
                 const src_u8 = src_data_u8[src_data_start + x];
@@ -186,23 +189,23 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
     } else {
         log.warn(
             @src(),
-            "Skipping drawing image as channel numbers are incopatible: self: {}, image: {}",
-            .{ self.image.channels, image_rect.image.channels },
+            "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
+            .{ self.texture.channels, texture_rect.texture.channels },
         );
     }
 }
 
-pub fn draw_image_with_scale_and_rotation(
+pub fn draw_texture_with_scale_and_rotation(
     self: *Self,
     position: Vec2,
     size: Vec2,
     rotation: f32,
     rotation_offset: Vec2,
-    image_rect: ImageRect,
+    texture_rect: TextureRect,
 ) void {
     const scale: Vec2 = .{
-        .x = size.x / @as(f32, @floatFromInt(image_rect.image.width)),
-        .y = size.y / @as(f32, @floatFromInt(image_rect.image.height)),
+        .x = size.x / @as(f32, @floatFromInt(texture_rect.texture.width)),
+        .y = size.y / @as(f32, @floatFromInt(texture_rect.texture.height)),
     };
     const c = @cos(-rotation);
     const s = @sin(-rotation);
@@ -215,14 +218,14 @@ pub fn draw_image_with_scale_and_rotation(
     const x_axis = (Vec2{ .x = c, .y = s }).mul_f32(scale.x);
     const y_axis = (Vec2{ .x = s, .y = -c }).mul_f32(scale.y);
 
-    const p_a = new_position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(-image_rect.size.y / 2.0));
-    const p_b = new_position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(-image_rect.size.y / 2.0));
-    const p_c = new_position.add(x_axis.mul_f32(-image_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(image_rect.size.y / 2.0));
-    const p_d = new_position.add(x_axis.mul_f32(image_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(image_rect.size.y / 2.0));
+    const p_a = new_position.add(x_axis.mul_f32(-texture_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(-texture_rect.size.y / 2.0));
+    const p_b = new_position.add(x_axis.mul_f32(texture_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(-texture_rect.size.y / 2.0));
+    const p_c = new_position.add(x_axis.mul_f32(-texture_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(texture_rect.size.y / 2.0));
+    const p_d = new_position.add(x_axis.mul_f32(texture_rect.size.x / 2.0))
+        .add(y_axis.mul_f32(texture_rect.size.y / 2.0));
 
     const dst_aabb = AABB{
         .min = .{
@@ -235,7 +238,7 @@ pub fn draw_image_with_scale_and_rotation(
         },
     };
 
-    const self_rect = self.as_image_rect();
+    const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
 
     if (!self_aabb.intersects(dst_aabb)) {
@@ -248,23 +251,23 @@ pub fn draw_image_with_scale_and_rotation(
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
-    const src_start_x: u32 = @intFromFloat(@round(image_rect.position.x));
-    const src_start_y: u32 = @intFromFloat(@round(image_rect.position.y));
+    const src_start_x: u32 = @intFromFloat(@round(texture_rect.position.x));
+    const src_start_y: u32 = @intFromFloat(@round(texture_rect.position.y));
 
     const ab = p_b.sub(p_a);
     const bd = p_d.sub(p_b);
     const dc = p_c.sub(p_d);
     const ca = p_a.sub(p_c);
 
-    if (image_rect.image.channels == 4) {
-        const dst_pitch = self.image.width;
-        const src_pitch = image_rect.image.width;
+    if (texture_rect.texture.channels == 4) {
+        const dst_pitch = self.texture.width;
+        const src_pitch = texture_rect.texture.width;
 
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
         const src_data_start = src_start_x + src_start_y * src_pitch;
 
-        const dst_data_u32 = self.image.as_color_slice();
-        const src_data_u32 = image_rect.image.as_color_slice();
+        const dst_data_u32 = self.texture.as_color_slice();
+        const src_data_u32 = texture_rect.texture.as_color_slice();
 
         for (0..height) |y| {
             for (0..width) |x| {
@@ -285,11 +288,11 @@ pub fn draw_image_with_scale_and_rotation(
                 if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
                     var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis) / x_axis.len_squared()));
                     var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis) / y_axis.len_squared()));
-                    u_i32 = @min(@max(0, u_i32), image_rect.image.width - 1);
-                    v_i32 = @min(@max(0, v_i32), image_rect.image.height - 1);
+                    u_i32 = @min(@max(0, u_i32), texture_rect.texture.width - 1);
+                    v_i32 = @min(@max(0, v_i32), texture_rect.texture.height - 1);
 
                     const u: u32 = @intCast(u_i32);
-                    const v: u32 = (image_rect.image.height - 1) - @as(u32, @intCast(v_i32));
+                    const v: u32 = (texture_rect.texture.height - 1) - @as(u32, @intCast(v_i32));
 
                     const src = src_data_u32[
                         src_data_start +
@@ -302,16 +305,16 @@ pub fn draw_image_with_scale_and_rotation(
             }
             dst_data_start += dst_pitch;
         }
-    } else if (image_rect.image.channels == 1) {
-        const dst_pitch = self.image.width;
-        const src_pitch = image_rect.image.width;
+    } else if (texture_rect.texture.channels == 1) {
+        const dst_pitch = self.texture.width;
+        const src_pitch = texture_rect.texture.width;
 
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
         var dst_data_end = dst_data_start + width;
         const src_data_start = src_start_x + src_start_y * src_pitch;
 
-        const dst_data_color = self.image.as_color_slice();
-        const src_data_u8 = image_rect.image.data;
+        const dst_data_color = self.texture.as_color_slice();
+        const src_data_u8 = texture_rect.texture.data;
 
         for (0..height) |y| {
             for (0..width) |x| {
@@ -332,11 +335,11 @@ pub fn draw_image_with_scale_and_rotation(
                 if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
                     var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis) / x_axis.len_squared()));
                     var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis) / y_axis.len_squared()));
-                    u_i32 = @min(@max(0, u_i32), image_rect.image.width - 1);
-                    v_i32 = @min(@max(0, v_i32), image_rect.image.height - 1);
+                    u_i32 = @min(@max(0, u_i32), texture_rect.texture.width - 1);
+                    v_i32 = @min(@max(0, v_i32), texture_rect.texture.height - 1);
 
                     const u: u32 = @intCast(u_i32);
-                    const v: u32 = (image_rect.image.height - 1) - @as(u32, @intCast(v_i32));
+                    const v: u32 = (texture_rect.texture.height - 1) - @as(u32, @intCast(v_i32));
 
                     const src_u8 = src_data_u8[
                         src_data_start +
@@ -354,8 +357,8 @@ pub fn draw_image_with_scale_and_rotation(
     } else {
         log.warn(
             @src(),
-            "Skipping drawing image as channel numbers are incopatible: self: {}, image: {}",
-            .{ self.image.channels, image_rect.image.channels },
+            "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
+            .{ self.texture.channels, texture_rect.texture.channels },
         );
     }
 }
@@ -385,7 +388,7 @@ pub fn draw_color_rect(
         },
     };
 
-    const self_rect = self.as_image_rect();
+    const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
 
     if (!self_aabb.intersects(dst_aabb)) {
@@ -396,14 +399,14 @@ pub fn draw_color_rect(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.image.width;
+    const dst_pitch = self.texture.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
 
     var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
 
-    const dst_data_color = self.image.as_color_slice();
+    const dst_data_color = self.texture.as_color_slice();
     for (0..height) |_| {
         for (0..width) |x| {
             const dst = &dst_data_color[dst_data_start + x];
@@ -448,7 +451,7 @@ pub fn draw_color_rect_with_rotation(
         },
     };
 
-    const self_rect = self.as_image_rect();
+    const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
 
     if (!self_aabb.intersects(dst_aabb)) {
@@ -459,7 +462,7 @@ pub fn draw_color_rect_with_rotation(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.image.width;
+    const dst_pitch = self.texture.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
@@ -471,7 +474,7 @@ pub fn draw_color_rect_with_rotation(
     const dc = p_c.sub(p_d);
     const ca = p_a.sub(p_c);
 
-    const dst_data_color = self.image.as_color_slice();
+    const dst_data_color = self.texture.as_color_slice();
     for (0..height) |y| {
         for (0..width) |x| {
             const p: Vec2 = .{

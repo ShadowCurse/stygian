@@ -5,7 +5,7 @@ const vk = @import("../bindings/vulkan.zig");
 
 const Memory = @import("../memory.zig");
 const GpuBuffer = @import("gpu_buffer.zig");
-const GpuImage = @import("gpu_image.zig");
+const GpuTexture = @import("gpu_texture.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
 const BlendingType = @import("pipeline.zig").BlendingType;
 
@@ -177,7 +177,7 @@ pub fn create_pipeline(
     push_constants: []const vk.VkPushConstantRange,
     vertex_shader_path: [:0]const u8,
     fragment_shader_path: [:0]const u8,
-    image_format: vk.VkFormat,
+    color_attachment_format: vk.VkFormat,
     depth_format: vk.VkFormat,
     blending: BlendingType,
 ) !Pipeline {
@@ -189,7 +189,7 @@ pub fn create_pipeline(
         push_constants,
         vertex_shader_path,
         fragment_shader_path,
-        image_format,
+        color_attachment_format,
         depth_format,
         blending,
     );
@@ -204,14 +204,14 @@ pub fn create_buffer(
     return try GpuBuffer.init(self.vma_allocator, size, usage, memory_usage);
 }
 
-pub fn create_image(
+pub fn create_texture(
     self: *Self,
     width: u32,
     height: u32,
     format: vk.VkFormat,
     usage: u32,
-) !GpuImage {
-    return GpuImage.init(
+) !GpuTexture {
+    return GpuTexture.init(
         self.vma_allocator,
         self.logical_device.device,
         width,
@@ -221,8 +221,8 @@ pub fn create_image(
     );
 }
 
-pub fn delete_image(self: *Self, image: *const GpuImage) void {
-    image.deinit(self.logical_device.device, self.vma_allocator);
+pub fn delete_texture(self: *Self, texture: *const GpuTexture) void {
+    texture.deinit(self.logical_device.device, self.vma_allocator);
 }
 
 pub fn create_sampler(
