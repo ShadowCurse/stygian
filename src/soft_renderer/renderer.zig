@@ -74,6 +74,14 @@ pub fn init(
     window: *sdl.SDL_Window,
 ) Self {
     const surface = sdl.SDL_GetWindowSurface(window);
+    log.info(@src(), "Surface has format: {}, A mask: {x}, R mask: {x}, G mask: {x}, B mask: {x}", .{
+        surface.*.format.*.format,
+        surface.*.format.*.Amask,
+        surface.*.format.*.Rmask,
+        surface.*.format.*.Gmask,
+        surface.*.format.*.Bmask,
+    });
+
     var data: []u8 = undefined;
     data.ptr = @ptrCast(surface.*.pixels);
     data.len = @intCast(surface.*.w * surface.*.h * surface.*.format.*.BytesPerPixel);
@@ -146,7 +154,7 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
             for (0..width) |x| {
                 const src = src_data_color[src_data_start + x];
                 const dst = &dst_data_color[dst_data_start + x];
-                dst.* = src.mix_colors(dst.*);
+                dst.* = src.mix(dst.*);
             }
             dst_data_start += dst_pitch;
             src_data_start += src_pitch;
@@ -168,9 +176,9 @@ pub fn draw_image(self: *Self, position: Vec2, image_rect: ImageRect) void {
         for (0..height) |_| {
             for (0..width) |x| {
                 const src_u8 = src_data_u8[src_data_start + x];
-                const src: Color = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = src_u8 };
+                const src: Color = .{ .format = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = src_u8 } };
                 const dst = &dst_data_color[dst_data_start + x];
-                dst.* = src.mix_colors(dst.*);
+                dst.* = src.mix(dst.*);
             }
             dst_data_start += dst_pitch;
             src_data_start += src_pitch;
@@ -289,7 +297,7 @@ pub fn draw_image_with_scale_and_rotation(
                             v * src_pitch
                     ];
                     const dst = &dst_data_u32[dst_data_start + x];
-                    dst.* = src.mix_colors(dst.*);
+                    dst.* = src.mix(dst.*);
                 }
             }
             dst_data_start += dst_pitch;
@@ -335,9 +343,9 @@ pub fn draw_image_with_scale_and_rotation(
                             u +
                             v * src_pitch
                     ];
-                    const src: Color = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = 255 };
+                    const src: Color = .{ .format = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = src_u8 } };
                     const dst = &dst_data_color[dst_data_start + x];
-                    dst.* = src.mix_colors(dst.*);
+                    dst.* = src.mix(dst.*);
                 }
             }
             dst_data_start += dst_pitch;
@@ -399,7 +407,7 @@ pub fn draw_color_rect(
     for (0..height) |_| {
         for (0..width) |x| {
             const dst = &dst_data_color[dst_data_start + x];
-            dst.* = color.mix_colors(dst.*);
+            dst.* = color.mix(dst.*);
         }
         dst_data_start += dst_pitch;
     }
@@ -482,7 +490,7 @@ pub fn draw_color_rect_with_rotation(
 
             if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
                 const dst = &dst_data_color[dst_data_start + x];
-                dst.* = color.mix_colors(dst.*);
+                dst.* = color.mix(dst.*);
             }
         }
         dst_data_start += dst_pitch;

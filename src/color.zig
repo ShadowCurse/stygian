@@ -1,21 +1,33 @@
+const builtin = @import("builtin");
+
 const _math = @import("math.zig");
 const Vec3 = _math.Vec3;
 
-// TODO figure out what to do with different color
-// schemes.
+pub const Format = if (builtin.os.tag == .emscripten)
+    extern struct {
+        r: u8 = 0,
+        g: u8 = 0,
+        b: u8 = 0,
+        a: u8 = 0,
+    }
+else
+    extern struct {
+        b: u8 = 0,
+        g: u8 = 0,
+        r: u8 = 0,
+        a: u8 = 0,
+    };
+
 pub const Color = extern struct {
-    r: u8 = 0,
-    g: u8 = 0,
-    b: u8 = 0,
-    a: u8 = 0,
+    format: Format = .{},
 
     const Self = @This();
 
-    pub const BLACK = Color{ .r = 0, .g = 0, .b = 0, .a = 255 };
-    pub const WHITE = Color{ .r = 255, .g = 255, .b = 255, .a = 255 };
-    pub const GREY = Color{ .r = 69, .g = 69, .b = 69, .a = 255 };
-    pub const MAGENTA = Color{ .r = 255, .g = 0, .b = 255, .a = 255 };
-    pub const ORAGE = Color{ .b = 237, .g = 91, .r = 18, .a = 255 };
+    pub const BLACK = Self{ .format = .{ .r = 0, .g = 0, .b = 0, .a = 255 } };
+    pub const WHITE = Self{ .format = .{ .r = 255, .g = 255, .b = 255, .a = 255 } };
+    pub const GREY = Self{ .format = .{ .r = 69, .g = 69, .b = 69, .a = 255 } };
+    pub const MAGENTA = Self{ .format = .{ .r = 255, .g = 0, .b = 255, .a = 255 } };
+    pub const ORAGE = Self{ .format = .{ .r = 237, .g = 91, .b = 18, .a = 255 } };
 
     pub fn to_vec3(self: *const Self) Vec3 {
         return .{
@@ -26,25 +38,27 @@ pub const Color = extern struct {
     }
 
     // Mix colors based on the alpha channel. Assumes the RGBA.
-    pub fn mix_colors(src: Self, dst: Self) Self {
-        const src_a_f32 = @as(f32, @floatFromInt(src.a)) / 255.0;
+    pub fn mix(src: Self, dst: Self) Self {
+        const src_a_f32 = @as(f32, @floatFromInt(src.format.a)) / 255.0;
 
-        const r = @as(f32, @floatFromInt(src.r)) * src_a_f32 +
-            @as(f32, @floatFromInt(dst.r)) * (1.0 - src_a_f32);
-        const g = @as(f32, @floatFromInt(src.g)) * src_a_f32 +
-            @as(f32, @floatFromInt(dst.g)) * (1.0 - src_a_f32);
-        const b = @as(f32, @floatFromInt(src.b)) * src_a_f32 +
-            @as(f32, @floatFromInt(dst.b)) * (1.0 - src_a_f32);
+        const r = @as(f32, @floatFromInt(src.format.r)) * src_a_f32 +
+            @as(f32, @floatFromInt(dst.format.r)) * (1.0 - src_a_f32);
+        const g = @as(f32, @floatFromInt(src.format.g)) * src_a_f32 +
+            @as(f32, @floatFromInt(dst.format.g)) * (1.0 - src_a_f32);
+        const b = @as(f32, @floatFromInt(src.format.b)) * src_a_f32 +
+            @as(f32, @floatFromInt(dst.format.b)) * (1.0 - src_a_f32);
 
         const r_u8 = @as(u8, @intFromFloat(r));
         const g_u8 = @as(u8, @intFromFloat(g));
         const b_u8 = @as(u8, @intFromFloat(b));
 
         return .{
-            .r = r_u8,
-            .g = g_u8,
-            .b = b_u8,
-            .a = dst.a,
+            .format = .{
+                .r = r_u8,
+                .g = g_u8,
+                .b = b_u8,
+                .a = dst.format.a,
+            },
         };
     }
 };
