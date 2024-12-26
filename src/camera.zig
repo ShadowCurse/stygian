@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdl = @import("bindings/sdl.zig");
+const Events = @import("platform/event.zig");
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
@@ -28,41 +28,39 @@ pub const CameraController2d = struct {
         return self;
     }
 
-    pub fn process_input(self: *Self, event: *sdl.SDL_Event, dt: f32) void {
-        if (event.type == sdl.SDL_KEYDOWN) {
-            switch (event.key.keysym.sym) {
-                sdl.SDLK_w => self.velocity.y = -1.0,
-                sdl.SDLK_s => self.velocity.y = 1.0,
-                sdl.SDLK_a => self.velocity.x = -1.0,
-                sdl.SDLK_d => self.velocity.x = 1.0,
-                sdl.SDLK_SPACE => self.velocity.z = 1.0,
-                sdl.SDLK_LCTRL => self.velocity.z = -1.0,
-                else => {},
-            }
-        }
-
-        if (event.type == sdl.SDL_KEYUP) {
-            switch (event.key.keysym.sym) {
-                sdl.SDLK_w => self.velocity.y = 0,
-                sdl.SDLK_s => self.velocity.y = 0,
-                sdl.SDLK_a => self.velocity.x = 0,
-                sdl.SDLK_d => self.velocity.x = 0,
-                sdl.SDLK_SPACE => self.velocity.z = 0,
-                sdl.SDLK_LCTRL => self.velocity.z = 0,
-                else => {},
-            }
-        }
-
-        if (event.type == sdl.SDL_MOUSEBUTTONDOWN) {
-            self.active = true;
-        }
-        if (event.type == sdl.SDL_MOUSEBUTTONUP) {
-            self.active = false;
-        }
-
-        if (self.active and event.type == sdl.SDL_MOUSEMOTION) {
-            self.position.x -= @as(f32, @floatFromInt(event.motion.xrel)) * self.sensitivity * dt;
-            self.position.y -= @as(f32, @floatFromInt(event.motion.yrel)) * self.sensitivity * dt;
+    pub fn process_input(self: *Self, event: Events.Event, dt: f32) void {
+        switch (event) {
+            .Keyboard => |key| {
+                const value: f32 = if (key.type == .Pressed) 1.0 else 0.0;
+                switch (key.key) {
+                    Events.KeybordKeyScancode.W => self.velocity.y = -value,
+                    Events.KeybordKeyScancode.S => self.velocity.y = value,
+                    Events.KeybordKeyScancode.A => self.velocity.x = -value,
+                    Events.KeybordKeyScancode.D => self.velocity.x = value,
+                    Events.KeybordKeyScancode.SPACE => self.velocity.z = value,
+                    Events.KeybordKeyScancode.LCTRL => self.velocity.z = -value,
+                    else => {},
+                }
+            },
+            .Mouse => |mouse| {
+                switch (mouse) {
+                    .Button => |button| {
+                        self.active = button.type == .Pressed;
+                    },
+                    .Motion => |motion| {
+                        if (self.active) {
+                            self.position.x -= @as(f32, @floatFromInt(motion.x)) *
+                                self.sensitivity * dt;
+                            self.position.y -= @as(f32, @floatFromInt(motion.y)) *
+                                self.sensitivity * dt;
+                        }
+                    },
+                    .Wheel => |wheel| {
+                        self.position.z -= wheel.amount;
+                    },
+                }
+            },
+            else => {},
         }
     }
 
@@ -106,47 +104,41 @@ pub const CameraController3d = struct {
         return .{};
     }
 
-    pub fn process_input(self: *Self, event: *sdl.SDL_Event, dt: f32) void {
-        if (event.type == sdl.SDL_KEYDOWN) {
-            switch (event.key.keysym.sym) {
-                sdl.SDLK_w => self.velocity.z = 1.0,
-                sdl.SDLK_s => self.velocity.z = -1.0,
-                sdl.SDLK_a => self.velocity.x = -1.0,
-                sdl.SDLK_d => self.velocity.x = 1.0,
-                sdl.SDLK_SPACE => self.velocity.y = -1.0,
-                sdl.SDLK_LCTRL => self.velocity.y = 1.0,
-                else => {},
-            }
-        }
-
-        if (event.type == sdl.SDL_KEYUP) {
-            switch (event.key.keysym.sym) {
-                sdl.SDLK_w => self.velocity.z = 0,
-                sdl.SDLK_s => self.velocity.z = 0,
-                sdl.SDLK_a => self.velocity.x = 0,
-                sdl.SDLK_d => self.velocity.x = 0,
-                sdl.SDLK_SPACE => self.velocity.y = 0,
-                sdl.SDLK_LCTRL => self.velocity.y = 0,
-                else => {},
-            }
-        }
-
-        if (event.type == sdl.SDL_MOUSEBUTTONDOWN) {
-            self.active = true;
-        }
-        if (event.type == sdl.SDL_MOUSEBUTTONUP) {
-            self.active = false;
-        }
-
-        if (self.active and event.type == sdl.SDL_MOUSEMOTION) {
-            self.yaw -= @as(f32, @floatFromInt(event.motion.xrel)) * self.sensitivity * dt;
-            self.pitch -= @as(f32, @floatFromInt(event.motion.yrel)) * self.sensitivity * dt;
-            if (std.math.pi / 2.0 < self.pitch) {
-                self.pitch = std.math.pi / 2.0;
-            }
-            if (self.pitch < -std.math.pi / 2.0) {
-                self.pitch = -std.math.pi / 2.0;
-            }
+    pub fn process_input(self: *Self, event: Events.Event, dt: f32) void {
+        switch (event) {
+            .Keyboard => |key| {
+                const value: f32 = if (key.type == .Pressed) 1.0 else 0.0;
+                switch (key.key) {
+                    Events.KeybordKeyScancode.W => self.velocity.z = value,
+                    Events.KeybordKeyScancode.S => self.velocity.z = -value,
+                    Events.KeybordKeyScancode.A => self.velocity.x = -value,
+                    Events.KeybordKeyScancode.D => self.velocity.x = value,
+                    Events.KeybordKeyScancode.SPACE => self.velocity.y = -value,
+                    Events.KeybordKeyScancode.LCTRL => self.velocity.y = value,
+                    else => {},
+                }
+            },
+            .Mouse => |mouse| {
+                switch (mouse) {
+                    .Button => |button| {
+                        self.active = button.type == .Pressed;
+                    },
+                    .Motion => |motion| {
+                        if (self.active) {
+                            self.yaw -= @as(f32, @floatFromInt(motion.x)) * self.sensitivity * dt;
+                            self.pitch -= @as(f32, @floatFromInt(motion.y)) * self.sensitivity * dt;
+                            if (std.math.pi / 2.0 < self.pitch) {
+                                self.pitch = std.math.pi / 2.0;
+                            }
+                            if (self.pitch < -std.math.pi / 2.0) {
+                                self.pitch = -std.math.pi / 2.0;
+                            }
+                        }
+                    },
+                    else => {},
+                }
+            },
+            else => {},
         }
     }
 

@@ -6,10 +6,11 @@ const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
 const Memory = @import("memory.zig");
+const Events = @import("platform/event.zig");
 const RuntimeWatch = @import("platform/posix.zig").RuntimeWatch;
 const RuntimeFn = *fn (
     *sdl.SDL_Window,
-    [*]sdl.SDL_Event,
+    [*]const Events.Event,
     usize,
     *Memory,
     f32,
@@ -67,26 +68,6 @@ const RuntimeLoad = struct {
     }
 };
 
-fn get_sdl_events(events_buffer: []sdl.SDL_Event) []sdl.SDL_Event {
-    sdl.SDL_FlushEvents(
-        sdl.SDL_FIRSTEVENT,
-        sdl.SDL_LASTEVENT,
-    );
-    sdl.SDL_PumpEvents();
-    const num_events = sdl.SDL_PeepEvents(
-        events_buffer.ptr,
-        @intCast(events_buffer.len),
-        sdl.SDL_PEEKEVENT,
-        sdl.SDL_FIRSTEVENT,
-        sdl.SDL_LASTEVENT,
-    );
-
-    return if (num_events < 0) e: {
-        log.err(@src(), "Cannot get SDL events: {s}", .{sdl.SDL_GetError()});
-        break :e events_buffer[0..0];
-    } else events_buffer[0..@intCast(num_events)];
-}
-
 pub fn main() !void {
     if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO) != 0) {
         log.err(@src(), "Cannot init SDL: {s}", .{sdl.SDL_GetError()});
@@ -109,10 +90,10 @@ pub fn main() !void {
         const EmscriptenGlobals = struct {
             var memory: Memory = undefined;
             var w: *sdl.SDL_Window = undefined;
-            var sdl_events: [32]sdl.SDL_Event = undefined;
             var stop = false;
             var t: i128 = undefined;
             var runtime_data: ?*anyopaque = null;
+            var events: [Events.MAX_EVENTS]Events.Event = undefined;
 
             const Self = @This();
 
@@ -125,10 +106,10 @@ pub fn main() !void {
                     dt = FRAME_TIME;
                 }
 
-                const events = get_sdl_events(&Self.sdl_events);
-                for (events) |event| {
-                    switch (event.type) {
-                        sdl.SDL_QUIT => {
+                const filled_events = Events.get(&events);
+                for (filled_events) |event| {
+                    switch (event) {
+                        Events.Event.Quit => {
                             stop = true;
                         },
                         else => {},
@@ -138,8 +119,8 @@ pub fn main() !void {
                 const runtime_fn = @import("runtime_main.zig").runtime_main;
                 Self.runtime_data = runtime_fn(
                     Self.w,
-                    events.ptr,
-                    events.len,
+                    filled_events.ptr,
+                    filled_events.len,
                     &Self.memory,
                     dt,
                     Self.runtime_data,
@@ -153,7 +134,7 @@ pub fn main() !void {
         std.os.emscripten.emscripten_set_main_loop(EmscriptenGlobals.loop, 0, 1);
     } else if (build_options.unibuild) {
         var memory = try Memory.init();
-        var sdl_events: [32]sdl.SDL_Event = undefined;
+        var events: [Events.MAX_EVENTS]Events.Event = undefined;
         var stop = false;
         var t = std.time.nanoTimestamp();
         var runtime_data: ?*anyopaque = null;
@@ -167,21 +148,21 @@ pub fn main() !void {
                 std.time.sleep(@intFromFloat((FRAME_TIME - dt) * std.time.ns_per_s));
                 dt = FRAME_TIME;
             }
-            const events = get_sdl_events(&sdl_events);
 
-            for (events) |event| {
-                switch (event.type) {
-                    sdl.SDL_QUIT => {
+            const filled_events = Events.get(&events);
+            for (filled_events) |event| {
+                switch (event) {
+                    Events.Event.Quit => {
                         stop = true;
                     },
                     else => {},
                 }
             }
-            runtime_data = runtime_fn(window, events.ptr, events.len, &memory, dt, runtime_data);
+            runtime_data = runtime_fn(window, filled_events.ptr, filled_events.len, &memory, dt, runtime_data);
         }
     } else {
         var memory = try Memory.init();
-        var sdl_events: [32]sdl.SDL_Event = undefined;
+        var events: [Events.MAX_EVENTS]Events.Event = undefined;
         var stop = false;
         var t = std.time.nanoTimestamp();
         var runtime_data: ?*anyopaque = null;
@@ -197,15 +178,14 @@ pub fn main() !void {
                 std.time.sleep(@intFromFloat((FRAME_TIME - dt) * std.time.ns_per_s));
                 dt = FRAME_TIME;
             }
-            const events = get_sdl_events(&sdl_events);
-
-            for (events) |event| {
-                switch (event.type) {
-                    sdl.SDL_QUIT => {
+            const filled_events = Events.get(&events);
+            for (filled_events) |event| {
+                switch (event) {
+                    .Quit => {
                         stop = true;
                     },
-                    sdl.SDL_KEYDOWN => {
-                        if (event.key.keysym.sym == sdl.SDLK_F5) {
+                    .Keyboard => |key| {
+                        if (key.key == .F5) {
                             log.info(@src(), "Loading new runtime", .{});
                             if (try runtime_watch.has_event()) {
                                 if (runtime_load.get_runtime_fn()) |new_runtime_fn| {
@@ -220,7 +200,7 @@ pub fn main() !void {
                     else => {},
                 }
             }
-            runtime_data = runtime_fn(window, events.ptr, events.len, &memory, dt, runtime_data);
+            runtime_data = runtime_fn(window, filled_events.ptr, filled_events.len, &memory, dt, runtime_data);
         }
     }
 }

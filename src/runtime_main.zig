@@ -14,6 +14,7 @@ const Font = @import("font.zig").Font;
 const ScreenQuads = @import("screen_quads.zig");
 
 const Memory = @import("memory.zig");
+const Events = @import("platform/event.zig");
 const SoftRenderer = @import("soft_renderer/renderer.zig");
 const VkRenderer = @import("vk_renderer/renderer.zig");
 const CameraController2d = @import("camera.zig").CameraController2d;
@@ -98,22 +99,25 @@ const SoftwareRuntime = struct {
         self: *Self,
         memory: *Memory,
         dt: f32,
-        events: []sdl.SDL_Event,
+        events: []const Events.Event,
         width: i32,
         height: i32,
     ) void {
         self.screen_quads.reset();
 
-        for (events) |*event| {
+        for (events) |event| {
             self.camera_controller.process_input(event, dt);
-            if (event.type == sdl.SDL_KEYDOWN) {
-                switch (event.key.keysym.sym) {
-                    sdl.SDLK_g => self.audio.play(self.soundtrack_id),
-                    sdl.SDLK_p => self.audio.stop(),
-                    sdl.SDLK_4 => self.audio.volume += 0.1,
-                    sdl.SDLK_5 => self.audio.volume -= 0.1,
-                    else => {},
-                }
+            switch (event) {
+                .Keyboard => |key| {
+                    switch (key.key) {
+                        .G => self.audio.play(self.soundtrack_id),
+                        .P => self.audio.stop(),
+                        .@"4" => self.audio.volume += 0.1,
+                        .@"5" => self.audio.volume -= 0.1,
+                        else => {},
+                    }
+                },
+                else => {},
             }
         }
         self.camera_controller.update(dt);
@@ -357,7 +361,7 @@ const VulkanRuntime = struct {
         self: *Self,
         memory: *Memory,
         dt: f32,
-        events: []sdl.SDL_Event,
+        events: []const Events.Event,
         width: i32,
         height: i32,
     ) void {
@@ -365,7 +369,7 @@ const VulkanRuntime = struct {
         self.screen_quads.reset();
         self.cube_meshes.reset();
 
-        for (events) |*event| {
+        for (events) |event| {
             self.camera_controller.process_input(event, dt);
         }
         self.camera_controller.update(dt);
@@ -496,17 +500,17 @@ else
 
 pub export fn runtime_main(
     window: *sdl.SDL_Window,
-    sdl_events: [*]sdl.SDL_Event,
-    sdl_events_num: usize,
+    events_ptr: [*]const Events.Event,
+    events_len: usize,
     memory: *Memory,
     dt: f32,
     data: ?*anyopaque,
 ) *anyopaque {
     memory.reset_frame();
 
-    var events: []sdl.SDL_Event = undefined;
-    events.ptr = sdl_events;
-    events.len = sdl_events_num;
+    var events: []const Events.Event = undefined;
+    events.ptr = events_ptr;
+    events.len = events_len;
     var runtime_ptr: ?*Runtime = @alignCast(@ptrCast(data));
 
     var width: i32 = undefined;
