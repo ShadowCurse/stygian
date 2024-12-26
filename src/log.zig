@@ -1,20 +1,49 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const DEFAULT_COLOR = if (builtin.os.tag == .emscripten) "" else "\x1b[0m";
-const WHITE = if (builtin.os.tag == .emscripten) "" else "\x1b[37m";
-const HIGH_WHITE = if (builtin.os.tag == .emscripten) "" else "\x1b[90m";
-const YELLOW = if (builtin.os.tag == .emscripten) "" else "\x1b[33m";
-const RED = if (builtin.os.tag == .emscripten) "" else "\x1b[31m";
+const DEFAULT_COLOR = "\x1b[0m";
+const WHITE = "\x1b[37m";
+const HIGH_WHITE = "\x1b[90m";
+const YELLOW = "\x1b[33m";
+const RED = "\x1b[31m";
+
+pub const LogLevel = enum {
+    Err,
+    Warn,
+    Info,
+    Debug,
+};
+pub const Options = struct {
+    colors: bool = builtin.os.tag != .emscripten,
+    level: LogLevel = .Info,
+
+    const Self = @This();
+    pub fn log_enabled(self: Self, level: LogLevel) bool {
+        const self_level_int = @intFromEnum(self.level);
+        const level_int = @intFromEnum(level);
+        return level_int <= self_level_int;
+    }
+};
+
+const platform_main = @import("platform_main.zig");
+pub const options: Options = if (@hasDecl(platform_main, "log_options"))
+    platform_main.log_options
+else
+    .{};
 
 pub fn info(
     src: std.builtin.SourceLocation,
     comptime format: []const u8,
     args: anytype,
 ) void {
+    if (comptime !options.log_enabled(.Info)) return;
     const T = make_struct(@TypeOf(args));
     const t = fill_struct(T, src, args);
-    output(WHITE ++ "[{s}:{s}:{}:{}:INFO] " ++ format ++ DEFAULT_COLOR, t);
+    if (comptime options.colors) {
+        output(WHITE ++ "[{s}:{s}:{}:{}:INFO] " ++ format ++ DEFAULT_COLOR, t);
+    } else {
+        output("[{s}:{s}:{}:{}:INFO] " ++ format, t);
+    }
 }
 
 pub fn debug(
@@ -22,9 +51,14 @@ pub fn debug(
     comptime format: []const u8,
     args: anytype,
 ) void {
+    if (comptime !options.log_enabled(.Debug)) return;
     const T = make_struct(@TypeOf(args));
     const t = fill_struct(T, src, args);
-    output(HIGH_WHITE ++ "[{s}:{s}:{}:{}:DEBUG] " ++ format ++ DEFAULT_COLOR, t);
+    if (comptime options.colors) {
+        output(HIGH_WHITE ++ "[{s}:{s}:{}:{}:DEBUG] " ++ format ++ DEFAULT_COLOR, t);
+    } else {
+        output("[{s}:{s}:{}:{}:DEBUG] " ++ format, t);
+    }
 }
 
 pub fn warn(
@@ -32,9 +66,14 @@ pub fn warn(
     comptime format: []const u8,
     args: anytype,
 ) void {
+    if (comptime !options.log_enabled(.Warn)) return;
     const T = make_struct(@TypeOf(args));
     const t = fill_struct(T, src, args);
-    output(YELLOW ++ "[{s}:{s}:{}:{}:WARN] " ++ format ++ DEFAULT_COLOR, t);
+    if (comptime options.colors) {
+        output(YELLOW ++ "[{s}:{s}:{}:{}:WARN] " ++ format ++ DEFAULT_COLOR, t);
+    } else {
+        output("[{s}:{s}:{}:{}:WARN] " ++ format, t);
+    }
 }
 
 pub fn err(
@@ -42,9 +81,14 @@ pub fn err(
     comptime format: []const u8,
     args: anytype,
 ) void {
+    if (comptime !options.log_enabled(.Err)) return;
     const T = make_struct(@TypeOf(args));
     const t = fill_struct(T, src, args);
-    output(RED ++ "[{s}:{s}:{}:{}:ERROR] " ++ format, t);
+    if (comptime options.colors) {
+        output(RED ++ "[{s}:{s}:{}:{}:ERROR] " ++ format ++ DEFAULT_COLOR, t);
+    } else {
+        output("[{s}:{s}:{}:{}:ERROR] " ++ format, t);
+    }
 }
 
 fn output(

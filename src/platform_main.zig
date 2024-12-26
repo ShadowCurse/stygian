@@ -36,6 +36,10 @@ pub const os = if (builtin.os.tag != .emscripten) std.os else struct {
     };
 };
 
+pub const log_options = log.Options{
+    .level = .Info,
+};
+
 const WINDOW_WIDTH = 1280;
 const WINDOW_HEIGHT = 720;
 const FPS = 60.0;
