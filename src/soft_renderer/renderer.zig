@@ -1,7 +1,7 @@
 const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
-const Texture = @import("../texture.zig");
+const Texture = @import("../texture.zig").Texture;
 const Color = @import("../color.zig").Color;
 
 const _math = @import("../math.zig");
@@ -66,7 +66,7 @@ pub const AABB = struct {
 
 window: *sdl.SDL_Window,
 surface: *sdl.SDL_Surface,
-texture: Texture,
+surface_texture: Texture,
 
 const Self = @This();
 
@@ -86,7 +86,7 @@ pub fn init(
     data.ptr = @ptrCast(surface.*.pixels);
     data.len = @intCast(surface.*.w * surface.*.h * surface.*.format.*.BytesPerPixel);
 
-    const texture: Texture = .{
+    const surface_texture: Texture = .{
         .width = @intCast(surface.*.w),
         .height = @intCast(surface.*.h),
         .channels = @intCast(surface.*.format.*.BytesPerPixel),
@@ -96,7 +96,7 @@ pub fn init(
     return .{
         .window = window,
         .surface = surface,
-        .texture = texture,
+        .surface_texture = surface_texture,
     };
 }
 
@@ -110,11 +110,11 @@ pub fn end_rendering(self: *const Self) void {
 
 pub fn as_texture_rect(self: *const Self) TextureRect {
     return .{
-        .texture = &self.texture,
+        .texture = &self.surface_texture,
         .position = .{},
         .size = .{
-            .x = @floatFromInt(self.texture.width),
-            .y = @floatFromInt(self.texture.height),
+            .x = @floatFromInt(self.surface_texture.width),
+            .y = @floatFromInt(self.surface_texture.height),
         },
     };
 }
@@ -140,7 +140,7 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
     const height: u32 = @intFromFloat(intersection.height());
 
     if (texture_rect.texture.channels == 4) {
-        const dst_pitch = self.texture.width;
+        const dst_pitch = self.surface_texture.width;
         const src_pitch = texture_rect.texture.width;
 
         const dst_start_x: u32 = @intFromFloat(intersection.min.x);
@@ -151,7 +151,7 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
         var src_data_start = src_start_x + src_start_y * src_pitch;
 
-        const dst_data_color = self.texture.as_color_slice();
+        const dst_data_color = self.surface_texture.as_color_slice();
         const src_data_color = texture_rect.texture.as_color_slice();
         for (0..height) |_| {
             for (0..width) |x| {
@@ -163,7 +163,7 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
             src_data_start += src_pitch;
         }
     } else if (texture_rect.texture.channels == 1) {
-        const dst_pitch = self.texture.width;
+        const dst_pitch = self.surface_texture.width;
         const src_pitch = texture_rect.texture.width * texture_rect.texture.channels;
 
         const dst_start_x: u32 = @intFromFloat(intersection.min.x);
@@ -174,7 +174,7 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
         var src_data_start = src_start_x * texture_rect.texture.channels + src_start_y * src_pitch;
 
-        const dst_data_color = self.texture.as_color_slice();
+        const dst_data_color = self.surface_texture.as_color_slice();
         const src_data_u8 = texture_rect.texture.data;
         for (0..height) |_| {
             for (0..width) |x| {
@@ -190,7 +190,7 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
         log.warn(
             @src(),
             "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
-            .{ self.texture.channels, texture_rect.texture.channels },
+            .{ self.surface_texture.channels, texture_rect.texture.channels },
         );
     }
 }
@@ -218,14 +218,14 @@ pub fn draw_texture_with_scale_and_rotation(
     const x_axis = (Vec2{ .x = c, .y = s }).mul_f32(scale.x);
     const y_axis = (Vec2{ .x = s, .y = -c }).mul_f32(scale.y);
 
-    const p_a = new_position.add(x_axis.mul_f32(-texture_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(-texture_rect.size.y / 2.0));
-    const p_b = new_position.add(x_axis.mul_f32(texture_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(-texture_rect.size.y / 2.0));
-    const p_c = new_position.add(x_axis.mul_f32(-texture_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(texture_rect.size.y / 2.0));
-    const p_d = new_position.add(x_axis.mul_f32(texture_rect.size.x / 2.0))
-        .add(y_axis.mul_f32(texture_rect.size.y / 2.0));
+    const half_x = texture_rect.size.x / 2.0;
+    const half_y = texture_rect.size.y / 2.0;
+    const x_offset = x_axis.mul_f32(half_x);
+    const y_offset = y_axis.mul_f32(half_y);
+    const p_a = new_position.add(x_offset.neg()).add(y_offset.neg());
+    const p_b = new_position.add(x_offset).add(y_offset.neg());
+    const p_c = new_position.add(x_offset.neg()).add(y_offset);
+    const p_d = new_position.add(x_offset).add(y_offset);
 
     const dst_aabb = AABB{
         .min = .{
@@ -260,13 +260,13 @@ pub fn draw_texture_with_scale_and_rotation(
     const ca = p_a.sub(p_c);
 
     if (texture_rect.texture.channels == 4) {
-        const dst_pitch = self.texture.width;
+        const dst_pitch = self.surface_texture.width;
         const src_pitch = texture_rect.texture.width;
 
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
         const src_data_start = src_start_x + src_start_y * src_pitch;
 
-        const dst_data_u32 = self.texture.as_color_slice();
+        const dst_data_u32 = self.surface_texture.as_color_slice();
         const src_data_u32 = texture_rect.texture.as_color_slice();
 
         for (0..height) |y| {
@@ -306,14 +306,14 @@ pub fn draw_texture_with_scale_and_rotation(
             dst_data_start += dst_pitch;
         }
     } else if (texture_rect.texture.channels == 1) {
-        const dst_pitch = self.texture.width;
+        const dst_pitch = self.surface_texture.width;
         const src_pitch = texture_rect.texture.width;
 
         var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
         var dst_data_end = dst_data_start + width;
         const src_data_start = src_start_x + src_start_y * src_pitch;
 
-        const dst_data_color = self.texture.as_color_slice();
+        const dst_data_color = self.surface_texture.as_color_slice();
         const src_data_u8 = texture_rect.texture.data;
 
         for (0..height) |y| {
@@ -358,7 +358,7 @@ pub fn draw_texture_with_scale_and_rotation(
         log.warn(
             @src(),
             "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
-            .{ self.texture.channels, texture_rect.texture.channels },
+            .{ self.surface_texture.channels, texture_rect.texture.channels },
         );
     }
 }
@@ -399,14 +399,14 @@ pub fn draw_color_rect(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.texture.width;
+    const dst_pitch = self.surface_texture.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
 
     var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
 
-    const dst_data_color = self.texture.as_color_slice();
+    const dst_data_color = self.surface_texture.as_color_slice();
     for (0..height) |_| {
         for (0..width) |x| {
             const dst = &dst_data_color[dst_data_start + x];
@@ -462,7 +462,7 @@ pub fn draw_color_rect_with_rotation(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    const dst_pitch = self.texture.width;
+    const dst_pitch = self.surface_texture.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
@@ -474,7 +474,7 @@ pub fn draw_color_rect_with_rotation(
     const dc = p_c.sub(p_d);
     const ca = p_a.sub(p_c);
 
-    const dst_data_color = self.texture.as_color_slice();
+    const dst_data_color = self.surface_texture.as_color_slice();
     for (0..height) |y| {
         for (0..width) |x| {
             const p: Vec2 = .{

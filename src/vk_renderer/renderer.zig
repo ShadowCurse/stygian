@@ -5,7 +5,7 @@ const sdl = @import("../bindings/sdl.zig");
 const stb = @import("../bindings/stb.zig");
 
 const Memory = @import("../memory.zig");
-const Texture = @import("../texture.zig");
+const Texture = @import("../texture.zig").Texture;
 const Color = @import("../color.zig").Color;
 
 const VkContext = @import("context.zig");
@@ -27,9 +27,7 @@ current_framme_idx: usize,
 commands: [FRAMES]RenderCommand,
 immediate_command: ImmediateCommand,
 
-debug_texture: GpuTexture,
 debug_sampler: vk.VkSampler,
-debug_sampler_2: vk.VkSampler,
 
 pub fn init(
     memory: *Memory,
@@ -53,56 +51,7 @@ pub fn init(
 
     const immediate_command = try vk_context.create_immediate_command();
 
-    const debug_texture = try vk_context.create_texture(
-        16,
-        16,
-        vk.VK_FORMAT_B8G8R8A8_UNORM,
-        vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | vk.VK_IMAGE_USAGE_SAMPLED_BIT,
-    );
-
-    {
-        const staging_buffer = try vk_context.create_buffer(
-            16 * 16 * @sizeOf(Color),
-            vk.VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-            vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
-        );
-        defer staging_buffer.deinit(vk_context.vma_allocator);
-
-        var buffer_slice: []Color = undefined;
-        buffer_slice.ptr = @alignCast(@ptrCast(staging_buffer.allocation_info.pMappedData));
-        buffer_slice.len = 16 * 16;
-
-        for (0..16) |x| {
-            for (0..16) |y| {
-                buffer_slice[y * 16 + x] = if ((x % 2) ^ (y % 2) != 0)
-                    Color.MAGENTA
-                else
-                    Color.GREY;
-            }
-        }
-
-        try immediate_command.begin(vk_context.logical_device.device);
-        defer immediate_command.end(
-            vk_context.logical_device.device,
-            vk_context.logical_device.graphics_queue,
-        ) catch @panic("immediate_command error");
-
-        GpuTexture.copy_buffer_to_image(
-            immediate_command.cmd,
-            staging_buffer.buffer,
-            debug_texture.image,
-            .{
-                .height = 16,
-                .width = 16,
-                .depth = 1,
-            },
-        );
-    }
     const debug_sampler = try vk_context.create_sampler(
-        vk.VK_FILTER_NEAREST,
-        vk.VK_FILTER_NEAREST,
-    );
-    const debug_sampler_2 = try vk_context.create_sampler(
         vk.VK_FILTER_NEAREST,
         vk.VK_FILTER_NEAREST,
     );
@@ -115,25 +64,20 @@ pub fn init(
         .current_framme_idx = 0,
         .commands = commands,
         .immediate_command = immediate_command,
-        .debug_texture = debug_texture,
         .debug_sampler = debug_sampler,
-        .debug_sampler_2 = debug_sampler_2,
     };
 }
 
 pub fn deinit(self: *Self, memory: *Memory) void {
     vk.vkDestroySampler(self.vk_context.logical_device.device, self.debug_sampler, null);
-    self.debug_texture.deinit(
-        self.vk_context.logical_device.device,
-        self.vk_context.vma_allocator,
-    );
-
     self.immediate_command.deinit(self.vk_context.logical_device.device);
     for (&self.commands) |*c| {
         c.deinit(self.vk_context.logical_device.device);
     }
-
-    self.depth_texture.deinit(self.vk_context.logical_device.device, self.vk_context.vma_allocator);
+    self.depth_texture.deinit(
+        self.vk_context.logical_device.device,
+        self.vk_context.vma_allocator,
+    );
 
     self.vk_context.deinit(memory);
 }
@@ -156,7 +100,11 @@ pub fn delete_texture(self: *Self, texture: *const GpuTexture) void {
     self.vk_context.delete_texture(texture);
 }
 
-pub fn upload_texture_to_gpu(self: *Self, gpu_texture: *const GpuTexture, texture: *const Texture) !void {
+pub fn upload_texture_to_gpu(
+    self: *Self,
+    gpu_texture: *const GpuTexture,
+    texture: *const Texture,
+) !void {
     if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= gpu_texture.format and
         gpu_texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and
         texture.channels != 4)

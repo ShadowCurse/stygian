@@ -150,15 +150,30 @@ pub const MeshPipeline = struct {
             .None,
         );
 
+        return .{
+            .pipeline = pipeline,
+        };
+    }
+
+    pub fn deinit(self: *const Self, renderer: *VkRenderer) void {
+        self.pipeline.deinit(renderer.vk_context.logical_device.device);
+    }
+
+    pub fn set_texture(
+        self: *const Self,
+        renderer: *const VkRenderer,
+        view: vk.VkImageView,
+        sampler: vk.VkSampler,
+    ) void {
         const desc_image_info = vk.VkDescriptorImageInfo{
             .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .imageView = renderer.debug_texture.view,
-            .sampler = renderer.debug_sampler,
+            .imageView = view,
+            .sampler = sampler,
         };
         const mesh_desc_set_update = vk.VkWriteDescriptorSet{
             .sType = vk.VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstBinding = 0,
-            .dstSet = pipeline.descriptor_set,
+            .dstSet = self.pipeline.descriptor_set,
             .descriptorCount = 1,
             .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .pImageInfo = &desc_image_info,
@@ -171,14 +186,6 @@ pub const MeshPipeline = struct {
             0,
             null,
         );
-
-        return .{
-            .pipeline = pipeline,
-        };
-    }
-
-    pub fn deinit(self: *const Self, renderer: *VkRenderer) void {
-        self.pipeline.deinit(renderer.vk_context.logical_device.device);
     }
 
     pub const Bundle = struct { *const RenderMeshInfo, u32 };

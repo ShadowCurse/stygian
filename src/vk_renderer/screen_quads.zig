@@ -87,7 +87,7 @@ pub const ScreenQuadsPipeline = struct {
                 // Texture array
                 .{
                     .binding = 0,
-                    .descriptorCount = 2,
+                    .descriptorCount = 3,
                     .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                     .stageFlags = vk.VK_SHADER_STAGE_FRAGMENT_BIT,
                 },
@@ -118,12 +118,19 @@ pub const ScreenQuadsPipeline = struct {
     pub fn set_textures(
         self: *const Self,
         renderer: *const VkRenderer,
+        debug_view: vk.VkImageView,
+        debug_sampler: vk.VkSampler,
         font_view: vk.VkImageView,
         font_sampler: vk.VkSampler,
         color_view: vk.VkImageView,
         color_sampler: vk.VkSampler,
     ) void {
         const desc_image_info = [_]vk.VkDescriptorImageInfo{
+            .{
+                .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                .imageView = debug_view,
+                .sampler = debug_sampler,
+            },
             .{
                 .imageLayout = vk.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 .imageView = font_view,
@@ -140,7 +147,7 @@ pub const ScreenQuadsPipeline = struct {
             .dstBinding = 0,
             .dstSet = self.pipeline.descriptor_set,
             .dstArrayElement = 0,
-            .descriptorCount = 2,
+            .descriptorCount = desc_image_info.len,
             .descriptorType = vk.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .pImageInfo = &desc_image_info,
         };

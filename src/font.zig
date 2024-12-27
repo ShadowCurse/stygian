@@ -1,59 +1,97 @@
 const std = @import("std");
+const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 const platform = @import("platform/posix.zig");
 
-const Texture = @import("texture.zig");
+const TextureStore = @import("texture.zig").TextureStore;
 const Memory = @import("memory.zig");
 
 pub const Font = struct {
     const Self = @This();
 
-    size: f32,
-    char_info: []stb.stbtt_bakedchar,
-    texture: Texture,
-    texture_id: u32,
+    size: f32 = 0,
+    char_info: []stb.stbtt_bakedchar = &.{},
+    texture_id: u32 = TextureStore.DEBUG_TEXTURE_ID,
 
-    pub fn init(memory: *Memory, path: [:0]const u8, font_size: f32) !Self {
-        const game_alloc = memory.game_alloc();
+    pub fn init(
+        memory: *Memory,
+        texture_store: *TextureStore,
+        path: [:0]const u8,
+        font_size: f32,
+    ) Self {
+        if (texture_store.reserve()) |texture_id| {
+            const texture = texture_store.get_mut(texture_id);
+            const game_alloc = memory.game_alloc();
 
-        const fm = try platform.FileMem.init(path);
-        defer fm.deinit();
+            const fm = platform.FileMem.init(path) catch |e| {
+                log.err(
+                    @src(),
+                    "Cannot get file memory for a font. Font path: {s} error: {}",
+                    .{ path, e },
+                );
+                return .{};
+            };
+            defer fm.deinit();
 
-        var stb_font: stb.stbtt_fontinfo = undefined;
-        _ = stb.stbtt_InitFont(
-            &stb_font,
-            fm.mem.ptr,
-            stb.stbtt_GetFontOffsetForIndex(fm.mem.ptr, 0),
-        );
+            var stb_font: stb.stbtt_fontinfo = undefined;
+            _ = stb.stbtt_InitFont(
+                &stb_font,
+                fm.mem.ptr,
+                stb.stbtt_GetFontOffsetForIndex(fm.mem.ptr, 0),
+            );
 
-        const char_info = try game_alloc.alloc(stb.stbtt_bakedchar, @intCast(stb_font.numGlyphs));
-        const bitmap = try game_alloc.alloc(u8, 512 * 512);
+            const char_info = game_alloc.alloc(
+                stb.stbtt_bakedchar,
+                @intCast(stb_font.numGlyphs),
+            ) catch |e| {
+                log.err(
+                    @src(),
+                    "Cannot allocate memory for a font char info. Font path: {s} error: {}",
+                    .{ path, e },
+                );
+                return .{};
+            };
+            const bitmap = game_alloc.alloc(u8, 512 * 512) catch |e| {
+                log.err(
+                    @src(),
+                    "Cannot allocate memory for a font bitmap. Font path: {s} error: {}",
+                    .{ path, e },
+                );
+                return .{};
+            };
 
-        _ = stb.stbtt_BakeFontBitmap(
-            fm.mem.ptr,
-            0,
-            font_size,
-            bitmap.ptr,
-            512,
-            512,
-            0,
-            stb_font.numGlyphs,
-            char_info.ptr,
-        );
+            _ = stb.stbtt_BakeFontBitmap(
+                fm.mem.ptr,
+                0,
+                font_size,
+                bitmap.ptr,
+                512,
+                512,
+                0,
+                stb_font.numGlyphs,
+                char_info.ptr,
+            );
 
-        const texture = Texture{
-            .data = bitmap,
-            .width = 512,
-            .height = 512,
-            .channels = 1,
-        };
+            texture.* = .{
+                .data = bitmap,
+                .width = 512,
+                .height = 512,
+                .channels = 1,
+            };
 
-        return .{
-            .size = font_size,
-            .char_info = char_info,
-            .texture = texture,
-            .texture_id = 0,
-        };
+            return .{
+                .size = font_size,
+                .char_info = char_info,
+                .texture_id = texture_id,
+            };
+        } else {
+            log.err(
+                @src(),
+                "Trying to load font from {s}, but there are no space in the texture store",
+                .{path},
+            );
+            return .{};
+        }
     }
 
     pub fn deinit(self: *const Self, memory: *Memory) void {

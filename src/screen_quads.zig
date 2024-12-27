@@ -1,7 +1,12 @@
 const std = @import("std");
 const log = @import("log.zig");
 
-const Texture = @import("texture.zig");
+const _texture = @import("texture.zig");
+const TextureStore = _texture.TextureStore;
+const TextureId = _texture.TextureId;
+const TextureIdVertColor = _texture.TextureIdVertColor;
+const TextureIdSolidColor = _texture.TextureIdSolidColor;
+
 const Font = @import("font.zig").Font;
 const Memory = @import("memory.zig");
 const Color = @import("color.zig").Color;
@@ -29,12 +34,9 @@ pub const ScreenQuad = extern struct {
 
     rotation: f32 = 0.0,
     color: Color = Color.WHITE,
-    texture_id: u32,
+    texture_id: TextureId,
     __reserved1: f32 = 0.0,
 };
-
-pub const TextureIdVertColor = std.math.maxInt(u32);
-pub const TextureIdSolidColor = std.math.maxInt(u32) - 1;
 
 quads: []ScreenQuad,
 used_quads: u32,
@@ -124,7 +126,7 @@ pub fn add_text(
 pub fn render(
     self: *Self,
     soft_renderer: *SoftRenderer,
-    textures: []const Texture,
+    texture_store: *const TextureStore,
 ) void {
     const quads = self.slice();
     const Compare = struct {
@@ -154,7 +156,7 @@ pub fn render(
                 }
             },
             else => |texture_id| {
-                const texture = &textures[texture_id];
+                const texture = texture_store.get(texture_id);
                 if (quad.rotation == 0.0) {
                     soft_renderer.draw_texture(
                         quad.position.xy(),
