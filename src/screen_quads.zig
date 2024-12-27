@@ -1,6 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 
+const Perf = @import("performance.zig");
 const Texture = @import("texture.zig");
 const Font = @import("font.zig").Font;
 const Memory = @import("memory.zig");
@@ -11,6 +12,12 @@ const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
+
+pub const perf = Perf.Measurements(struct {
+    add_quad: Perf.Fn,
+    add_text: Perf.Fn,
+    render: Perf.Fn,
+});
 
 pub const ScreenQuad = extern struct {
     // position in pixels
@@ -58,7 +65,7 @@ pub fn reset(self: *Self) void {
 pub fn slice(self: *Self) []ScreenQuad {
     log.assert(
         @src(),
-        self.used_quads < self.quads.len,
+        self.used_quads <= self.quads.len,
         "Trying to get slice of quads bigger than actual buffer size: {} < {}",
         .{ self.quads.len, self.used_quads },
     );
@@ -66,6 +73,9 @@ pub fn slice(self: *Self) []ScreenQuad {
 }
 
 pub fn add_quad(self: *Self, quad: ScreenQuad) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
     if (remaining_quads < 1) {
         log.warn(
@@ -84,7 +94,11 @@ pub fn add_text(
     font: *const Font,
     text: []const u8,
     position: Vec3,
+    center: bool,
 ) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
     if (remaining_quads < text.len) {
         log.warn(
@@ -96,7 +110,10 @@ pub fn add_text(
     }
     defer self.used_quads += @intCast(text.len);
 
-    var x_offset: f32 = -font.size * @as(f32, @floatFromInt(text.len / 2));
+    var x_offset: f32 = if (center)
+        -font.size * @as(f32, @floatFromInt(text.len / 2))
+    else
+        0.0;
     for (self.quads[self.used_quads .. self.used_quads + text.len], text) |*tile, c| {
         const char_info = font.char_info[c];
         tile.* = .{
@@ -129,6 +146,9 @@ pub fn render(
     soft_renderer: *SoftRenderer,
     texture_store: *const Texture.Store,
 ) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
     const quads = self.slice();
     const Compare = struct {
         pub fn inner(_: void, a: ScreenQuad, b: ScreenQuad) bool {

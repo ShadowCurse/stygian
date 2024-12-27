@@ -3,6 +3,8 @@ const build_options = @import("build_options");
 const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
+const Perf = @import("performance.zig");
+
 const _audio = @import("audio.zig");
 const Audio = _audio.Audio;
 const SoundtrackId = _audio.SoundtrackId;
@@ -79,9 +81,9 @@ const SoftwareRuntime = struct {
         self.texture_letter_a = self.texture_store.load(memory, "assets/a.png");
         self.texture_item_pot = self.texture_store.load(memory, "assets/item_pot.png");
         self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
-        self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 32);
+        self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 16);
 
-        self.screen_quads = try ScreenQuads.init(memory, 64);
+        self.screen_quads = try ScreenQuads.init(memory, 1024);
         self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
         var y: u32 = 0;
         while (y < 5) : (y += 1) {
@@ -106,6 +108,16 @@ const SoftwareRuntime = struct {
         height: i32,
     ) void {
         self.screen_quads.reset();
+        const frame_alloc = memory.frame_alloc();
+
+        Perf.prepare_next_frame(struct { SoftRenderer, ScreenQuads, _objects });
+        Perf.draw_perf(
+            struct { SoftRenderer, ScreenQuads, _objects },
+            frame_alloc,
+            &self.screen_quads,
+            &self.font,
+        );
+        Perf.zero_current(struct { SoftRenderer, ScreenQuads, _objects });
 
         for (events) |event| {
             self.camera_controller.process_input(event, dt);
@@ -196,7 +208,6 @@ const SoftwareRuntime = struct {
             );
         }
 
-        const frame_alloc = memory.frame_alloc();
         const tile_positions = self.tile_map.get_positions(frame_alloc);
         for (tile_positions) |tile_pos| {
             const object = Object2d{
@@ -219,7 +230,7 @@ const SoftwareRuntime = struct {
         self.screen_quads.add_text(
             &self.font,
             std.fmt.allocPrint(
-                memory.frame_alloc(),
+                frame_alloc,
                 "FPS: {d:.1} FT: {d:.3}s",
                 .{ 1.0 / dt, dt },
             ) catch unreachable,
@@ -228,11 +239,12 @@ const SoftwareRuntime = struct {
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
                 .z = 2.0,
             },
+            true,
         );
         self.screen_quads.add_text(
             &self.font,
             std.fmt.allocPrint(
-                memory.frame_alloc(),
+                frame_alloc,
                 "FM: {} bytes",
                 .{memory.frame_allocator.end_index},
             ) catch unreachable,
@@ -241,6 +253,7 @@ const SoftwareRuntime = struct {
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
                 .z = 2.0,
             },
+            true,
         );
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
@@ -449,6 +462,7 @@ const VulkanRuntime = struct {
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
             },
+            true,
         );
         self.screen_quads.add_text(
             &self.font,
@@ -461,6 +475,7 @@ const VulkanRuntime = struct {
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
             },
+            true,
         );
         self.screen_quads.add_quad(.{
             .texture_id = Texture.ID_VERT_COLOR,

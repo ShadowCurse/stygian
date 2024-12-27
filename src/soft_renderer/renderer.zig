@@ -1,11 +1,21 @@
 const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
+const Perf = @import("../performance.zig");
 const Texture = @import("../texture.zig");
 const Color = @import("../color.zig").Color;
 
 const _math = @import("../math.zig");
 const Vec2 = _math.Vec2;
+
+pub const perf = Perf.Measurements(struct {
+    start_rendering: Perf.Fn,
+    end_rendering: Perf.Fn,
+    draw_texture: Perf.Fn,
+    draw_texture_with_scale_and_rotation: Perf.Fn,
+    draw_color_rect: Perf.Fn,
+    draw_color_rect_with_rotation: Perf.Fn,
+});
 
 // Texture rectangle with 0,0 at the top left
 pub const TextureRect = struct {
@@ -101,10 +111,14 @@ pub fn init(
 }
 
 pub fn start_rendering(self: *const Self) void {
+    perf.start(@src());
+    defer perf.end(@src());
     _ = sdl.SDL_FillRect(self.surface, 0, 0);
 }
 
 pub fn end_rendering(self: *const Self) void {
+    perf.start(@src());
+    defer perf.end(@src());
     _ = sdl.SDL_UpdateWindowSurface(self.window);
 }
 
@@ -121,6 +135,9 @@ pub fn as_texture_rect(self: *const Self) TextureRect {
 
 // TODO add an option to skip alpha blend and do a simple memcopy instead.
 pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
     const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
     // Positon is the center of the destination
@@ -203,6 +220,9 @@ pub fn draw_texture_with_scale_and_rotation(
     rotation_offset: Vec2,
     texture_rect: TextureRect,
 ) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
     const scale: Vec2 = .{
         .x = size.x / @as(f32, @floatFromInt(texture_rect.texture.width)),
         .y = size.y / @as(f32, @floatFromInt(texture_rect.texture.height)),
@@ -369,6 +389,9 @@ pub fn draw_color_rect(
     size: Vec2,
     color: Color,
 ) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
     const x_axis = Vec2.X.mul_f32(size.x / 2.0);
     const y_axis = Vec2.NEG_Y.mul_f32(size.y / 2.0);
 
@@ -424,6 +447,9 @@ pub fn draw_color_rect_with_rotation(
     rotation_offset: Vec2,
     color: Color,
 ) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
     const c = @cos(-rotation);
     const s = @sin(-rotation);
     const new_position = position.add(rotation_offset).add(

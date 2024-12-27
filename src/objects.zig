@@ -1,18 +1,20 @@
 const _camera = @import("camera.zig");
 const CameraController2d = _camera.CameraController2d;
 
+const Perf = @import("performance.zig");
 const ScreenQuads = @import("screen_quads.zig");
-
 const Texture = @import("texture.zig");
-
-const _color = @import("color.zig");
-const Color = _color.Color;
+const Color = @import("color.zig").Color;
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
 const Quat = _math.Quat;
+
+pub const perf = Perf.Measurements(struct {
+    to_screen_quad: Perf.Fn,
+});
 
 pub const Transform2d = struct {
     position: Vec3 = .{},
@@ -38,6 +40,9 @@ pub const Object2d = struct {
         texture_store: *const Texture.Store,
         screen_quads: *ScreenQuads,
     ) void {
+        perf.start(@src());
+        defer perf.end(@src());
+
         const position = camera_controller.transform(self.transform.position);
         switch (self.type) {
             .Color => |color| {
