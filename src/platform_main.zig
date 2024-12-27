@@ -171,7 +171,6 @@ pub fn main() !void {
         var t = std.time.nanoTimestamp();
         var runtime_data: ?*anyopaque = null;
 
-        const runtime_watch = try RuntimeWatch.init(RUNTIME_LIB_PATH);
         var runtime_load: RuntimeLoad = .{};
         var runtime_fn: RuntimeFn = @ptrCast(try runtime_load.get_runtime_fn());
         while (!stop) {
@@ -191,13 +190,11 @@ pub fn main() !void {
                     .Keyboard => |key| {
                         if (key.key == .F5) {
                             log.info(@src(), "Loading new runtime", .{});
-                            if (try runtime_watch.has_event()) {
-                                if (runtime_load.get_runtime_fn()) |new_runtime_fn| {
-                                    log.info(@src(), "Loaded new runtime", .{});
-                                    runtime_fn = @ptrCast(new_runtime_fn);
-                                } else |e| {
-                                    log.err(@src(), "Cannot load new runtime due to the error: {any}", .{e});
-                                }
+                            if (runtime_load.get_runtime_fn()) |new_runtime_fn| {
+                                log.info(@src(), "Loaded new runtime", .{});
+                                runtime_fn = @ptrCast(new_runtime_fn);
+                            } else |e| {
+                                log.err(@src(), "Cannot load new runtime due to the error: {any}", .{e});
                             }
                         }
                     },
