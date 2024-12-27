@@ -121,7 +121,7 @@ pub fn add_text(
             .texture_id = font.texture_id,
             .position = .{
                 .x = position.x + x_offset,
-                .y = position.y,
+                .y = position.y + char_info.yoff * 0.4,
                 .z = position.z,
             },
             .size = .{
@@ -137,7 +137,7 @@ pub fn add_text(
                 .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
             },
         };
-        x_offset += char_info.xadvance;
+        x_offset += char_info.xadvance - char_info.xoff;
     }
 }
 
