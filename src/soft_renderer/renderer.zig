@@ -1,7 +1,7 @@
 const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
-const Texture = @import("../texture.zig").Texture;
+const Texture = @import("../texture.zig");
 const Color = @import("../color.zig").Color;
 
 const _math = @import("../math.zig");

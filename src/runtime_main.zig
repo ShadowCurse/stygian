@@ -7,11 +7,7 @@ const _audio = @import("audio.zig");
 const Audio = _audio.Audio;
 const SoundtrackId = _audio.SoundtrackId;
 
-const _texture = @import("texture.zig");
-const TextureStore = _texture.TextureStore;
-const TextureId = _texture.TextureId;
-const TEXTURE_ID_VERT_COLOR = _texture.TEXTURE_ID_VERT_COLOR;
-const TEXTURE_ID_SOLID_COLOR = _texture.TEXTURE_ID_SOLID_COLOR;
+const Texture = @import("texture.zig");
 const GpuTexture = @import("vk_renderer/gpu_texture.zig");
 
 const Font = @import("font.zig").Font;
@@ -53,10 +49,10 @@ const Transform2d = _objects.Transform2d;
 const SoftwareRuntime = struct {
     camera_controller: CameraController2d,
 
-    texture_store: TextureStore,
-    texture_letter_a: TextureId,
-    texture_item_pot: TextureId,
-    texture_item_coffecup: TextureId,
+    texture_store: Texture.Store,
+    texture_letter_a: Texture.Id,
+    texture_item_pot: Texture.Id,
+    texture_item_coffecup: Texture.Id,
 
     font: Font,
 
@@ -248,7 +244,7 @@ const SoftwareRuntime = struct {
         );
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
-            .texture_id = TEXTURE_ID_SOLID_COLOR,
+            .texture_id = Texture.ID_SOLID_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 300.0,
@@ -290,8 +286,8 @@ const SoftwareRuntime = struct {
 const VulkanRuntime = struct {
     camera_controller: CameraController3d,
 
-    texture_store: TextureStore,
-    texture_letter_a: TextureId,
+    texture_store: Texture.Store,
+    texture_letter_a: Texture.Id,
 
     font: Font,
     screen_quads: ScreenQuads,
@@ -335,7 +331,7 @@ const VulkanRuntime = struct {
 
         self.vk_renderer = try VkRenderer.init(memory, window, width, height);
 
-        const debug_texture = self.texture_store.get(TextureStore.DEBUG_TEXTURE_ID);
+        const debug_texture = self.texture_store.get(Texture.ID_DEBUG);
         self.gpu_debug_texture = try self.vk_renderer.create_texture(
             debug_texture.width,
             debug_texture.height,
@@ -467,7 +463,7 @@ const VulkanRuntime = struct {
             },
         );
         self.screen_quads.add_quad(.{
-            .texture_id = TEXTURE_ID_VERT_COLOR,
+            .texture_id = Texture.ID_VERT_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 100.0,
@@ -479,7 +475,7 @@ const VulkanRuntime = struct {
         });
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
-            .texture_id = TEXTURE_ID_SOLID_COLOR,
+            .texture_id = Texture.ID_SOLID_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 300.0,

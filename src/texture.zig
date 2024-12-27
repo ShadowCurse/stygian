@@ -5,49 +5,46 @@ const stb = @import("bindings/stb.zig");
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 
-pub const TextureId = u32;
-pub const TEXTURE_ID_VERT_COLOR = std.math.maxInt(u32);
-pub const TEXTURE_ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
+pub const Id = u32;
+pub const ID_DEBUG = 0;
+pub const ID_VERT_COLOR = std.math.maxInt(u32);
+pub const ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
 
-pub const Texture = struct {
-    width: u32,
-    height: u32,
-    channels: u32,
-    data: []u8,
+width: u32,
+height: u32,
+channels: u32,
+data: []u8,
 
-    const Self = @This();
+const Self = @This();
 
-    pub fn as_color_slice(self: Self) []Color {
-        log.assert(
-            @src(),
-            self.channels == 4,
-            "Trying to convert texture with {} channels to a slice of Color",
-            .{self.channels},
-        );
-        var slice: []Color = undefined;
-        slice.ptr = @alignCast(@ptrCast(self.data.ptr));
-        slice.len = self.data.len / 4;
-        return slice;
-    }
-};
+pub fn as_color_slice(self: Self) []Color {
+    log.assert(
+        @src(),
+        self.channels == 4,
+        "Trying to convert texture with {} channels to a slice of Color",
+        .{self.channels},
+    );
+    var slice: []Color = undefined;
+    slice.ptr = @alignCast(@ptrCast(self.data.ptr));
+    slice.len = self.data.len / 4;
+    return slice;
+}
 
 // This type assumes it will never be moved
-pub const TextureStore = struct {
-    textures: []Texture,
+pub const Store = struct {
+    textures: []Self,
     textures_num: u32,
 
-    pub const DEBUG_TEXTURE_ID = 0;
     pub const DEBUG_WIDTH = 16;
     pub const DEBUG_HEIGHT = 16;
     pub const DEBUG_CHANNELS = 4;
 
     pub const MAX_TEXTURES = 8;
-    const Self = @This();
 
-    pub fn init(self: *Self, memory: *Memory) !void {
+    pub fn init(self: *Store, memory: *Memory) !void {
         const game_alloc = memory.game_alloc();
 
-        self.textures = try game_alloc.alloc(Texture, MAX_TEXTURES);
+        self.textures = try game_alloc.alloc(Self, MAX_TEXTURES);
         var debug_texture_data = try game_alloc.alloc(Color, DEBUG_WIDTH * DEBUG_HEIGHT);
         for (0..DEBUG_HEIGHT) |y| {
             for (0..DEBUG_WIDTH) |x| {
@@ -61,7 +58,7 @@ pub const TextureStore = struct {
         data_u8.ptr = @ptrCast(debug_texture_data.ptr);
         data_u8.len = debug_texture_data.len * DEBUG_CHANNELS;
 
-        self.textures[DEBUG_TEXTURE_ID] = .{
+        self.textures[ID_DEBUG] = .{
             .width = DEBUG_WIDTH,
             .height = DEBUG_HEIGHT,
             .channels = DEBUG_CHANNELS,
@@ -70,7 +67,7 @@ pub const TextureStore = struct {
         self.textures_num = 1;
     }
 
-    pub fn reserve(self: *Self) ?TextureId {
+    pub fn reserve(self: *Store) ?Id {
         if (self.textures_num != self.textures.len) {
             const id = self.textures_num;
             self.textures_num += 1;
@@ -80,7 +77,7 @@ pub const TextureStore = struct {
         }
     }
 
-    pub fn load(self: *Self, memory: *Memory, path: [:0]const u8) TextureId {
+    pub fn load(self: *Store, memory: *Memory, path: [:0]const u8) Id {
         const game_alloc = memory.game_alloc();
 
         if (self.textures_num == self.textures.len) {
@@ -89,7 +86,7 @@ pub const TextureStore = struct {
                 "Trying to load more textures than capacity: MAX_TEXTURES: {}, path: {s}",
                 .{ @as(u32, MAX_TEXTURES), path },
             );
-            return DEBUG_TEXTURE_ID;
+            return ID_DEBUG;
         }
 
         var x: i32 = undefined;
@@ -108,7 +105,7 @@ pub const TextureStore = struct {
                     "Cannot allocate memory for a texture. Texture path: {s} error: {}",
                     .{ path, e },
                 );
-                return DEBUG_TEXTURE_ID;
+                return ID_DEBUG;
             };
             var data: []u8 = undefined;
             data.ptr = image;
@@ -134,11 +131,11 @@ pub const TextureStore = struct {
                 path,
                 stb.stbi_failure_reason(),
             });
-            return DEBUG_TEXTURE_ID;
+            return ID_DEBUG;
         }
     }
 
-    pub fn get(self: Self, texture_id: TextureId) *const Texture {
+    pub fn get(self: Store, texture_id: Id) *const Self {
         log.assert(
             @src(),
             texture_id < self.textures_num,
@@ -148,7 +145,7 @@ pub const TextureStore = struct {
         return &self.textures[texture_id];
     }
 
-    pub fn get_mut(self: *Self, texture_id: TextureId) *Texture {
+    pub fn get_mut(self: *Store, texture_id: Id) *Self {
         log.assert(
             @src(),
             texture_id < self.textures_num,

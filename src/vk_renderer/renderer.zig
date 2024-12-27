@@ -5,7 +5,7 @@ const sdl = @import("../bindings/sdl.zig");
 const stb = @import("../bindings/stb.zig");
 
 const Memory = @import("../memory.zig");
-const Texture = @import("../texture.zig").Texture;
+const Texture = @import("../texture.zig");
 const Color = @import("../color.zig").Color;
 
 const VkContext = @import("context.zig");
