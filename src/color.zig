@@ -40,13 +40,20 @@ pub const Color = extern struct {
     // Mix colors based on the alpha channel. Assumes the RGBA.
     pub fn mix(src: Self, dst: Self) Self {
         const src_a_f32 = @as(f32, @floatFromInt(src.format.a)) / 255.0;
+        const c1 = src_a_f32;
+        const c2 = 1.0 - src_a_f32;
 
-        const r = @as(f32, @floatFromInt(src.format.r)) * src_a_f32 +
-            @as(f32, @floatFromInt(dst.format.r)) * (1.0 - src_a_f32);
-        const g = @as(f32, @floatFromInt(src.format.g)) * src_a_f32 +
-            @as(f32, @floatFromInt(dst.format.g)) * (1.0 - src_a_f32);
-        const b = @as(f32, @floatFromInt(src.format.b)) * src_a_f32 +
-            @as(f32, @floatFromInt(dst.format.b)) * (1.0 - src_a_f32);
+        const s_r: f32 = @floatFromInt(src.format.r);
+        const s_g: f32 = @floatFromInt(src.format.g);
+        const s_b: f32 = @floatFromInt(src.format.b);
+
+        const d_r: f32 = @floatFromInt(dst.format.r);
+        const d_g: f32 = @floatFromInt(dst.format.g);
+        const d_b: f32 = @floatFromInt(dst.format.b);
+
+        const r = s_r * c1 + d_r * c2;
+        const g = s_g * c1 + d_g * c2;
+        const b = s_b * c1 + d_b * c2;
 
         const r_u8 = @as(u8, @intFromFloat(r));
         const g_u8 = @as(u8, @intFromFloat(g));
