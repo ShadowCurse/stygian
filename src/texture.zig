@@ -6,8 +6,8 @@ const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 
 pub const TextureId = u32;
-pub const TextureIdVertColor = std.math.maxInt(u32);
-pub const TextureIdSolidColor = std.math.maxInt(u32) - 1;
+pub const TEXTURE_ID_VERT_COLOR = std.math.maxInt(u32);
+pub const TEXTURE_ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
 
 pub const Texture = struct {
     width: u32,
@@ -18,7 +18,12 @@ pub const Texture = struct {
     const Self = @This();
 
     pub fn as_color_slice(self: Self) []Color {
-        // TODO add assert
+        log.assert(
+            @src(),
+            self.channels == 4,
+            "Trying to convert texture with {} channels to a slice of Color",
+            .{self.channels},
+        );
         var slice: []Color = undefined;
         slice.ptr = @alignCast(@ptrCast(self.data.ptr));
         slice.len = self.data.len / 4;
@@ -81,8 +86,8 @@ pub const TextureStore = struct {
         if (self.textures_num == self.textures.len) {
             log.err(
                 @src(),
-                "Trying to load more textures than capacity: {}",
-                .{@as(u32, MAX_TEXTURES)},
+                "Trying to load more textures than capacity: MAX_TEXTURES: {}, path: {s}",
+                .{ @as(u32, MAX_TEXTURES), path },
             );
             return DEBUG_TEXTURE_ID;
         }
@@ -134,18 +139,22 @@ pub const TextureStore = struct {
     }
 
     pub fn get(self: Self, texture_id: TextureId) *const Texture {
-        // TODO add assert
-        if (self.textures_num < texture_id) {
-            @panic("Trying to get texture out of bounds");
-        }
+        log.assert(
+            @src(),
+            texture_id < self.textures_num,
+            "Trying to get texture outside the range: {} available, {} requested",
+            .{ self.textures_num, texture_id },
+        );
         return &self.textures[texture_id];
     }
 
     pub fn get_mut(self: *Self, texture_id: TextureId) *Texture {
-        // TODO add assert
-        if (self.textures_num < texture_id) {
-            @panic("Trying to get texture out of bounds");
-        }
+        log.assert(
+            @src(),
+            texture_id < self.textures_num,
+            "Trying to get texture outside the range: {} available, {} requested",
+            .{ self.textures_num, texture_id },
+        );
         return &self.textures[texture_id];
     }
 };

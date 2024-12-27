@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = @import("log.zig");
 
 pub const Vec2 = extern struct {
     x: f32 = 0.0,
@@ -428,6 +429,12 @@ pub const Mat4 = extern struct {
 
     // Assume axis is normalized
     pub fn rotation(axis: Vec3, angle: f32) Mat4 {
+        log.assert(
+            @src(),
+            axis.len_squared() == 1.0,
+            "Using not normalized axis for rotation matrix",
+            .{},
+        );
         const c = @cos(angle);
         const s = @sin(angle);
         const d = 1.0 - c;
@@ -509,7 +516,15 @@ pub const Mat4 = extern struct {
         var u = a.mul_f32(y).sub(b.mul_f32(x));
         var v = c.mul_f32(w).sub(d.mul_f32(z));
 
-        const inv_det = 1.0 / (s.dot(v) + t.dot(u));
+        const det = s.dot(v) + t.dot(u);
+        log.assert(
+            @src(),
+            det != 0.0,
+            "Cannot create an inverse matrix as determinant is 0.0",
+            .{},
+        );
+
+        const inv_det = 1.0 / det;
         s = s.mul_f32(inv_det);
         t = t.mul_f32(inv_det);
         u = u.mul_f32(inv_det);

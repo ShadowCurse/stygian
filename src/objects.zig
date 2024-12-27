@@ -6,7 +6,7 @@ const ScreenQuads = @import("screen_quads.zig");
 const _texture = @import("texture.zig");
 const TextureStore = _texture.TextureStore;
 const TextureId = _texture.TextureId;
-const TextureIdSolidColor = _texture.TextureIdSolidColor;
+const TextureIdSolidColor = _texture.TEXTURE_ID_SOLID_COLOR;
 
 const _color = @import("color.zig");
 const Color = _color.Color;

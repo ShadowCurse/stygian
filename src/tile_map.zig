@@ -51,7 +51,7 @@ pub fn set_tile(self: *Self, x: u32, y: u32, t: TileType) void {
     }
 }
 
-pub fn get_positions(self: *const Self, allocator: Allocator) ![]Vec2 {
+pub fn get_positions(self: *const Self, allocator: Allocator) []Vec2 {
     var filled: u32 = 0;
     for (0..self.height) |y| {
         for (0..self.width) |x| {
@@ -61,7 +61,14 @@ pub fn get_positions(self: *const Self, allocator: Allocator) ![]Vec2 {
             }
         }
     }
-    const positions = try allocator.alloc(Vec2, filled);
+    const positions = allocator.alloc(Vec2, filled) catch |e| {
+        log.err(
+            @src(),
+            "Cannot allocate memory for a TileMap positions. Error: {}",
+            .{e},
+        );
+        return &.{};
+    };
     var top_left: Vec2 = .{
         .x = -(2.0 + self.gap_w) / 2.0 * @as(f32, @floatFromInt(self.width - 1)),
         .y = -(2.0 + self.gap_h) / 2.0 * @as(f32, @floatFromInt(self.height - 1)),

@@ -16,6 +16,7 @@ pub const LogLevel = enum {
 pub const Options = struct {
     colors: bool = builtin.os.tag != .emscripten,
     level: LogLevel = .Info,
+    asserts: bool = true,
 
     const Self = @This();
     pub fn log_enabled(self: Self, level: LogLevel) bool {
@@ -30,6 +31,32 @@ pub const options: Options = if (@hasDecl(platform_main, "log_options"))
     platform_main.log_options
 else
     .{};
+
+pub fn comptime_err(
+    comptime src: std.builtin.SourceLocation,
+    comptime format: []const u8,
+    comptime args: anytype,
+) void {
+    const T = make_struct(@TypeOf(args));
+    const t = fill_struct(T, src, args);
+    @compileError(std.fmt.comptimePrint("[{s}:{s}:{}:{}] " ++ format, t));
+}
+
+pub fn assert(
+    src: std.builtin.SourceLocation,
+    ok: bool,
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    if (comptime !options.asserts) return;
+
+    if (!ok) {
+        @setCold(true);
+        const T = make_struct(@TypeOf(args));
+        const t = fill_struct(T, src, args);
+        std.debug.panic("[{s}:{s}:{}:{}] " ++ format, t);
+    }
+}
 
 pub fn info(
     src: std.builtin.SourceLocation,

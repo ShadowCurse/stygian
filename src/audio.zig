@@ -24,6 +24,8 @@ pub const Audio = struct {
 
     playing_soundtrack: ?PlayingSoundtrack,
 
+    pub const DEBUG_SOUNDRACK_ID = 0;
+
     const MAX_SOUNDTRACKS = 4;
     const Self = @This();
 
@@ -70,7 +72,7 @@ pub const Audio = struct {
 
         self.audio_device_id = sdl.SDL_OpenAudioDevice(null, 0, &wanted, null, 0);
         self.volume = volume;
-        self.soundtracks_num = 0;
+        self.soundtracks_num = 1;
         self.playing_soundtrack = null;
     }
 
@@ -83,6 +85,12 @@ pub const Audio = struct {
     }
 
     pub fn play(self: *Self, soundtrack_id: SoundtrackId) void {
+        log.assert(
+            @src(),
+            soundtrack_id < self.soundtracks_num,
+            "Trying to play soundtrack outside the range: {} available, {} requested",
+            .{ self.soundtracks_num, soundtrack_id },
+        );
         self.playing_soundtrack = .{
             .soundtrack_id = soundtrack_id,
             .progress_bytes = 0,
@@ -95,9 +103,17 @@ pub const Audio = struct {
         self.pause();
     }
 
-    pub fn load_wav(self: *Self, memory: *Memory, path: [:0]const u8) !SoundtrackId {
-        const game_alloc = memory.game_alloc();
+    pub fn load_wav(self: *Self, memory: *Memory, path: [:0]const u8) SoundtrackId {
+        if (self.soundtracks_num == self.soundtracks.len) {
+            log.err(
+                @src(),
+                "Trying to load more audio tracks than capacity: MAX_SOUNDTRACKS: {}, path: {s}",
+                .{ @as(u32, MAX_SOUNDTRACKS), path },
+            );
+            return DEBUG_SOUNDRACK_ID;
+        }
 
+        const game_alloc = memory.game_alloc();
         var soundtrack = &self.soundtracks[self.soundtracks_num];
 
         var buff_ptr: [*]u8 = undefined;
@@ -109,12 +125,23 @@ pub const Audio = struct {
             &buff_len,
         );
         if (r == null) {
-            log.err(@src(), "Cannot load WAV file from: {s}", .{path});
-            return error.SDLLoadWav;
+            log.err(
+                @src(),
+                "Cannot load WAV file. Path: {s} error: {s}",
+                .{ path, sdl.SDL_GetError() },
+            );
+            return DEBUG_SOUNDRACK_ID;
         }
         defer sdl.SDL_FreeWAV(buff_ptr);
 
-        soundtrack.data = try game_alloc.alloc(u8, buff_len);
+        soundtrack.data = game_alloc.alloc(u8, buff_len) catch |e| {
+            log.err(
+                @src(),
+                "Cannot allocate memory for an audio track. Audio path: {s} error: {}",
+                .{ path, e },
+            );
+            return DEBUG_SOUNDRACK_ID;
+        };
         var buff_u8: []u8 = undefined;
         buff_u8.ptr = buff_ptr;
         buff_u8.len = buff_len;

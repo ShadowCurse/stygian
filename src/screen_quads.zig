@@ -4,8 +4,8 @@ const log = @import("log.zig");
 const _texture = @import("texture.zig");
 const TextureStore = _texture.TextureStore;
 const TextureId = _texture.TextureId;
-const TextureIdVertColor = _texture.TextureIdVertColor;
-const TextureIdSolidColor = _texture.TextureIdSolidColor;
+const TEXTURE_ID_VERT_COLOR = _texture.TEXTURE_ID_VERT_COLOR;
+const TEXTURE_ID_SOLID_COLOR = _texture.TEXTURE_ID_SOLID_COLOR;
 
 const Font = @import("font.zig").Font;
 const Memory = @import("memory.zig");
@@ -61,6 +61,12 @@ pub fn reset(self: *Self) void {
 }
 
 pub fn slice(self: *Self) []ScreenQuad {
+    log.assert(
+        @src(),
+        self.used_quads < self.quads.len,
+        "Trying to get slice of quads bigger than actual buffer size: {} < {}",
+        .{ self.quads.len, self.used_quads },
+    );
     return self.quads[0..self.used_quads];
 }
 
@@ -137,8 +143,8 @@ pub fn render(
     std.mem.sort(ScreenQuad, quads, {}, Compare.inner);
     for (quads) |quad| {
         switch (quad.texture_id) {
-            TextureIdVertColor => {},
-            TextureIdSolidColor => {
+            TEXTURE_ID_VERT_COLOR => {},
+            TEXTURE_ID_SOLID_COLOR => {
                 if (quad.rotation == 0.0) {
                     soft_renderer.draw_color_rect(
                         quad.position.xy(),

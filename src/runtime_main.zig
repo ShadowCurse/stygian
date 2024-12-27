@@ -10,8 +10,8 @@ const SoundtrackId = _audio.SoundtrackId;
 const _texture = @import("texture.zig");
 const TextureStore = _texture.TextureStore;
 const TextureId = _texture.TextureId;
-const TextureIdVertColor = _texture.TextureIdVertColor;
-const TextureIdSolidColor = _texture.TextureIdSolidColor;
+const TEXTURE_ID_VERT_COLOR = _texture.TEXTURE_ID_VERT_COLOR;
+const TEXTURE_ID_SOLID_COLOR = _texture.TEXTURE_ID_SOLID_COLOR;
 const GpuTexture = @import("vk_renderer/gpu_texture.zig");
 
 const Font = @import("font.zig").Font;
@@ -96,9 +96,8 @@ const SoftwareRuntime = struct {
                 }
             }
         }
-        self.audio.init(0.5) catch unreachable;
-        self.soundtrack_id = self.audio.load_wav(memory, "assets/background.wav") catch
-            unreachable;
+        try self.audio.init(0.5);
+        self.soundtrack_id = self.audio.load_wav(memory, "assets/background.wav");
         self.soft_renderer = SoftRenderer.init(window);
     }
 
@@ -202,7 +201,7 @@ const SoftwareRuntime = struct {
         }
 
         const frame_alloc = memory.frame_alloc();
-        const tile_positions = self.tile_map.get_positions(frame_alloc) catch unreachable;
+        const tile_positions = self.tile_map.get_positions(frame_alloc);
         for (tile_positions) |tile_pos| {
             const object = Object2d{
                 .type = .{ .Color = Color.ORAGE },
@@ -249,7 +248,7 @@ const SoftwareRuntime = struct {
         );
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
-            .texture_id = TextureIdSolidColor,
+            .texture_id = TEXTURE_ID_SOLID_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 300.0,
@@ -436,7 +435,7 @@ const VulkanRuntime = struct {
             .transform = Mat4.IDENDITY.translate(.{ .z = 4.0 }),
         }});
 
-        const tile_positions = self.tile_map.get_positions(frame_alloc) catch unreachable;
+        const tile_positions = self.tile_map.get_positions(frame_alloc);
         const mesh_position = frame_alloc.alloc(MeshInfo, tile_positions.len) catch unreachable;
         for (tile_positions, mesh_position) |*t, *m| {
             m.transform = Mat4.IDENDITY.translate(t.extend(0.0));
@@ -468,7 +467,7 @@ const VulkanRuntime = struct {
             },
         );
         self.screen_quads.add_quad(.{
-            .texture_id = TextureIdVertColor,
+            .texture_id = TEXTURE_ID_VERT_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 100.0,
@@ -480,7 +479,7 @@ const VulkanRuntime = struct {
         });
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
-            .texture_id = TextureIdSolidColor,
+            .texture_id = TEXTURE_ID_SOLID_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 300.0,

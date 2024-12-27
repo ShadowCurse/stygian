@@ -51,6 +51,8 @@ pub const Font = struct {
                 );
                 return .{};
             };
+            errdefer game_alloc.free(char_info);
+
             const bitmap = game_alloc.alloc(u8, 512 * 512) catch |e| {
                 log.err(
                     @src(),
@@ -59,6 +61,7 @@ pub const Font = struct {
                 );
                 return .{};
             };
+            errdefer game_alloc.free(bitmap);
 
             _ = stb.stbtt_BakeFontBitmap(
                 fm.mem.ptr,
