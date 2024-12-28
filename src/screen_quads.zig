@@ -116,28 +116,30 @@ pub fn add_text(
         0.0;
     for (self.quads[self.used_quads .. self.used_quads + text.len], text) |*tile, c| {
         const char_info = font.char_info[c];
+        const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
+        const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
         tile.* = .{
             .color = .{},
             .texture_id = font.texture_id,
             .position = .{
-                .x = position.x + x_offset,
-                .y = position.y + char_info.yoff * 0.4,
+                .x = position.x + x_offset + char_info.xoff,
+                .y = position.y + char_info.yoff + char_height * 0.5,
                 .z = position.z,
             },
             .size = .{
-                .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)),
-                .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
+                .x = char_width,
+                .y = char_height,
             },
             .uv_offset = .{
                 .x = @as(f32, @floatFromInt(char_info.x0)),
                 .y = @as(f32, @floatFromInt(char_info.y0)),
             },
             .uv_size = .{
-                .x = @as(f32, @floatFromInt(char_info.x1 - char_info.x0)),
-                .y = @as(f32, @floatFromInt(char_info.y1 - char_info.y0)),
+                .x = char_width,
+                .y = char_height,
             },
         };
-        x_offset += char_info.xadvance - char_info.xoff;
+        x_offset += char_info.xadvance;
     }
 }
 
