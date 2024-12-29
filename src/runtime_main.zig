@@ -234,12 +234,15 @@ const SoftwareRuntime = struct {
                 "FPS: {d:.1} FT: {d:.3}s",
                 .{ 1.0 / dt, dt },
             ) catch unreachable,
+            32.0,
             .{
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
                 .z = 2.0,
             },
             true,
+            0.0,
+            .{},
         );
         self.screen_quads.add_text(
             &self.font,
@@ -248,12 +251,15 @@ const SoftwareRuntime = struct {
                 "FM: {} bytes",
                 .{memory.frame_allocator.end_index},
             ) catch unreachable,
+            16.0,
             .{
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
                 .z = 2.0,
             },
             true,
+            @sin(A.a) * 0.25,
+            .{},
         );
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,

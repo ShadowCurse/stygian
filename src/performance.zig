@@ -127,12 +127,15 @@ pub fn draw_perf(
                 screen_quads.add_text(
                     font,
                     s,
+                    font.size,
                     .{
                         .x = perf_x,
                         .y = perf_y,
                         .z = 2.0,
                     },
                     false,
+                    0.0,
+                    .{},
                 );
                 perf_y += perf_y_advance;
             }
@@ -156,11 +159,14 @@ pub fn draw_perf(
     screen_quads.add_text(
         font,
         s,
+        font.size,
         .{
             .x = perf_x,
             .y = perf_y,
             .z = 2.0,
         },
         false,
+        0.0,
+        .{},
     );
 }

@@ -12,9 +12,9 @@ pub const perf = Perf.Measurements(struct {
     start_rendering: Perf.Fn,
     end_rendering: Perf.Fn,
     draw_texture: Perf.Fn,
-    draw_texture_with_scale_and_rotation: Perf.Fn,
+    draw_texture_with_size_and_rotation: Perf.Fn,
     draw_color_rect: Perf.Fn,
-    draw_color_rect_with_rotation: Perf.Fn,
+    draw_color_rect_with_size_and_rotation: Perf.Fn,
 });
 
 // Texture rectangle with 0,0 at the top left
@@ -212,7 +212,8 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
     }
 }
 
-pub fn draw_texture_with_scale_and_rotation(
+// Draws a texture into a target rect with center at `position` with `size`.
+pub fn draw_texture_with_size_and_rotation(
     self: *Self,
     position: Vec2,
     size: Vec2,
@@ -223,10 +224,6 @@ pub fn draw_texture_with_scale_and_rotation(
     perf.start(@src());
     defer perf.end(@src());
 
-    const scale: Vec2 = .{
-        .x = size.x / @as(f32, @floatFromInt(texture_rect.texture.width)),
-        .y = size.y / @as(f32, @floatFromInt(texture_rect.texture.height)),
-    };
     const c = @cos(-rotation);
     const s = @sin(-rotation);
     const new_position = position.add(rotation_offset).add(
@@ -235,11 +232,11 @@ pub fn draw_texture_with_scale_and_rotation(
             .y = s * -rotation_offset.x + c * -rotation_offset.y,
         },
     );
-    const x_axis = (Vec2{ .x = c, .y = s }).mul_f32(scale.x);
-    const y_axis = (Vec2{ .x = s, .y = -c }).mul_f32(scale.y);
+    const x_axis = (Vec2{ .x = c, .y = s });
+    const y_axis = (Vec2{ .x = s, .y = -c });
 
-    const half_x = texture_rect.size.x / 2.0;
-    const half_y = texture_rect.size.y / 2.0;
+    const half_x = size.x / 2.0;
+    const half_y = size.y / 2.0;
     const x_offset = x_axis.mul_f32(half_x);
     const y_offset = y_axis.mul_f32(half_y);
     const p_a = new_position.add(x_offset.neg()).add(y_offset.neg());
@@ -279,13 +276,16 @@ pub fn draw_texture_with_scale_and_rotation(
     const dc = p_c.sub(p_d);
     const ca = p_a.sub(p_c);
 
+    const scale: Vec2 = texture_rect.size.div(size);
+    const texture_width: i32 = @intFromFloat(@floor(texture_rect.size.x));
+    const texture_height: i32 = @intFromFloat(@floor(texture_rect.size.y));
+
+    const dst_pitch = self.surface_texture.width;
+    const src_pitch = texture_rect.texture.width;
+    var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
+    const src_data_start = src_start_x + src_start_y * src_pitch;
+
     if (texture_rect.texture.channels == 4) {
-        const dst_pitch = self.surface_texture.width;
-        const src_pitch = texture_rect.texture.width;
-
-        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
-        const src_data_start = src_start_x + src_start_y * src_pitch;
-
         const dst_data_u32 = self.surface_texture.as_color_slice();
         const src_data_u32 = texture_rect.texture.as_color_slice();
 
@@ -306,13 +306,14 @@ pub fn draw_texture_with_scale_and_rotation(
                 const ca_test = ca.perp().dot(cp);
 
                 if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis) / x_axis.len_squared()));
-                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis) / y_axis.len_squared()));
-                    u_i32 = @min(@max(0, u_i32), texture_rect.texture.width - 1);
-                    v_i32 = @min(@max(0, v_i32), texture_rect.texture.height - 1);
+                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
+                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
+                    u_i32 = @min(@max(0, u_i32), texture_width - 1);
+                    v_i32 = @min(@max(0, v_i32), texture_height - 1);
 
                     const u: u32 = @intCast(u_i32);
-                    const v: u32 = (texture_rect.texture.height - 1) - @as(u32, @intCast(v_i32));
+                    const v: u32 = @as(u32, @intCast(texture_height - 1)) -
+                        @as(u32, @intCast(v_i32));
 
                     const src = src_data_u32[
                         src_data_start +
@@ -326,13 +327,6 @@ pub fn draw_texture_with_scale_and_rotation(
             dst_data_start += dst_pitch;
         }
     } else if (texture_rect.texture.channels == 1) {
-        const dst_pitch = self.surface_texture.width;
-        const src_pitch = texture_rect.texture.width;
-
-        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
-        var dst_data_end = dst_data_start + width;
-        const src_data_start = src_start_x + src_start_y * src_pitch;
-
         const dst_data_color = self.surface_texture.as_color_slice();
         const src_data_u8 = texture_rect.texture.data;
 
@@ -353,13 +347,14 @@ pub fn draw_texture_with_scale_and_rotation(
                 const ca_test = ca.perp().dot(cp);
 
                 if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis) / x_axis.len_squared()));
-                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis) / y_axis.len_squared()));
-                    u_i32 = @min(@max(0, u_i32), texture_rect.texture.width - 1);
-                    v_i32 = @min(@max(0, v_i32), texture_rect.texture.height - 1);
+                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
+                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
+                    u_i32 = @min(@max(0, u_i32), texture_width - 1);
+                    v_i32 = @min(@max(0, v_i32), texture_height - 1);
 
                     const u: u32 = @intCast(u_i32);
-                    const v: u32 = (texture_rect.texture.height - 1) - @as(u32, @intCast(v_i32));
+                    const v: u32 = @as(u32, @intCast(texture_height - 1)) -
+                        @as(u32, @intCast(v_i32));
 
                     const src_u8 = src_data_u8[
                         src_data_start +
@@ -372,7 +367,6 @@ pub fn draw_texture_with_scale_and_rotation(
                 }
             }
             dst_data_start += dst_pitch;
-            dst_data_end += dst_pitch;
         }
     } else {
         log.warn(
@@ -439,7 +433,7 @@ pub fn draw_color_rect(
     }
 }
 
-pub fn draw_color_rect_with_rotation(
+pub fn draw_color_rect_with_size_and_rotation(
     self: *Self,
     position: Vec2,
     size: Vec2,

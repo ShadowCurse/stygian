@@ -93,8 +93,11 @@ pub fn add_text(
     self: *Self,
     font: *const Font,
     text: []const u8,
+    size: f32,
     position: Vec3,
     center: bool,
+    rotation: f32,
+    rotation_offset: Vec2,
 ) void {
     perf.start(@src());
     defer perf.end(@src());
@@ -114,22 +117,27 @@ pub fn add_text(
         -font.size * @as(f32, @floatFromInt(text.len / 2))
     else
         0.0;
-    for (self.quads[self.used_quads .. self.used_quads + text.len], text) |*tile, c| {
+    const rotation_center = position.xy().add(rotation_offset);
+    const scale = size / font.size;
+    for (self.quads[self.used_quads .. self.used_quads + text.len], text) |*quad, c| {
         const char_info = font.char_info[c];
         const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
         const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
-        tile.* = .{
+        const char_position: Vec3 = .{
+            .x = position.x + x_offset + char_info.xoff,
+            .y = position.y + char_info.yoff + char_height * 0.5,
+            .z = position.z,
+        };
+        quad.* = .{
             .color = .{},
             .texture_id = font.texture_id,
-            .position = .{
-                .x = position.x + x_offset + char_info.xoff,
-                .y = position.y + char_info.yoff + char_height * 0.5,
-                .z = position.z,
-            },
+            .position = char_position,
             .size = .{
-                .x = char_width,
-                .y = char_height,
+                .x = char_width * scale,
+                .y = char_height * scale,
             },
+            .rotation = rotation,
+            .rotation_offset = rotation_center.sub(char_position.xy()),
             .uv_offset = .{
                 .x = @as(f32, @floatFromInt(char_info.x0)),
                 .y = @as(f32, @floatFromInt(char_info.y0)),
@@ -139,7 +147,7 @@ pub fn add_text(
                 .y = char_height,
             },
         };
-        x_offset += char_info.xadvance;
+        x_offset += char_info.xadvance * scale;
     }
 }
 
@@ -169,7 +177,7 @@ pub fn render(
                         quad.color,
                     );
                 } else {
-                    soft_renderer.draw_color_rect_with_rotation(
+                    soft_renderer.draw_color_rect_with_size_and_rotation(
                         quad.position.xy(),
                         quad.size,
                         quad.rotation,
@@ -180,28 +188,18 @@ pub fn render(
             },
             else => |texture_id| {
                 const texture = texture_store.get(texture_id);
-                if (quad.rotation == 0.0) {
-                    soft_renderer.draw_texture(
-                        quad.position.xy(),
-                        .{
-                            .texture = texture,
-                            .position = quad.uv_offset,
-                            .size = quad.uv_size,
-                        },
-                    );
-                } else {
-                    soft_renderer.draw_texture_with_scale_and_rotation(
-                        quad.position.xy(),
-                        quad.size,
-                        quad.rotation,
-                        quad.rotation_offset,
-                        .{
-                            .texture = texture,
-                            .position = quad.uv_offset,
-                            .size = quad.uv_size,
-                        },
-                    );
-                }
+                soft_renderer.draw_texture_with_size_and_rotation(
+                    quad.position.xy(),
+                    quad.size,
+                    quad.rotation,
+                    quad.rotation_offset,
+                    .{
+                        .texture = texture,
+                        .position = quad.uv_offset,
+                        .size = quad.uv_size,
+                    },
+                );
+                // }
             },
         }
     }

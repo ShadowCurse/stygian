@@ -61,6 +61,13 @@ pub const Vec2 = extern struct {
         };
     }
 
+    pub inline fn div(self: Vec2, other: Vec2) Vec2 {
+        return .{
+            .x = self.x / other.x,
+            .y = self.y / other.y,
+        };
+    }
+
     pub inline fn div_f32(self: Vec2, v: f32) Vec2 {
         return .{
             .x = self.x / v,
