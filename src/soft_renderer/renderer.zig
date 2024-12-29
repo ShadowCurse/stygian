@@ -11,6 +11,7 @@ const Vec2 = _math.Vec2;
 pub const perf = Perf.Measurements(struct {
     start_rendering: Perf.Fn,
     end_rendering: Perf.Fn,
+    draw_aabb: Perf.Fn,
     draw_texture: Perf.Fn,
     draw_texture_with_size_and_rotation: Perf.Fn,
     draw_color_rect: Perf.Fn,
@@ -131,6 +132,58 @@ pub fn as_texture_rect(self: *const Self) TextureRect {
             .y = @floatFromInt(self.surface_texture.height),
         },
     };
+}
+
+pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
+    perf.start(@src());
+    defer perf.end(@src());
+
+    const self_rect = self.as_texture_rect();
+    const self_aabb = self_rect.to_aabb();
+
+    if (!self_aabb.intersects(aabb)) {
+        return;
+    }
+
+    const intersection = self_aabb.intersection(aabb);
+    const width: u32 = @intFromFloat(intersection.width());
+    const height: u32 = @intFromFloat(intersection.height());
+
+    if (height == 0 or width == 0) {
+        return;
+    }
+
+    const draw_top = intersection.max.y <= aabb.max.y;
+    const draw_bot = aabb.max.y <= intersection.max.y;
+    const draw_left = intersection.min.x <= aabb.min.x;
+    const draw_right = aabb.max.x <= intersection.max.x;
+
+    const dst_pitch = self.surface_texture.width;
+    const dst_start_x: u32 = @intFromFloat(intersection.min.x);
+    const dst_start_y: u32 = @intFromFloat(intersection.min.y);
+    var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
+    const dst_data_color = self.surface_texture.as_color_slice();
+
+    if (draw_top)
+        @memset(
+            dst_data_color[dst_data_start .. dst_data_start + width],
+            color,
+        );
+    if (draw_bot) {
+        const dst_start = dst_data_start + (height - 1) * dst_pitch;
+        @memset(
+            dst_data_color[dst_start .. dst_start + width],
+            color,
+        );
+    }
+
+    for (0..height) |_| {
+        if (draw_left)
+            dst_data_color[dst_data_start] = color;
+        if (draw_right)
+            dst_data_color[dst_data_start + width - 1] = color;
+        dst_data_start += dst_pitch;
+    }
 }
 
 // TODO add an option to skip alpha blend and do a simple memcopy instead.
@@ -265,6 +318,10 @@ pub fn draw_texture_with_size_and_rotation(
     const intersection = self_aabb.intersection(dst_aabb);
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
+
+    if (height == 0 or width == 0) {
+        return;
+    }
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
@@ -416,6 +473,10 @@ pub fn draw_color_rect(
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
+    if (height == 0 or width == 0) {
+        return;
+    }
+
     const dst_pitch = self.surface_texture.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
@@ -481,6 +542,10 @@ pub fn draw_color_rect_with_size_and_rotation(
     const intersection = self_aabb.intersection(dst_aabb);
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
+
+    if (height == 0 or width == 0) {
+        return;
+    }
 
     const dst_pitch = self.surface_texture.width;
 
