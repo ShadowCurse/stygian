@@ -4,6 +4,7 @@ const stb = @import("bindings/stb.zig");
 
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
+const ScreenQuad = @import("screen_quads.zig").ScreenQuad;
 
 pub const Id = u32;
 pub const ID_DEBUG = 0;
@@ -153,5 +154,67 @@ pub const Store = struct {
             .{ self.textures_num, texture_id },
         );
         return &self.textures[texture_id];
+    }
+};
+
+pub const FlipBook = struct {
+    texture_id: Id,
+    frames: u32,
+
+    is_playing: bool = false,
+    is_looping: bool = false,
+    current_frame: u32 = 0,
+    current_time: f32 = 0.0,
+    seconds_per_frame: f32 = 0.0,
+
+    pub fn init(texture_id: Id, frames: u32) FlipBook {
+        log.assert(@src(), frames != 0, "Trying to create a FlipBook with 0 frames", .{});
+        return .{
+            .texture_id = texture_id,
+            .frames = frames,
+        };
+    }
+
+    pub fn start(self: *FlipBook, frames_per_second: f32, is_looping: bool) void {
+        self.is_playing = true;
+        self.is_looping = is_looping;
+        self.seconds_per_frame = 1 / frames_per_second;
+    }
+
+    pub fn stop(self: *FlipBook) void {
+        self.is_playing = false;
+    }
+
+    pub fn update(self: *FlipBook, texture_store: *const Store, screen_quad: *ScreenQuad, dt: f32) void {
+        if (!self.is_playing) {
+            return;
+        }
+
+        self.current_time += dt;
+        if (self.seconds_per_frame < self.current_time) {
+            self.current_frame += 1;
+            self.current_time -= self.seconds_per_frame;
+        }
+        if (self.current_frame == self.frames - 1) {
+            if (self.is_looping) {
+                self.current_frame = 0;
+            } else {
+                self.stop();
+                return;
+            }
+        }
+
+        const texture = texture_store.get(self.texture_id);
+        const frame_width = texture.width / self.frames;
+        const frame_start = frame_width * self.current_frame;
+
+        screen_quad.texture_id = self.texture_id;
+        screen_quad.uv_offset = .{ .x = @floatFromInt(frame_start), .y = 0.0 };
+        log.assert(@src(), 0 < frame_width, "Frame width must be not 0", .{});
+        log.assert(@src(), 0 < texture.height, "Frame height must be not 0", .{});
+        screen_quad.uv_size = .{
+            .x = @floatFromInt(frame_width),
+            .y = @floatFromInt(texture.height),
+        };
     }
 };

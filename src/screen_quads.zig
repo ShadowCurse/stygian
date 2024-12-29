@@ -36,7 +36,7 @@ pub const ScreenQuad = extern struct {
 
     rotation: f32 = 0.0,
     color: Color = Color.WHITE,
-    texture_id: Texture.Id,
+    texture_id: Texture.Id = Texture.ID_DEBUG,
     __reserved1: f32 = 0.0,
 };
 
@@ -85,6 +85,12 @@ pub fn add_quad(self: *Self, quad: ScreenQuad) void {
         );
         return;
     }
+
+    if (quad.texture_id != Texture.ID_SOLID_COLOR) {
+        log.assert(@src(), 0 < quad.uv_size.x, "Quad texture width must be not 0", .{});
+        log.assert(@src(), 0 < quad.uv_size.x, "Quad texture height must be not 0", .{});
+    }
+
     defer self.used_quads += 1;
     self.quads[self.used_quads] = quad;
 }

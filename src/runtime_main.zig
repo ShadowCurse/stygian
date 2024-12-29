@@ -55,6 +55,8 @@ const SoftwareRuntime = struct {
     texture_letter_a: Texture.Id,
     texture_item_pot: Texture.Id,
     texture_item_coffecup: Texture.Id,
+    texture_alex: Texture.Id,
+    texture_flip_book: Texture.FlipBook,
 
     font: Font,
 
@@ -81,6 +83,11 @@ const SoftwareRuntime = struct {
         self.texture_letter_a = self.texture_store.load(memory, "assets/a.png");
         self.texture_item_pot = self.texture_store.load(memory, "assets/item_pot.png");
         self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
+        self.texture_alex = self.texture_store.load(memory, "assets/alex_idle_sheet.png");
+
+        self.texture_flip_book = Texture.FlipBook.init(self.texture_alex, 6);
+        self.texture_flip_book.start(10.0, true);
+
         self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 16);
 
         self.screen_quads = try ScreenQuads.init(memory, 1024);
@@ -226,6 +233,19 @@ const SoftwareRuntime = struct {
                 &self.screen_quads,
             );
         }
+        const alex_pos = self.camera_controller.transform(.{
+            .x = 0.0,
+            .y = -280.0,
+        });
+        var flip_book_quad: ScreenQuads.ScreenQuad = .{
+            .position = alex_pos.xy().extend(0.0),
+            .size = .{
+                .x = 128.0 * alex_pos.z,
+                .y = 128.0 * alex_pos.z,
+            },
+        };
+        self.texture_flip_book.update(&self.texture_store, &flip_book_quad, dt);
+        self.screen_quads.add_quad(flip_book_quad);
 
         self.screen_quads.add_text(
             &self.font,
