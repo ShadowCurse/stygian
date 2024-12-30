@@ -102,7 +102,7 @@ const SoftwareRuntime = struct {
                 }
             }
         }
-        try self.audio.init(0.1);
+        try self.audio.init(memory, 0.1);
         self.background_sound_id = self.audio.load_wav(memory, "assets/background.wav");
         self.attack_sound_id = self.audio.load_wav(memory, "assets/alex_attack.wav");
         self.soft_renderer = SoftRenderer.init(window);
