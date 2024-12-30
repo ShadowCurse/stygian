@@ -6,6 +6,12 @@ const Memory = @import("memory.zig");
 pub const PlayingSoundtrack = struct {
     soundtrack_id: SoundtrackId = Audio.DEBUG_SOUNDRACK_ID,
     progress_bytes: u32 = 0,
+    left_current_volume: f32 = 0.0,
+    left_target_volume: f32 = 0.0,
+    left_volume_delta_per_sample: f32 = 0.0,
+    right_current_volume: f32 = 0.0,
+    right_target_volume: f32 = 0.0,
+    right_volume_delta_per_sample: f32 = 0.0,
     is_finised: bool = true,
 };
 
@@ -50,9 +56,41 @@ pub const Audio = struct {
             const remain_bytes = soundtrack.data.len - playing_soundtrack.progress_bytes;
             const copy_bytes = @min(remain_bytes, stream_len_u32);
             const copy = copy_bytes / 2;
-            for (stream_i16[0..copy], data_i16[data_start .. data_start + copy]) |*s, d| {
-                const new_d = @as(f32, @floatFromInt(d)) * self.volume;
-                s.* += @intFromFloat(new_d);
+            const left_volume = &playing_soundtrack.left_current_volume;
+            const right_volume = &playing_soundtrack.right_current_volume;
+            var i: u32 = 0;
+            while (i < copy - 1) : (i += 2) {
+                const s_l = &stream_i16[i];
+                const s_r = &stream_i16[i + 1];
+                const l = data_i16[data_start + i];
+                const r = data_i16[data_start + i + 1];
+
+                const new_l = @as(f32, @floatFromInt(l)) * left_volume.*;
+                s_l.* += @intFromFloat(new_l);
+                const new_r = @as(f32, @floatFromInt(r)) * right_volume.*;
+                s_r.* += @intFromFloat(new_r);
+
+                left_volume.* += playing_soundtrack.left_volume_delta_per_sample;
+                right_volume.* += playing_soundtrack.right_volume_delta_per_sample;
+
+                if (0.0 < playing_soundtrack.left_volume_delta_per_sample) {
+                    if (playing_soundtrack.left_target_volume <= left_volume.*) {
+                        left_volume.* = playing_soundtrack.left_target_volume;
+                    }
+                } else {
+                    if (left_volume.* <= playing_soundtrack.left_target_volume) {
+                        left_volume.* = playing_soundtrack.left_target_volume;
+                    }
+                }
+                if (0.0 < playing_soundtrack.right_volume_delta_per_sample) {
+                    if (playing_soundtrack.right_target_volume <= right_volume.*) {
+                        right_volume.* = playing_soundtrack.right_target_volume;
+                    }
+                } else {
+                    if (right_volume.* <= playing_soundtrack.right_target_volume) {
+                        right_volume.* = playing_soundtrack.right_target_volume;
+                    }
+                }
             }
             playing_soundtrack.progress_bytes += copy_bytes;
             if (soundtrack.data.len == playing_soundtrack.progress_bytes) {
@@ -103,19 +141,29 @@ pub const Audio = struct {
         return false;
     }
 
-    pub fn play(self: *Self, soundtrack_id: SoundtrackId) void {
+    pub fn play(
+        self: *Self,
+        soundtrack_id: SoundtrackId,
+        left_volume: f32,
+        right_volume: f32,
+    ) void {
         log.assert(
             @src(),
             soundtrack_id < self.soundtracks_num,
             "Trying to play soundtrack outside the range: {} available, {} requested",
             .{ self.soundtracks_num, soundtrack_id },
         );
-
         for (&self.playing_soundtracks) |*ps| {
             if (ps.is_finised) {
                 ps.* = .{
                     .soundtrack_id = soundtrack_id,
                     .progress_bytes = 0,
+                    .left_current_volume = left_volume,
+                    .left_target_volume = left_volume,
+                    .left_volume_delta_per_sample = 0.0,
+                    .right_current_volume = right_volume,
+                    .right_target_volume = right_volume,
+                    .right_volume_delta_per_sample = 0.0,
                     .is_finised = false,
                 };
                 self.unpause();
@@ -127,6 +175,33 @@ pub const Audio = struct {
             "Trying to play soundtrack id: {}, but the array is full",
             .{soundtrack_id},
         );
+    }
+
+    pub fn set_volume(
+        self: *Self,
+        soundtrack_id: SoundtrackId,
+        left_target_volume: f32,
+        left_time_seconds: f32,
+        right_target_volume: f32,
+        right_time_seconds: f32,
+    ) void {
+        log.assert(
+            @src(),
+            soundtrack_id < self.soundtracks_num,
+            "Trying to stop soundtrack outside the range: {} available, {} requested",
+            .{ self.soundtracks_num, soundtrack_id },
+        );
+        for (&self.playing_soundtracks) |*ps| {
+            if (ps.soundtrack_id == soundtrack_id) {
+                ps.left_target_volume = left_target_volume;
+                ps.left_volume_delta_per_sample = (left_target_volume - ps.left_current_volume) /
+                    (left_time_seconds * 44100.0);
+                ps.right_target_volume = right_target_volume;
+                ps.right_volume_delta_per_sample = (right_target_volume - ps.right_current_volume) /
+                    (right_time_seconds * 44100.0);
+                return;
+            }
+        }
     }
 
     pub fn stop(self: *Self, soundtrack_id: SoundtrackId) void {

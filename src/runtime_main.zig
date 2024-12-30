@@ -137,14 +137,22 @@ const SoftwareRuntime = struct {
                             .@"1" => if (self.audio.is_playing(self.background_sound_id))
                                 self.audio.stop(self.background_sound_id)
                             else
-                                self.audio.play(self.background_sound_id),
+                                self.audio.play(self.background_sound_id, 0.2, 0.2),
                             .@"2" => if (self.audio.is_playing(self.attack_sound_id))
                                 self.audio.stop(self.attack_sound_id)
                             else
-                                self.audio.play(self.attack_sound_id),
+                                self.audio.play(self.attack_sound_id, 0.2, 0.2),
                             .P => self.audio.stop_all(),
                             .@"3" => self.audio.volume += 0.01,
                             .@"4" => self.audio.volume -= 0.01,
+                            .J => if (self.audio.is_playing(self.background_sound_id))
+                                self.audio.set_volume(self.background_sound_id, 0.2, 2.0, 0.2, 2.0),
+                            .K => if (self.audio.is_playing(self.background_sound_id))
+                                self.audio.set_volume(self.background_sound_id, 0.0, 2.0, 0.0, 2.0),
+                            .H => if (self.audio.is_playing(self.background_sound_id))
+                                self.audio.set_volume(self.background_sound_id, 0.2, 2.0, 0.0, 2.0),
+                            .L => if (self.audio.is_playing(self.background_sound_id))
+                                self.audio.set_volume(self.background_sound_id, 0.0, 2.0, 0.2, 2.0),
                             else => {},
                         }
                     }
