@@ -64,7 +64,8 @@ const SoftwareRuntime = struct {
     tile_map: TileMap,
 
     audio: Audio,
-    soundtrack_id: SoundtrackId,
+    background_sound_id: SoundtrackId,
+    attack_sound_id: SoundtrackId,
 
     soft_renderer: SoftRenderer,
 
@@ -101,8 +102,9 @@ const SoftwareRuntime = struct {
                 }
             }
         }
-        try self.audio.init(0.5);
-        self.soundtrack_id = self.audio.load_wav(memory, "assets/background.wav");
+        try self.audio.init(0.1);
+        self.background_sound_id = self.audio.load_wav(memory, "assets/background.wav");
+        self.attack_sound_id = self.audio.load_wav(memory, "assets/alex_attack.wav");
         self.soft_renderer = SoftRenderer.init(window);
     }
 
@@ -130,12 +132,21 @@ const SoftwareRuntime = struct {
             self.camera_controller.process_input(event, dt);
             switch (event) {
                 .Keyboard => |key| {
-                    switch (key.key) {
-                        .G => self.audio.play(self.soundtrack_id),
-                        .P => self.audio.stop(),
-                        .@"4" => self.audio.volume += 0.1,
-                        .@"5" => self.audio.volume -= 0.1,
-                        else => {},
+                    if (key.type == .Pressed) {
+                        switch (key.key) {
+                            .@"1" => if (self.audio.is_playing(self.background_sound_id))
+                                self.audio.stop(self.background_sound_id)
+                            else
+                                self.audio.play(self.background_sound_id),
+                            .@"2" => if (self.audio.is_playing(self.attack_sound_id))
+                                self.audio.stop(self.attack_sound_id)
+                            else
+                                self.audio.play(self.attack_sound_id),
+                            .P => self.audio.stop_all(),
+                            .@"3" => self.audio.volume += 0.01,
+                            .@"4" => self.audio.volume -= 0.01,
+                            else => {},
+                        }
                     }
                 },
                 else => {},

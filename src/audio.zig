@@ -4,14 +4,15 @@ const sdl = @import("bindings/sdl.zig");
 const Memory = @import("memory.zig");
 
 pub const PlayingSoundtrack = struct {
-    soundtrack_id: SoundtrackId,
-    progress_bytes: u32,
+    soundtrack_id: SoundtrackId = Audio.DEBUG_SOUNDRACK_ID,
+    progress_bytes: u32 = 0,
+    is_finised: bool = true,
 };
 
 pub const SoundtrackId = u32;
 pub const Soundtrack = struct {
-    spec: sdl.SDL_AudioSpec,
-    data: []u8,
+    spec: sdl.SDL_AudioSpec = .{},
+    data: []u8 = &.{},
 };
 
 // This type assumes it will never be moved after init.
@@ -22,41 +23,41 @@ pub const Audio = struct {
     soundtracks: [MAX_SOUNDTRACKS]Soundtrack,
     soundtracks_num: u32,
 
-    playing_soundtrack: ?PlayingSoundtrack,
+    playing_soundtracks: [MAX_SOUNDTRACKS]PlayingSoundtrack,
 
     pub const DEBUG_SOUNDRACK_ID = 0;
-
     const MAX_SOUNDTRACKS = 4;
     const Self = @This();
 
-    // This assummes everything is in i16.
-    // TODO maybe move to f32 for simplicity
     pub fn callback(self: *Self, stream_ptr: [*]u8, stream_len: i32) callconv(.C) void {
         const stream_len_u32 = @as(u32, @intCast(stream_len));
-        if (self.playing_soundtrack) |*ps| {
-            const soundtrack = &self.soundtracks[ps.soundtrack_id];
-            if (soundtrack.data.len <= ps.progress_bytes) {
-                self.playing_soundtrack = null;
-                return;
-            }
 
-            var stream_i16: []i16 = undefined;
-            stream_i16.ptr = @alignCast(@ptrCast(stream_ptr));
-            stream_i16.len = stream_len_u32 / 2;
+        var stream_i16: []i16 = undefined;
+        stream_i16.ptr = @alignCast(@ptrCast(stream_ptr));
+        stream_i16.len = stream_len_u32 / 2;
+        @memset(stream_i16, 0);
+
+        for (&self.playing_soundtracks) |*playing_soundtrack| {
+            if (playing_soundtrack.is_finised)
+                continue;
+            const soundtrack = &self.soundtracks[playing_soundtrack.soundtrack_id];
 
             var data_i16: []i16 = undefined;
             data_i16.ptr = @alignCast(@ptrCast(soundtrack.data.ptr));
             data_i16.len = soundtrack.data.len / 2;
-            const data_start = ps.progress_bytes / 2;
+            const data_start = playing_soundtrack.progress_bytes / 2;
 
-            const remain_bytes = soundtrack.data.len - ps.progress_bytes;
+            const remain_bytes = soundtrack.data.len - playing_soundtrack.progress_bytes;
             const copy_bytes = @min(remain_bytes, stream_len_u32);
             const copy = copy_bytes / 2;
             for (stream_i16[0..copy], data_i16[data_start .. data_start + copy]) |*s, d| {
                 const new_d = @as(f32, @floatFromInt(d)) * self.volume;
-                s.* = @intFromFloat(new_d);
+                s.* += @intFromFloat(new_d);
             }
-            ps.progress_bytes += copy_bytes;
+            playing_soundtrack.progress_bytes += copy_bytes;
+            if (soundtrack.data.len == playing_soundtrack.progress_bytes) {
+                playing_soundtrack.is_finised = true;
+            }
         }
     }
 
@@ -72,8 +73,11 @@ pub const Audio = struct {
 
         self.audio_device_id = sdl.SDL_OpenAudioDevice(null, 0, &wanted, null, 0);
         self.volume = volume;
+        self.soundtracks[DEBUG_SOUNDRACK_ID] = .{};
         self.soundtracks_num = 1;
-        self.playing_soundtrack = null;
+        for (&self.playing_soundtracks) |*ps| {
+            ps.* = .{};
+        }
     }
 
     pub fn pause(self: Self) void {
@@ -84,6 +88,21 @@ pub const Audio = struct {
         sdl.SDL_PauseAudioDevice(self.audio_device_id, 0);
     }
 
+    pub fn is_playing(self: Self, soundtrack_id: SoundtrackId) bool {
+        log.assert(
+            @src(),
+            soundtrack_id < self.soundtracks_num,
+            "Trying to check soundtrack outside the range: {} available, {} requested",
+            .{ self.soundtracks_num, soundtrack_id },
+        );
+        for (&self.playing_soundtracks) |*ps| {
+            if (ps.soundtrack_id == soundtrack_id) {
+                return !ps.is_finised;
+            }
+        }
+        return false;
+    }
+
     pub fn play(self: *Self, soundtrack_id: SoundtrackId) void {
         log.assert(
             @src(),
@@ -91,15 +110,44 @@ pub const Audio = struct {
             "Trying to play soundtrack outside the range: {} available, {} requested",
             .{ self.soundtracks_num, soundtrack_id },
         );
-        self.playing_soundtrack = .{
-            .soundtrack_id = soundtrack_id,
-            .progress_bytes = 0,
-        };
-        self.unpause();
+
+        for (&self.playing_soundtracks) |*ps| {
+            if (ps.is_finised) {
+                ps.* = .{
+                    .soundtrack_id = soundtrack_id,
+                    .progress_bytes = 0,
+                    .is_finised = false,
+                };
+                self.unpause();
+                return;
+            }
+        }
+        log.warn(
+            @src(),
+            "Trying to play soundtrack id: {}, but the array is full",
+            .{soundtrack_id},
+        );
     }
 
-    pub fn stop(self: *Self) void {
-        self.playing_soundtrack = null;
+    pub fn stop(self: *Self, soundtrack_id: SoundtrackId) void {
+        log.assert(
+            @src(),
+            soundtrack_id < self.soundtracks_num,
+            "Trying to stop soundtrack outside the range: {} available, {} requested",
+            .{ self.soundtracks_num, soundtrack_id },
+        );
+        for (&self.playing_soundtracks) |*ps| {
+            if (ps.soundtrack_id == soundtrack_id) {
+                ps.is_finised = true;
+                return;
+            }
+        }
+    }
+
+    pub fn stop_all(self: *Self) void {
+        for (&self.playing_soundtracks) |*ps| {
+            ps.is_finised = true;
+        }
         self.pause();
     }
 
