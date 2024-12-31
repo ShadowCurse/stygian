@@ -27,6 +27,7 @@ pub const Color = extern struct {
 
     pub const BLACK = Self{ .format = .{ .r = 0, .g = 0, .b = 0, .a = 255 } };
     pub const WHITE = Self{ .format = .{ .r = 255, .g = 255, .b = 255, .a = 255 } };
+    pub const GREEN = Self{ .format = .{ .r = 0, .g = 255, .b = 0, .a = 255 } };
     pub const GREY = Self{ .format = .{ .r = 69, .g = 69, .b = 69, .a = 255 } };
     pub const MAGENTA = Self{ .format = .{ .r = 255, .g = 0, .b = 255, .a = 255 } };
     pub const ORAGE = Self{ .format = .{ .r = 237, .g = 91, .b = 18, .a = 255 } };

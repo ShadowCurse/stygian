@@ -11,6 +11,7 @@ const Vec2 = _math.Vec2;
 pub const perf = Perf.Measurements(struct {
     start_rendering: Perf.Fn,
     end_rendering: Perf.Fn,
+    draw_line: Perf.Fn,
     draw_aabb: Perf.Fn,
     draw_texture: Perf.Fn,
     draw_texture_with_size_and_rotation: Perf.Fn,
@@ -137,6 +138,38 @@ pub fn as_texture_rect(self: *const Self) TextureRect {
             .y = @floatFromInt(self.surface_texture.height),
         },
     };
+}
+
+pub fn draw_line(self: *Self, point_a: Vec2, point_b: Vec2, color: Color) void {
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
+
+    const steps = @max(@abs(point_a.x - point_b.x), @abs(point_a.y - point_b.y));
+    const steps_u32: u32 = @intFromFloat(steps);
+
+    const delta = point_b.sub(point_a).div_f32(steps);
+
+    const dst_pitch = self.surface_texture.width;
+    const dst_data_color = self.surface_texture.as_color_slice();
+
+    const surface_width = @as(f32, @floatFromInt(self.surface_texture.width)) - 1;
+    const surface_height = @as(f32, @floatFromInt(self.surface_texture.height)) - 1;
+
+    for (0..steps_u32) |s| {
+        const point = point_a.add(delta.mul_f32(@floatFromInt(s)));
+
+        if (point.x < 0.0 or
+            surface_width < point.x or
+            point.y < 0.0 or
+            surface_height < point.y)
+        {
+            continue;
+        }
+
+        const point_x: u32 = @intFromFloat(@floor(point.x));
+        const point_y: u32 = @intFromFloat(@floor(point.y));
+        dst_data_color[point_x + point_y * dst_pitch] = color;
+    }
 }
 
 pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {

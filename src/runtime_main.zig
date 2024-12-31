@@ -336,6 +336,19 @@ const SoftwareRuntime = struct {
         });
 
         self.soft_renderer.start_rendering();
+
+        self.soft_renderer.draw_line(
+            .{
+                .x = @as(f32, @floatFromInt(width)) / 2.0 + 440.0,
+                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
+            },
+            .{
+                .x = @as(f32, @floatFromInt(width)) / 2.0 + 440.0 + 30.0 * @sin(A.a),
+                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0 + 30.0 * @cos(A.a),
+            },
+            Color.GREEN,
+        );
+
         self.screen_quads.render(
             &self.soft_renderer,
             self.camera_controller.position.z,
