@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 const _math = @import("math.zig");
 const Vec3 = _math.Vec3;
 
+// On web the surface format is ABGR
 pub const Format = if (builtin.os.tag == .emscripten)
     extern struct {
         r: u8 = 0,
@@ -11,6 +12,7 @@ pub const Format = if (builtin.os.tag == .emscripten)
         a: u8 = 0,
     }
 else
+    // On descktop it is ARGB
     extern struct {
         b: u8 = 0,
         g: u8 = 0,

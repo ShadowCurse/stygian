@@ -53,7 +53,7 @@ pub const Font = struct {
             };
             errdefer game_alloc.free(char_info);
 
-            const bitmap = game_alloc.alloc(u8, 512 * 512) catch |e| {
+            const bitmap = game_alloc.alignedAlloc(u8, 4, 512 * 512) catch |e| {
                 log.err(
                     @src(),
                     "Cannot allocate memory for a font bitmap. Font path: {s} error: {}",

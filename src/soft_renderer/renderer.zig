@@ -85,16 +85,21 @@ pub fn init(
     window: *sdl.SDL_Window,
 ) Self {
     const surface = sdl.SDL_GetWindowSurface(window);
-    log.info(@src(), "Surface has format: {}, A mask: {x}, R mask: {x}, G mask: {x}, B mask: {x}", .{
-        surface.*.format.*.format,
-        surface.*.format.*.Amask,
-        surface.*.format.*.Rmask,
-        surface.*.format.*.Gmask,
-        surface.*.format.*.Bmask,
-    });
+    log.info(
+        @src(),
+        "Surface has format: {s}({d} bytes), A mask: {x}, R mask: {x}, G mask: {x}, B mask: {x}",
+        .{
+            sdl.SDL_GetPixelFormatName(surface.*.format.*.format),
+            surface.*.format.*.BytesPerPixel,
+            surface.*.format.*.Amask,
+            surface.*.format.*.Rmask,
+            surface.*.format.*.Gmask,
+            surface.*.format.*.Bmask,
+        },
+    );
 
-    var data: []u8 = undefined;
-    data.ptr = @ptrCast(surface.*.pixels);
+    var data: []align(4) u8 = undefined;
+    data.ptr = @alignCast(@ptrCast(surface.*.pixels));
     data.len = @intCast(surface.*.w * surface.*.h * surface.*.format.*.BytesPerPixel);
 
     const surface_texture: Texture = .{

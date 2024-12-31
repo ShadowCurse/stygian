@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 
@@ -14,7 +15,7 @@ pub const ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
 width: u32,
 height: u32,
 channels: u32,
-data: []u8,
+data: []align(4) u8,
 
 const Self = @This();
 
@@ -46,7 +47,7 @@ pub const Store = struct {
         const game_alloc = memory.game_alloc();
 
         self.textures = try game_alloc.alloc(Self, MAX_TEXTURES);
-        var debug_texture_data = try game_alloc.alloc(Color, DEBUG_WIDTH * DEBUG_HEIGHT);
+        var debug_texture_data = try game_alloc.alignedAlloc(Color, 4, DEBUG_WIDTH * DEBUG_HEIGHT);
         for (0..DEBUG_HEIGHT) |y| {
             for (0..DEBUG_WIDTH) |x| {
                 debug_texture_data[y * DEBUG_WIDTH + x] = if ((x % 2) ^ (y % 2) != 0)
@@ -55,7 +56,7 @@ pub const Store = struct {
                     Color.GREY;
             }
         }
-        var data_u8: []u8 = undefined;
+        var data_u8: []align(4) u8 = undefined;
         data_u8.ptr = @ptrCast(debug_texture_data.ptr);
         data_u8.len = debug_texture_data.len * DEBUG_CHANNELS;
 
@@ -100,7 +101,7 @@ pub const Store = struct {
             const height: u32 = @intCast(y);
             const channels: u32 = @intCast(c);
 
-            const bytes = game_alloc.alloc(u8, width * height * channels) catch |e| {
+            const bytes = game_alloc.alignedAlloc(u8, 4, width * height * channels) catch |e| {
                 log.err(
                     @src(),
                     "Cannot allocate memory for a texture. Texture path: {s} error: {}",
@@ -111,7 +112,26 @@ pub const Store = struct {
             var data: []u8 = undefined;
             data.ptr = image;
             data.len = width * height * channels;
-            @memcpy(bytes, data);
+
+            // Convert ABGR -> ARGB
+            if (builtin.os.tag != .emscripten and channels == 4) {
+                var bytes_u32: []u32 = undefined;
+                bytes_u32.ptr = @alignCast(@ptrCast(bytes));
+                bytes_u32.len = width * height;
+
+                var data_u32: []u32 = undefined;
+                data_u32.ptr = @alignCast(@ptrCast(image));
+                data_u32.len = width * height;
+                for (0..width * height) |i| {
+                    const color: u32 = @intCast(data_u32[i]);
+                    const blue = (color & 0x00FF0000) >> 16;
+                    const red = color & 0x000000FF;
+                    const new_color = (color & 0xFF00FF00) | (red << 16) | blue;
+                    bytes_u32[i] = new_color;
+                }
+            } else {
+                @memcpy(bytes, data);
+            }
 
             self.textures[self.textures_num] = .{
                 .width = width,

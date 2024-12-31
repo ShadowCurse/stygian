@@ -52,7 +52,7 @@ const SoftwareRuntime = struct {
     camera_controller: CameraController2d,
 
     texture_store: Texture.Store,
-    texture_letter_a: Texture.Id,
+    texture_color_test: Texture.Id,
     texture_item_pot: Texture.Id,
     texture_item_coffecup: Texture.Id,
     texture_alex: Texture.Id,
@@ -81,7 +81,7 @@ const SoftwareRuntime = struct {
         self.camera_controller = CameraController2d.init(width, height);
 
         try self.texture_store.init(memory);
-        self.texture_letter_a = self.texture_store.load(memory, "assets/a.png");
+        self.texture_color_test = self.texture_store.load(memory, "assets/color_test.png");
         self.texture_item_pot = self.texture_store.load(memory, "assets/item_pot.png");
         self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
         self.texture_alex = self.texture_store.load(memory, "assets/alex_idle_sheet.png");
@@ -314,7 +314,7 @@ const SoftwareRuntime = struct {
             .rotation = A.a,
         });
         self.screen_quads.add_quad(.{
-            .texture_id = self.texture_letter_a,
+            .texture_id = self.texture_color_test,
             .position = .{
                 .x = 100.0,
                 .y = 500.0,
@@ -330,8 +330,8 @@ const SoftwareRuntime = struct {
             },
             .uv_offset = .{},
             .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.texture_store.get(self.texture_letter_a).width)),
-                .y = @as(f32, @floatFromInt(self.texture_store.get(self.texture_letter_a).height)),
+                .x = @as(f32, @floatFromInt(self.texture_store.get(self.texture_color_test).width)),
+                .y = @as(f32, @floatFromInt(self.texture_store.get(self.texture_color_test).height)),
             },
         });
 
