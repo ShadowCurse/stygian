@@ -1,7 +1,12 @@
 const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
+const Perf = @import("performance.zig");
 const Memory = @import("memory.zig");
+
+pub const perf = Perf.Measurements(struct {
+    callback: Perf.Fn,
+});
 
 pub const PlayingSoundtrack = struct {
     soundtrack_id: SoundtrackId = Audio.DEBUG_SOUNDRACK_ID,
@@ -38,6 +43,9 @@ pub const Audio = struct {
     const Self = @This();
 
     pub fn callback(self: *Self, stream_ptr: [*]u8, stream_len: i32) callconv(.C) void {
+        const perf_start = perf.start();
+        defer perf.end(@src(), perf_start);
+
         const stream_len_u32 = @as(u32, @intCast(stream_len));
 
         var stream_8_i16: []@Vector(8, i16) = undefined;

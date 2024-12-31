@@ -112,14 +112,14 @@ pub fn init(
 }
 
 pub fn start_rendering(self: *const Self) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
     _ = sdl.SDL_FillRect(self.surface, 0, 0);
 }
 
 pub fn end_rendering(self: *const Self) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
     _ = sdl.SDL_UpdateWindowSurface(self.window);
 }
 
@@ -135,8 +135,8 @@ pub fn as_texture_rect(self: *const Self) TextureRect {
 }
 
 pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
@@ -188,8 +188,8 @@ pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
 
 // TODO add an option to skip alpha blend and do a simple memcopy instead.
 pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
@@ -274,8 +274,8 @@ pub fn draw_texture_with_size_and_rotation(
     rotation_offset: Vec2,
     texture_rect: TextureRect,
 ) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const c = @cos(-rotation);
     const s = @sin(-rotation);
@@ -440,8 +440,8 @@ pub fn draw_color_rect(
     size: Vec2,
     color: Color,
 ) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const x_axis = Vec2.X.mul_f32(size.x / 2.0);
     const y_axis = Vec2.NEG_Y.mul_f32(size.y / 2.0);
@@ -502,8 +502,8 @@ pub fn draw_color_rect_with_size_and_rotation(
     rotation_offset: Vec2,
     color: Color,
 ) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const c = @cos(-rotation);
     const s = @sin(-rotation);

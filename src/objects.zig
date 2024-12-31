@@ -40,8 +40,8 @@ pub const Object2d = struct {
         texture_store: *const Texture.Store,
         screen_quads: *ScreenQuads,
     ) void {
-        perf.start(@src());
-        defer perf.end(@src());
+        const perf_start = perf.start();
+        defer perf.end(@src(), perf_start);
 
         const position = camera_controller.transform(self.transform.position);
         switch (self.type) {

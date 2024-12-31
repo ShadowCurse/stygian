@@ -19,12 +19,7 @@ pub fn prepare_next_frame(comptime all_perf_types: type) void {
     total_avg += @divFloor(tt - old, MAX_MEASUREMENTS);
 
     current_measurement = (current_measurement + 1) % 256;
-
-    const fields = comptime @typeInfo(all_perf_types).Struct.fields;
-    inline for (fields) |field| {
-        const perf = field.type.perf;
-        perf.zero_current();
-    }
+    zero_current(all_perf_types);
 }
 pub fn calculate_total_time(comptime all_perf_types: type) i128 {
     var total: i128 = 0;
@@ -52,26 +47,33 @@ pub const Fn = struct {
     count: u32 = 0,
 
     pub fn avg(self: Fn) i128 {
-        return @divTrunc(self.ns, @as(i128, self.count));
+        if (self.count != 0)
+            return @divTrunc(self.ns, @as(i128, self.count))
+        else
+            return 0;
     }
 };
 
 pub fn Measurements(comptime T: type) type {
     return struct {
-        pub var measurements: [MAX_MEASUREMENTS]T = undefined;
+        pub var measurements: [MAX_MEASUREMENTS]T = std.mem.zeroes([MAX_MEASUREMENTS]T);
 
-        pub fn start(
-            comptime src: std.builtin.SourceLocation,
-        ) void {
-            const m = &@field(measurements[current_measurement], src.fn_name);
-            m.ns -= std.time.nanoTimestamp();
-            m.count += 1;
+        pub const Start = struct {
+            start_ns: i128,
+        };
+
+        pub fn start() Start {
+            return .{
+                .start_ns = std.time.nanoTimestamp(),
+            };
         }
         pub fn end(
             comptime src: std.builtin.SourceLocation,
+            s: Start,
         ) void {
             const m = &@field(measurements[current_measurement], src.fn_name);
-            m.ns += std.time.nanoTimestamp();
+            m.ns += std.time.nanoTimestamp() - s.start_ns;
+            m.count += 1;
         }
 
         pub fn zero_current() void {
@@ -80,6 +82,18 @@ pub fn Measurements(comptime T: type) type {
             inline for (fields) |field| {
                 @field(m, field.name) = .{};
             }
+        }
+
+        pub fn sum_all() T {
+            var sum: T = std.mem.zeroes(T);
+            const fields = comptime @typeInfo(T).Struct.fields;
+            for (&measurements) |*m| {
+                inline for (fields) |field| {
+                    @field(sum, field.name).ns += @field(m.*, field.name).ns;
+                    @field(sum, field.name).count += @field(m.*, field.name).count;
+                }
+            }
+            return sum;
         }
 
         pub fn previous() *T {
@@ -110,35 +124,43 @@ pub fn draw_perf(
     inline for (pt_fields) |ptf| {
         const perf = ptf.type.perf;
         const measurement = perf.previous();
+        const sum = perf.sum_all();
 
         const m_fields = comptime @typeInfo(@TypeOf(measurement.*)).Struct.fields;
         inline for (m_fields) |mf| {
+            const field_avg = @field(sum, mf.name).avg();
+            log.assert(
+                @src(),
+                0 <= field_avg,
+                "Total measurement avg is bellow zero",
+                .{},
+            );
+
             const m = @field(measurement.*, mf.name);
-            if (m.count != 0) {
-                const s =
-                    std.fmt.allocPrint(
-                    allocator,
-                    "{s}: n: {}, avg: {}ns",
-                    .{ mf.name, m.count, m.avg() },
-                ) catch |e| {
-                    log.warn(@src(), "Cannot formant performance measurement. Error: {}", .{e});
-                    return;
-                };
-                screen_quads.add_text(
-                    font,
-                    s,
-                    font.size,
-                    .{
-                        .x = perf_x,
-                        .y = perf_y,
-                        .z = 2.0,
-                    },
-                    false,
-                    0.0,
-                    .{},
-                );
-                perf_y += perf_y_advance;
-            }
+            const name_width = @min(mf.name.len, 20);
+            const s =
+                std.fmt.allocPrint(
+                allocator,
+                "{s: <20}: f_n: {d: >4}, f_avg: {d: >9}ns, t_avg: {d: >9}ns",
+                .{ mf.name[0..name_width], m.count, m.avg(), field_avg },
+            ) catch |e| {
+                log.warn(@src(), "Cannot formant performance measurement. Error: {}", .{e});
+                return;
+            };
+            screen_quads.add_text(
+                font,
+                s,
+                font.size,
+                .{
+                    .x = perf_x,
+                    .y = perf_y,
+                    .z = 2.0,
+                },
+                false,
+                0.0,
+                .{},
+            );
+            perf_y += perf_y_advance;
         }
     }
 

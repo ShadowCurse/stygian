@@ -73,8 +73,8 @@ pub fn slice(self: *Self) []ScreenQuad {
 }
 
 pub fn add_quad(self: *Self, quad: ScreenQuad) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
     if (remaining_quads < 1) {
@@ -105,8 +105,8 @@ pub fn add_text(
     rotation: f32,
     rotation_offset: Vec2,
 ) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
     if (remaining_quads < text.len) {
@@ -162,8 +162,8 @@ pub fn render(
     soft_renderer: *SoftRenderer,
     texture_store: *const Texture.Store,
 ) void {
-    perf.start(@src());
-    defer perf.end(@src());
+    const perf_start = perf.start();
+    defer perf.end(@src(), perf_start);
 
     const quads = self.slice();
     const Compare = struct {
