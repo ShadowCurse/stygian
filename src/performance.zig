@@ -154,11 +154,10 @@ pub fn draw_perf(
                 .{
                     .x = perf_x,
                     .y = perf_y,
-                    .z = 2.0,
                 },
-                false,
                 0.0,
                 .{},
+                .{ .dont_clip = true, .center = false },
             );
             perf_y += perf_y_advance;
         }
@@ -185,10 +184,9 @@ pub fn draw_perf(
         .{
             .x = perf_x,
             .y = perf_y,
-            .z = 2.0,
         },
-        false,
         0.0,
         .{},
+        .{ .dont_clip = true, .center = false },
     );
 }

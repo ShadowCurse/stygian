@@ -277,11 +277,10 @@ const SoftwareRuntime = struct {
             .{
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
-                .z = 2.0,
             },
-            true,
             0.0,
             .{},
+            .{ .dont_clip = true },
         );
         self.screen_quads.add_text(
             &self.font,
@@ -294,11 +293,10 @@ const SoftwareRuntime = struct {
             .{
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
-                .z = 2.0,
             },
-            true,
             @sin(A.a) * 0.25,
             .{},
+            .{ .dont_clip = true },
         );
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
@@ -312,6 +310,7 @@ const SoftwareRuntime = struct {
                 .y = 200.0,
             },
             .rotation = A.a,
+            .tag = .DontClip,
         });
         self.screen_quads.add_quad(.{
             .texture_id = self.texture_color_test,
@@ -333,10 +332,15 @@ const SoftwareRuntime = struct {
                 .x = @as(f32, @floatFromInt(self.texture_store.get(self.texture_color_test).width)),
                 .y = @as(f32, @floatFromInt(self.texture_store.get(self.texture_color_test).height)),
             },
+            .tag = .DontClip,
         });
 
         self.soft_renderer.start_rendering();
-        self.screen_quads.render(&self.soft_renderer, &self.texture_store);
+        self.screen_quads.render(
+            &self.soft_renderer,
+            self.camera_controller.position.z,
+            &self.texture_store,
+        );
         self.soft_renderer.end_rendering();
     }
 };

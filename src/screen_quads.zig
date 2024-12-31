@@ -19,6 +19,11 @@ pub const perf = Perf.Measurements(struct {
     render: Perf.Fn,
 });
 
+pub const ScreenQuadTag = enum(u32) {
+    Clip,
+    DontClip,
+};
+
 pub const ScreenQuad = extern struct {
     // position in pixels
     position: Vec3 = .{},
@@ -37,7 +42,7 @@ pub const ScreenQuad = extern struct {
     rotation: f32 = 0.0,
     color: Color = Color.WHITE,
     texture_id: Texture.Id = Texture.ID_DEBUG,
-    __reserved1: f32 = 0.0,
+    tag: ScreenQuadTag = .Clip,
 };
 
 quads: []ScreenQuad,
@@ -95,15 +100,19 @@ pub fn add_quad(self: *Self, quad: ScreenQuad) void {
     self.quads[self.used_quads] = quad;
 }
 
+pub const TextOptions = packed struct {
+    center: bool = true,
+    dont_clip: bool = false,
+};
 pub fn add_text(
     self: *Self,
     font: *const Font,
     text: []const u8,
     size: f32,
     position: Vec3,
-    center: bool,
     rotation: f32,
     rotation_offset: Vec2,
+    options: TextOptions,
 ) void {
     const perf_start = perf.start();
     defer perf.end(@src(), perf_start);
@@ -119,10 +128,12 @@ pub fn add_text(
     }
     defer self.used_quads += @intCast(text.len);
 
-    var x_offset: f32 = if (center)
+    var x_offset: f32 = if (options.center)
         -font.size * @as(f32, @floatFromInt(text.len / 2))
     else
         0.0;
+    const text_tag: ScreenQuadTag = if (options.dont_clip) .DontClip else .Clip;
+
     const rotation_center = position.xy().add(rotation_offset);
     const scale = size / font.size;
     for (self.quads[self.used_quads .. self.used_quads + text.len], text) |*quad, c| {
@@ -152,6 +163,7 @@ pub fn add_text(
                 .x = char_width,
                 .y = char_height,
             },
+            .tag = text_tag,
         };
         x_offset += char_info.xadvance * scale;
     }
@@ -160,6 +172,7 @@ pub fn add_text(
 pub fn render(
     self: *Self,
     soft_renderer: *SoftRenderer,
+    clip_z: f32,
     texture_store: *const Texture.Store,
 ) void {
     const perf_start = perf.start();
@@ -173,6 +186,10 @@ pub fn render(
     };
     std.mem.sort(ScreenQuad, quads, {}, Compare.inner);
     for (quads) |quad| {
+        if (quad.tag == .Clip and clip_z < quad.position.z) {
+            continue;
+        }
+
         switch (quad.texture_id) {
             Texture.ID_VERT_COLOR => {},
             Texture.ID_SOLID_COLOR => {
