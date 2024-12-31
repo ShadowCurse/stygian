@@ -119,14 +119,14 @@ const SoftwareRuntime = struct {
         self.screen_quads.reset();
         const frame_alloc = memory.frame_alloc();
 
-        Perf.prepare_next_frame(struct { SoftRenderer, ScreenQuads, _objects });
+        Perf.prepare_next_frame(struct { SoftRenderer, ScreenQuads, _objects, _audio });
         Perf.draw_perf(
-            struct { SoftRenderer, ScreenQuads, _objects },
+            struct { SoftRenderer, ScreenQuads, _objects, _audio },
             frame_alloc,
             &self.screen_quads,
             &self.font,
         );
-        Perf.zero_current(struct { SoftRenderer, ScreenQuads, _objects });
+        Perf.zero_current(struct { SoftRenderer, ScreenQuads, _objects, _audio });
 
         for (events) |event| {
             self.camera_controller.process_input(event, dt);
