@@ -119,6 +119,8 @@ pub const Audio = struct {
                     @as(f32, @floatFromInt(copy_8 * 4));
             }
 
+            const master_volume: @Vector(4, f32) = @splat(self.volume);
+
             for (0..copy_8) |i| {
                 const orig_data = data_8_i16[data_8_start + i];
                 const left_mask = @Vector(4, i32){ 0, 2, 4, 6 };
@@ -229,8 +231,8 @@ pub const Audio = struct {
                     right_volume_f32 += a_0 + a_1 + a_2 + a_3;
                 }
 
-                left_channel_f32 *= left_volume_f32;
-                right_channel_f32 *= right_volume_f32;
+                left_channel_f32 *= left_volume_f32 * master_volume;
+                right_channel_f32 *= right_volume_f32 * master_volume;
 
                 const final_data_mask = @Vector(8, i32){ 0, -1, 1, -2, 2, -3, 3, -4 };
                 const final_data_f32: @Vector(8, f32) =
