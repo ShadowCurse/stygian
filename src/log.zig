@@ -26,9 +26,9 @@ pub const Options = struct {
     }
 };
 
-const platform_main = @import("platform_main.zig");
-pub const options: Options = if (@hasDecl(platform_main, "log_options"))
-    platform_main.log_options
+const root = @import("root");
+pub const options: Options = if (@hasDecl(root, "log_options"))
+    root.log_options
 else
     .{};
 

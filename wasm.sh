@@ -12,6 +12,7 @@ emcc \
   -sALLOW_MEMORY_GROWTH=1 \
   -sSTACK_SIZE=1mb \
   --embed-file assets@/assets \
-  ../zig-out/lib/libstygian_unibuild_software_emscripten.a \
+  ../zig-out/lib/libunibuild_emscripten.a \
+  ../zig-out/lib/libunibuild_runtime.a \
   -o \
   stygian.js

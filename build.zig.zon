@@ -65,6 +65,10 @@
         "build.zig",
         "build.zig.zon",
         "src",
+        "shaders",
+        "thirdparty",
+        "wasm",
+        "wasm.sh",
         // For example...
         //"LICENSE",
         //"README.md",
