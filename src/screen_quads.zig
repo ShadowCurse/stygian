@@ -91,7 +91,7 @@ pub fn add_quad(self: *Self, quad: ScreenQuad) void {
         return;
     }
 
-    if (quad.texture_id != Texture.ID_SOLID_COLOR) {
+    if (quad.texture_id != Texture.ID_SOLID_COLOR and quad.texture_id != Texture.ID_VERT_COLOR) {
         log.assert(@src(), 0 < quad.uv_size.x, "Quad texture width must be not 0", .{});
         log.assert(@src(), 0 < quad.uv_size.x, "Quad texture height must be not 0", .{});
     }
@@ -128,23 +128,28 @@ pub fn add_text(
     }
     defer self.used_quads += @intCast(text.len);
 
+    const scale = size / font.size;
     var x_offset: f32 = if (options.center)
-        -font.size * @as(f32, @floatFromInt(text.len / 2))
+        -font.size * scale * @as(f32, @floatFromInt(text.len / 2))
     else
         0.0;
     const text_tag: ScreenQuadTag = if (options.dont_clip) .DontClip else .Clip;
 
     const rotation_center = position.xy().add(rotation_offset);
-    const scale = size / font.size;
     for (self.quads[self.used_quads .. self.used_quads + text.len], text) |*quad, c| {
         const char_info = font.char_info[c];
         const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
         const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
-        const char_position: Vec3 = .{
-            .x = position.x + x_offset + char_info.xoff,
-            .y = position.y + char_info.yoff + char_height * 0.5,
+        const char_origin: Vec3 = .{
+            .x = position.x + x_offset,
+            .y = position.y,
             .z = position.z,
         };
+        const char_position = char_origin.add(.{
+            .x = char_info.xoff,
+            .y = char_info.yoff + char_height * 0.5,
+            .z = 0.0,
+        });
         quad.* = .{
             .color = .{},
             .texture_id = font.texture_id,
@@ -154,7 +159,7 @@ pub fn add_text(
                 .y = char_height * scale,
             },
             .rotation = rotation,
-            .rotation_offset = rotation_center.sub(char_position.xy()),
+            .rotation_offset = rotation_center.sub(char_origin.xy()),
             .uv_offset = .{
                 .x = @as(f32, @floatFromInt(char_info.x0)),
                 .y = @as(f32, @floatFromInt(char_info.y0)),

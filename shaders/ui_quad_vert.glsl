@@ -18,7 +18,7 @@ struct QuadInfo {
     float rotation;
     uint color;
     uint texture_id;
-    float __reserved1;
+    uint __reserved1;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 
@@ -81,7 +81,7 @@ void main() {
     mat2 rotation = mat2(c, -s, s, c);
     vec2 vertex_position = rotation * v.position;
 
-    vec2 qp = qi.position.xy + qi.rotation_offset + rotation * qi.rotation_offset;
+    vec2 qp = qi.position.xy + qi.rotation_offset - rotation * qi.rotation_offset;
     vec2 quad_pos = (qp / (screen_size / 2.0)) - vec2(1.0);
     vec2 quad_size = qi.size / screen_size;
     vec4 new_position = vec4(

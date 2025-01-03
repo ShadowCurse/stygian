@@ -24,7 +24,7 @@ struct QuadInfo {
     float rotation;
     uint color;
     uint texture_id;
-    float __reserved1;
+    uint __reserved1;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 

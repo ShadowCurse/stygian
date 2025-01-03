@@ -543,12 +543,12 @@ const VulkanRuntime = struct {
                 "FM: {} bytes",
                 .{memory.frame_allocator.end_index},
             ) catch unreachable,
-            32.0,
+            16.0,
             .{
                 .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
             },
-            0.0,
+            @sin(A.a) * 0.25,
             .{},
             .{},
         );
