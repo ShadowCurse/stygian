@@ -29,6 +29,8 @@ $ zig build -Dsoftware_render -Dunibuild
 $ zig build -Dsoftware_render -Dunibuild -Dtarget=wasm32-emscripten --sysroot "emsdk/upstream/emscripten" -Doptimize=ReleaseFast
 $ bash wasm.sh
 ```
+Maybe go over the produced `*.wasm` file with `wasm-opt -O3 *.wasm -o *.wasm` for additional optimization.
+
 
 ## Libraries Used
 - [SDL2](https://wiki.libsdl.org/SDL2/FrontPage): creating a window

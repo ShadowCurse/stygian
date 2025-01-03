@@ -24,5 +24,6 @@ pkgs.mkShell {
     shaderc
 
     emscripten
+    binaryen
   ];
 }
