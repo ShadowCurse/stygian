@@ -6,22 +6,35 @@ const log = @import("log.zig");
 const Font = @import("font.zig").Font;
 const ScreenQuads = @import("screen_quads.zig");
 
-pub const MAX_MEASUREMENTS = 256;
+pub const Options = struct {
+    max_measurements: u32 = 0,
+    enabled: bool = false,
+};
+
+const root = @import("root");
+pub const options: Options = if (@hasDecl(root, "performance_options"))
+    root.performance_options
+else
+    .{};
 
 pub var current_measurement: u32 = 0;
-pub var total_time: [MAX_MEASUREMENTS]i128 = undefined;
+pub var total_time: [options.max_measurements]i128 = undefined;
 pub var total_avg: i128 = 0;
 
 pub fn prepare_next_frame(comptime all_perf_types: type) void {
+    if (!options.enabled) return;
+
     const tt = calculate_total_time(all_perf_types);
     const old = total_time[current_measurement];
     total_time[current_measurement] = tt;
-    total_avg += @divFloor(tt - old, MAX_MEASUREMENTS);
+    total_avg += @divFloor(tt - old, options.max_measurements);
 
     current_measurement = (current_measurement + 1) % 256;
     zero_current(all_perf_types);
 }
 pub fn calculate_total_time(comptime all_perf_types: type) i128 {
+    if (!options.enabled) return;
+
     var total: i128 = 0;
     const fields = comptime @typeInfo(all_perf_types).Struct.fields;
     inline for (fields) |field| {
@@ -35,6 +48,8 @@ pub fn calculate_total_time(comptime all_perf_types: type) i128 {
     return total;
 }
 pub fn zero_current(comptime all_perf_types: type) void {
+    if (!options.enabled) return;
+
     const fields = comptime @typeInfo(all_perf_types).Struct.fields;
     inline for (fields) |field| {
         const perf = field.type.perf;
@@ -55,59 +70,68 @@ pub const Fn = struct {
 };
 
 pub fn Measurements(comptime T: type) type {
-    return struct {
-        pub var measurements: [MAX_MEASUREMENTS]T = std.mem.zeroes([MAX_MEASUREMENTS]T);
-
-        pub const Start = struct {
-            start_ns: i128,
-        };
-
-        pub fn start() Start {
-            return .{
-                .start_ns = std.time.nanoTimestamp(),
-            };
-        }
-        pub fn end(
-            comptime src: std.builtin.SourceLocation,
-            s: Start,
-        ) void {
-            const m = &@field(measurements[current_measurement], src.fn_name);
-            m.ns += std.time.nanoTimestamp() - s.start_ns;
-            m.count += 1;
-        }
-
-        pub fn zero_current() void {
-            const m = &measurements[current_measurement];
-            const fields = comptime @typeInfo(T).Struct.fields;
-            inline for (fields) |field| {
-                @field(m, field.name) = .{};
+    return if (!options.enabled)
+        struct {
+            pub fn start() void {}
+            pub fn end(comptime src: std.builtin.SourceLocation, _: void) void {
+                _ = src;
             }
         }
+    else
+        struct {
+            pub var measurements: [options.max_measurements]T =
+                std.mem.zeroes([options.max_measurements]T);
 
-        pub fn sum_all() T {
-            var sum: T = std.mem.zeroes(T);
-            const fields = comptime @typeInfo(T).Struct.fields;
-            for (&measurements) |*m| {
+            pub const Start = struct {
+                start_ns: i128,
+            };
+
+            pub fn start() Start {
+                return .{
+                    .start_ns = std.time.nanoTimestamp(),
+                };
+            }
+            pub fn end(
+                comptime src: std.builtin.SourceLocation,
+                s: Start,
+            ) void {
+                const m = &@field(measurements[current_measurement], src.fn_name);
+                m.ns += std.time.nanoTimestamp() - s.start_ns;
+                m.count += 1;
+            }
+
+            pub fn zero_current() void {
+                const m = &measurements[current_measurement];
+                const fields = comptime @typeInfo(T).Struct.fields;
                 inline for (fields) |field| {
-                    @field(sum, field.name).ns += @field(m.*, field.name).ns;
-                    @field(sum, field.name).count += @field(m.*, field.name).count;
+                    @field(m, field.name) = .{};
                 }
             }
-            return sum;
-        }
 
-        pub fn previous() *T {
-            const p = if (current_measurement == 0)
-                MAX_MEASUREMENTS - 1
-            else
-                current_measurement - 1;
-            return &measurements[p];
-        }
+            pub fn sum_all() T {
+                var sum: T = std.mem.zeroes(T);
+                const fields = comptime @typeInfo(T).Struct.fields;
+                for (&measurements) |*m| {
+                    inline for (fields) |field| {
+                        @field(sum, field.name).ns += @field(m.*, field.name).ns;
+                        @field(sum, field.name).count += @field(m.*, field.name).count;
+                    }
+                }
+                return sum;
+            }
 
-        pub fn current() *T {
-            return &measurements[current_measurement];
-        }
-    };
+            pub fn previous() *T {
+                const p = if (current_measurement == 0)
+                    options.max_measurements - 1
+                else
+                    current_measurement - 1;
+                return &measurements[p];
+            }
+
+            pub fn current() *T {
+                return &measurements[current_measurement];
+            }
+        };
 }
 
 pub fn draw_perf(
@@ -116,6 +140,8 @@ pub fn draw_perf(
     screen_quads: *ScreenQuads,
     font: *const Font,
 ) void {
+    if (!options.enabled) return;
+
     var perf_y: f32 = font.size;
     const perf_y_advance: f32 = font.size;
     const perf_x: f32 = font.size;
@@ -164,7 +190,7 @@ pub fn draw_perf(
     }
 
     const p = if (current_measurement == 0)
-        MAX_MEASUREMENTS - 1
+        options.max_measurements - 1
     else
         current_measurement - 1;
 

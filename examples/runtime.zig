@@ -8,9 +8,13 @@ pub const log_options = log.Options{
     .level = .Info,
 };
 
-const sdl = stygian.bindings.sdl;
+const Performance = stygian.performance;
+pub const performance_options = Performance.Options{
+    .max_measurements = 256,
+    .enabled = true,
+};
 
-const Perf = stygian.performance;
+const sdl = stygian.bindings.sdl;
 
 const _audio = stygian.audio;
 const Audio = _audio.Audio;
@@ -126,14 +130,14 @@ const SoftwareRuntime = struct {
         self.screen_quads.reset();
         const frame_alloc = memory.frame_alloc();
 
-        Perf.prepare_next_frame(struct { SoftRenderer, ScreenQuads, _objects, _audio });
-        Perf.draw_perf(
+        Performance.prepare_next_frame(struct { SoftRenderer, ScreenQuads, _objects, _audio });
+        Performance.draw_perf(
             struct { SoftRenderer, ScreenQuads, _objects, _audio },
             frame_alloc,
             &self.screen_quads,
             &self.font,
         );
-        Perf.zero_current(struct { SoftRenderer, ScreenQuads, _objects, _audio });
+        Performance.zero_current(struct { SoftRenderer, ScreenQuads, _objects, _audio });
 
         for (events) |event| {
             self.camera_controller.process_input(event, dt);
