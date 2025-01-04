@@ -310,33 +310,14 @@ const SoftwareRuntime = struct {
             .{ .dont_clip = true },
         );
         self.screen_quads.add_quad(.{
-            .color = Color.MAGENTA,
-            .texture_id = Texture.ID_SOLID_COLOR,
-            .position = .{
-                .x = 100.0,
-                .y = 300.0,
-            },
-            .size = .{
-                .x = 200.0,
-                .y = 200.0,
-            },
-            .rotation = A.a,
-            .tag = .DontClip,
-        });
-        self.screen_quads.add_quad(.{
             .texture_id = self.texture_color_test,
             .position = .{
                 .x = 100.0,
-                .y = 500.0,
+                .y = 600.0,
             },
             .size = .{
                 .x = 200.0,
                 .y = 200.0,
-            },
-            .rotation = A.a,
-            .rotation_offset = .{
-                .x = 100.0,
-                .y = -100.0,
             },
             .uv_offset = .{},
             .uv_size = .{
