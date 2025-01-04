@@ -130,10 +130,11 @@ pub fn build(b: *std.Build) !void {
 
         if (target.result.os.tag != .emscripten) {
             platform.linkLibrary(runtime);
+            b.installArtifact(platform);
+        } else {
+            b.installArtifact(platform);
+            b.installArtifact(runtime);
         }
-
-        b.installArtifact(platform);
-        b.installArtifact(runtime);
 
         break :blk platform;
     } else blk: {
