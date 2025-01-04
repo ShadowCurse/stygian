@@ -59,6 +59,8 @@ const _objects = stygian.objects;
 const Object2d = _objects.Object2d;
 const Transform2d = _objects.Transform2d;
 
+const Particles = stygian.particles;
+
 const SoftwareRuntime = struct {
     camera_controller: CameraController2d,
 
@@ -73,6 +75,7 @@ const SoftwareRuntime = struct {
 
     screen_quads: ScreenQuads,
     tile_map: TileMap,
+    particles: Particles,
 
     audio: Audio,
     background_sound_id: SoundtrackId,
@@ -102,7 +105,7 @@ const SoftwareRuntime = struct {
 
         self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 16);
 
-        self.screen_quads = try ScreenQuads.init(memory, 1024);
+        self.screen_quads = try ScreenQuads.init(memory, 2048);
         self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
         var y: u32 = 0;
         while (y < 5) : (y += 1) {
@@ -113,6 +116,16 @@ const SoftwareRuntime = struct {
                 }
             }
         }
+        self.particles = Particles.init(
+            memory,
+            100,
+            .{ .Color = Color.BLUE },
+            .{ .x = 400.0 },
+            .{ .x = 5.0, .y = 5.0 },
+            0.0,
+            3.0,
+            false,
+        );
         try self.audio.init(memory, 1.0);
         self.background_sound_id = self.audio.load_wav(memory, "assets/background.wav");
         self.attack_sound_id = self.audio.load_wav(memory, "assets/alex_attack.wav");
@@ -130,14 +143,26 @@ const SoftwareRuntime = struct {
         self.screen_quads.reset();
         const frame_alloc = memory.frame_alloc();
 
-        Performance.prepare_next_frame(struct { SoftRenderer, ScreenQuads, _objects, _audio });
+        Performance.prepare_next_frame(struct {
+            SoftRenderer,
+            ScreenQuads,
+            Particles,
+            _objects,
+            _audio,
+        });
         Performance.draw_perf(
-            struct { SoftRenderer, ScreenQuads, _objects, _audio },
+            struct { SoftRenderer, ScreenQuads, Particles, _objects, _audio },
             frame_alloc,
             &self.screen_quads,
             &self.font,
         );
-        Performance.zero_current(struct { SoftRenderer, ScreenQuads, _objects, _audio });
+        Performance.zero_current(struct {
+            SoftRenderer,
+            ScreenQuads,
+            Particles,
+            _objects,
+            _audio,
+        });
 
         for (events) |event| {
             self.camera_controller.process_input(event, dt);
@@ -263,6 +288,45 @@ const SoftwareRuntime = struct {
                 &self.screen_quads,
             );
         }
+
+        const ParticleUpdate = struct {
+            fn update(
+                particle_index: u32,
+                particle: *Particles.Particle,
+                rng: *std.rand.DefaultPrng,
+                _dt: f32,
+            ) void {
+                const random = rng.random();
+                const angle = std.math.pi * 2.0 / 16.0 * @as(f32, @floatFromInt(particle_index));
+                const rng_angle = angle + (random.float(f32) * 2.0 - 1.0) * std.math.pi / 2.0;
+                const c = @cos(rng_angle);
+                const s = @sin(rng_angle);
+                const offset: Vec3 = .{ .x = c, .y = s, .z = 0.0 };
+                particle.object.transform.position =
+                    particle.object.transform.position.add(offset);
+
+                const rng_size = random.float(f32) * 2.0 - 1.0;
+                particle.object.size =
+                    particle.object.size.add((Vec2{ .x = 5.0, .y = 5.0 })
+                    .mul_f32(rng_size * _dt));
+
+                particle.object.transform.rotation += 3.0 * _dt;
+                particle.object.type = .{ .Color = .{ .format = .{
+                    .r = @intFromFloat(std.math.lerp(8.0, 128.0, particle.lifespan)),
+                    .g = @intFromFloat(std.math.lerp(32.0, 255.0, particle.lifespan)),
+                    .b = @intFromFloat(std.math.lerp(16.0, 64.0, particle.lifespan)),
+                    .a = 255,
+                } } };
+            }
+        };
+
+        self.particles.update(&ParticleUpdate.update, dt);
+        self.particles.to_screen_quad(
+            &self.camera_controller,
+            &self.texture_store,
+            &self.screen_quads,
+        );
+
         const alex_pos = self.camera_controller.transform(.{
             .x = 0.0,
             .y = -280.0,

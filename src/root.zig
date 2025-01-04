@@ -11,6 +11,7 @@ pub const math = @import("math.zig");
 pub const memory = @import("memory.zig");
 pub const mesh = @import("mesh.zig");
 pub const objects = @import("objects.zig");
+pub const particles = @import("particles.zig");
 pub const performance = @import("performance.zig");
 pub const screen_quads = @import("screen_quads.zig");
 pub const texture = @import("texture.zig");
