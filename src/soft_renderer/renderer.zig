@@ -1,9 +1,11 @@
+const buildin = @import("builtin");
 const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
 const Perf = @import("../performance.zig");
 const Texture = @import("../texture.zig");
 const Color = @import("../color.zig").Color;
+const Memory = @import("../memory.zig");
 
 const _math = @import("../math.zig");
 const Vec2 = _math.Vec2;
@@ -77,42 +79,55 @@ pub const AABB = struct {
 };
 
 window: *sdl.SDL_Window,
-surface: *sdl.SDL_Surface,
+sdl_renderer: *sdl.SDL_Renderer,
+sdl_texture: *sdl.SDL_Texture,
 surface_texture: Texture,
 
 const Self = @This();
 
 pub fn init(
+    memory: *Memory,
     window: *sdl.SDL_Window,
+    width: u32,
+    height: u32,
 ) Self {
-    const surface = sdl.SDL_GetWindowSurface(window);
-    log.info(
-        @src(),
-        "Surface has format: {s}({d} bytes), A mask: {x}, R mask: {x}, G mask: {x}, B mask: {x}",
-        .{
-            sdl.SDL_GetPixelFormatName(surface.*.format.*.format),
-            surface.*.format.*.BytesPerPixel,
-            surface.*.format.*.Amask,
-            surface.*.format.*.Rmask,
-            surface.*.format.*.Gmask,
-            surface.*.format.*.Bmask,
-        },
-    );
+    const game_alloc = memory.game_alloc();
 
-    var data: []align(4) u8 = undefined;
-    data.ptr = @alignCast(@ptrCast(surface.*.pixels));
-    data.len = @intCast(surface.*.w * surface.*.h * surface.*.format.*.BytesPerPixel);
+    const sdl_renderer = sdl.SDL_CreateRenderer(
+        window,
+        -1,
+        sdl.SDL_RENDERER_ACCELERATED | sdl.SDL_RENDERER_PRESENTVSYNC,
+    );
+    const texture_data = game_alloc.alignedAlloc(u8, 4, width * height * 4) catch {
+        @panic("Cannot allocate memory for software renderer surface texture");
+    };
 
     const surface_texture: Texture = .{
-        .width = @intCast(surface.*.w),
-        .height = @intCast(surface.*.h),
-        .channels = @intCast(surface.*.format.*.BytesPerPixel),
-        .data = data,
+        .width = width,
+        .height = height,
+        .channels = 4,
+        .data = texture_data,
     };
+
+    const format = if (buildin.os.tag == .emscripten)
+        // sdl.SDL_PIXELFORMAT_BGR888
+        374740996
+    else
+        // sdl.SDL_PIXELFORMAT_RGB888
+        370546692;
+
+    const sdl_texture = sdl.SDL_CreateTexture(
+        sdl_renderer,
+        format,
+        sdl.SDL_TEXTUREACCESS_STREAMING,
+        @intCast(width),
+        @intCast(height),
+    );
 
     return .{
         .window = window,
-        .surface = surface,
+        .sdl_renderer = sdl_renderer.?,
+        .sdl_texture = sdl_texture.?,
         .surface_texture = surface_texture,
     };
 }
@@ -120,13 +135,22 @@ pub fn init(
 pub fn start_rendering(self: *const Self) void {
     const perf_start = perf.start();
     defer perf.end(@src(), perf_start);
-    _ = sdl.SDL_FillRect(self.surface, 0, 0);
+
+    @memset(self.surface_texture.data, 0);
 }
 
 pub fn end_rendering(self: *const Self) void {
     const perf_start = perf.start();
     defer perf.end(@src(), perf_start);
-    _ = sdl.SDL_UpdateWindowSurface(self.window);
+
+    _ = sdl.SDL_UpdateTexture(
+        self.sdl_texture,
+        null,
+        self.surface_texture.data.ptr,
+        @intCast(self.surface_texture.width * self.surface_texture.channels),
+    );
+    _ = sdl.SDL_RenderCopy(self.sdl_renderer, self.sdl_texture, null, null);
+    sdl.SDL_RenderPresent(self.sdl_renderer);
 }
 
 pub fn as_texture_rect(self: *const Self) TextureRect {

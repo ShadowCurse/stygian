@@ -116,7 +116,7 @@ const SoftwareRuntime = struct {
         try self.audio.init(memory, 1.0);
         self.background_sound_id = self.audio.load_wav(memory, "assets/background.wav");
         self.attack_sound_id = self.audio.load_wav(memory, "assets/alex_attack.wav");
-        self.soft_renderer = SoftRenderer.init(window);
+        self.soft_renderer = SoftRenderer.init(memory, window, width, height);
     }
 
     fn run(
