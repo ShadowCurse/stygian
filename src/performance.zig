@@ -180,6 +180,7 @@ pub fn draw_perf(
                 .{
                     .x = perf_x,
                     .y = perf_y,
+                    .z = std.math.floatMax(f32),
                 },
                 0.0,
                 .{},
@@ -210,6 +211,7 @@ pub fn draw_perf(
         .{
             .x = perf_x,
             .y = perf_y,
+            .z = std.math.floatMax(f32),
         },
         0.0,
         .{},
