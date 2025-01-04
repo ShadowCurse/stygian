@@ -311,7 +311,14 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
         for (0..height) |_| {
             for (0..width) |x| {
                 const src_u8 = src_data_u8[src_data_start + x];
-                const src: Color = .{ .format = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = src_u8 } };
+                const src: Color = .{
+                    .format = .{
+                        .r = src_u8,
+                        .g = src_u8,
+                        .b = src_u8,
+                        .a = src_u8,
+                    },
+                };
                 const dst = &dst_data_color[dst_data_start + x];
                 dst.* = src.mix(dst.*);
             }
@@ -390,10 +397,10 @@ pub fn draw_texture_with_size_and_rotation(
     const src_start_x: u32 = @intFromFloat(@round(texture_rect.position.x));
     const src_start_y: u32 = @intFromFloat(@round(texture_rect.position.y));
 
-    const ab = p_b.sub(p_a);
-    const bd = p_d.sub(p_b);
-    const dc = p_c.sub(p_d);
-    const ca = p_a.sub(p_c);
+    const ab = p_b.sub(p_a).perp();
+    const bd = p_d.sub(p_b).perp();
+    const dc = p_c.sub(p_d).perp();
+    const ca = p_a.sub(p_c).perp();
 
     const scale: Vec2 = texture_rect.size.div(size);
     const texture_width: i32 = @intFromFloat(@floor(texture_rect.size.x));
@@ -419,10 +426,10 @@ pub fn draw_texture_with_size_and_rotation(
                 const dp = p.sub(p_d);
                 const cp = p.sub(p_c);
 
-                const ab_test = ab.perp().dot(ap);
-                const bd_test = bd.perp().dot(bp);
-                const dc_test = dc.perp().dot(dp);
-                const ca_test = ca.perp().dot(cp);
+                const ab_test = ab.dot(ap);
+                const bd_test = bd.dot(bp);
+                const dc_test = dc.dot(dp);
+                const ca_test = ca.dot(cp);
 
                 if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
                     var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
@@ -460,10 +467,10 @@ pub fn draw_texture_with_size_and_rotation(
                 const dp = p.sub(p_d);
                 const cp = p.sub(p_c);
 
-                const ab_test = ab.perp().dot(ap);
-                const bd_test = bd.perp().dot(bp);
-                const dc_test = dc.perp().dot(dp);
-                const ca_test = ca.perp().dot(cp);
+                const ab_test = ab.dot(ap);
+                const bd_test = bd.dot(bp);
+                const dc_test = dc.dot(dp);
+                const ca_test = ca.dot(cp);
 
                 if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
                     var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
@@ -480,7 +487,14 @@ pub fn draw_texture_with_size_and_rotation(
                             u +
                             v * src_pitch
                     ];
-                    const src: Color = .{ .format = .{ .r = src_u8, .g = src_u8, .b = src_u8, .a = src_u8 } };
+                    const src: Color = .{
+                        .format = .{
+                            .r = src_u8,
+                            .g = src_u8,
+                            .b = src_u8,
+                            .a = src_u8,
+                        },
+                    };
                     const dst = &dst_data_color[dst_data_start + x];
                     dst.* = src.mix(dst.*);
                 }
@@ -547,12 +561,20 @@ pub fn draw_color_rect(
     var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
 
     const dst_data_color = self.surface_texture.as_color_slice();
-    for (0..height) |_| {
-        for (0..width) |x| {
-            const dst = &dst_data_color[dst_data_start + x];
-            dst.* = color.mix(dst.*);
+    if (color.format.a == 255) {
+        for (0..height) |_| {
+            const data_slice = dst_data_color[dst_data_start .. dst_data_start + width];
+            @memset(data_slice, color);
+            dst_data_start += dst_pitch;
         }
-        dst_data_start += dst_pitch;
+    } else {
+        for (0..height) |_| {
+            for (0..width) |x| {
+                const dst = &dst_data_color[dst_data_start + x];
+                dst.* = color.mix(dst.*);
+            }
+            dst_data_start += dst_pitch;
+        }
     }
 }
 
@@ -616,33 +638,60 @@ pub fn draw_color_rect_with_size_and_rotation(
 
     var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
 
-    const ab = p_b.sub(p_a);
-    const bd = p_d.sub(p_b);
-    const dc = p_c.sub(p_d);
-    const ca = p_a.sub(p_c);
+    const ab = p_b.sub(p_a).perp();
+    const bd = p_d.sub(p_b).perp();
+    const dc = p_c.sub(p_d).perp();
+    const ca = p_a.sub(p_c).perp();
 
     const dst_data_color = self.surface_texture.as_color_slice();
-    for (0..height) |y| {
-        for (0..width) |x| {
-            const p: Vec2 = .{
-                .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-            };
-            const ap = p.sub(p_a);
-            const bp = p.sub(p_b);
-            const dp = p.sub(p_d);
-            const cp = p.sub(p_c);
 
-            const ab_test = ab.perp().dot(ap);
-            const bd_test = bd.perp().dot(bp);
-            const dc_test = dc.perp().dot(dp);
-            const ca_test = ca.perp().dot(cp);
+    if (color.format.a == 255) {
+        for (0..height) |y| {
+            for (0..width) |x| {
+                const p: Vec2 = .{
+                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+                };
+                const ap = p.sub(p_a);
+                const bp = p.sub(p_b);
+                const dp = p.sub(p_d);
+                const cp = p.sub(p_c);
 
-            if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                const dst = &dst_data_color[dst_data_start + x];
-                dst.* = color.mix(dst.*);
+                const ab_test = ab.dot(ap);
+                const bd_test = bd.dot(bp);
+                const dc_test = dc.dot(dp);
+                const ca_test = ca.dot(cp);
+
+                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                    const dst = &dst_data_color[dst_data_start + x];
+                    dst.* = color;
+                }
             }
+            dst_data_start += dst_pitch;
         }
-        dst_data_start += dst_pitch;
+    } else {
+        for (0..height) |y| {
+            for (0..width) |x| {
+                const p: Vec2 = .{
+                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+                };
+                const ap = p.sub(p_a);
+                const bp = p.sub(p_b);
+                const dp = p.sub(p_d);
+                const cp = p.sub(p_c);
+
+                const ab_test = ab.dot(ap);
+                const bd_test = bd.dot(bp);
+                const dc_test = dc.dot(dp);
+                const ca_test = ca.dot(cp);
+
+                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                    const dst = &dst_data_color[dst_data_start + x];
+                    dst.* = color.mix(dst.*);
+                }
+            }
+            dst_data_start += dst_pitch;
+        }
     }
 }
