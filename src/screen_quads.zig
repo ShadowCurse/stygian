@@ -91,87 +91,8 @@ pub fn add_quad(self: *Self, quad: ScreenQuad) void {
         return;
     }
 
-    if (quad.texture_id != Texture.ID_SOLID_COLOR and quad.texture_id != Texture.ID_VERT_COLOR) {
-        log.assert(@src(), 0 < quad.uv_size.x, "Quad texture width must be not 0", .{});
-        log.assert(@src(), 0 < quad.uv_size.x, "Quad texture height must be not 0", .{});
-    }
-
     defer self.used_quads += 1;
     self.quads[self.used_quads] = quad;
-}
-
-pub const TextOptions = packed struct {
-    center: bool = true,
-    dont_clip: bool = false,
-};
-pub fn add_text(
-    self: *Self,
-    font: *const Font,
-    text: []const u8,
-    size: f32,
-    position: Vec3,
-    rotation: f32,
-    rotation_offset: Vec2,
-    options: TextOptions,
-) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
-
-    const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
-    if (remaining_quads < text.len) {
-        log.warn(
-            @src(),
-            "Trying to overflow the screen quads. Trying to add {} quads while only {} are available.",
-            .{ text.len, remaining_quads },
-        );
-        return;
-    }
-    defer self.used_quads += @intCast(text.len);
-
-    const scale = size / font.size;
-    var x_offset: f32 = if (options.center)
-        -font.size * scale * @as(f32, @floatFromInt(text.len / 2))
-    else
-        0.0;
-    const text_tag: ScreenQuadTag = if (options.dont_clip) .DontClip else .Clip;
-
-    const rotation_center = position.xy().add(rotation_offset);
-    for (self.quads[self.used_quads .. self.used_quads + text.len], text) |*quad, c| {
-        const char_info = font.char_info[c];
-        const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
-        const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
-        const char_origin: Vec3 = .{
-            .x = position.x + x_offset,
-            .y = position.y,
-            .z = position.z,
-        };
-        const char_position = char_origin.add(.{
-            .x = char_info.xoff,
-            .y = char_info.yoff + char_height * 0.5,
-            .z = 0.0,
-        });
-        quad.* = .{
-            .color = .{},
-            .texture_id = font.texture_id,
-            .position = char_position,
-            .size = .{
-                .x = char_width * scale,
-                .y = char_height * scale,
-            },
-            .rotation = rotation,
-            .rotation_offset = rotation_center.sub(char_origin.xy()),
-            .uv_offset = .{
-                .x = @as(f32, @floatFromInt(char_info.x0)),
-                .y = @as(f32, @floatFromInt(char_info.y0)),
-            },
-            .uv_size = .{
-                .x = char_width,
-                .y = char_height,
-            },
-            .tag = text_tag,
-        };
-        x_offset += char_info.xadvance * scale;
-    }
 }
 
 pub fn render(

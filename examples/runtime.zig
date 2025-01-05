@@ -23,6 +23,7 @@ const SoundtrackId = _audio.SoundtrackId;
 const Texture = stygian.texture;
 const GpuTexture = stygian.vk_renderer.gpu_texture;
 
+const Text = stygian.text;
 const Font = stygian.font.Font;
 const ScreenQuads = stygian.screen_quads;
 
@@ -341,7 +342,7 @@ const SoftwareRuntime = struct {
         self.texture_flip_book.update(&self.texture_store, &flip_book_quad, dt);
         self.screen_quads.add_quad(flip_book_quad);
 
-        self.screen_quads.add_text(
+        const text_fps = Text.init(
             &self.font,
             std.fmt.allocPrint(
                 frame_alloc,
@@ -357,7 +358,8 @@ const SoftwareRuntime = struct {
             .{},
             .{ .dont_clip = true },
         );
-        self.screen_quads.add_text(
+        text_fps.to_scren_quads(&self.screen_quads);
+        const text_frame_mem = Text.init(
             &self.font,
             std.fmt.allocPrint(
                 frame_alloc,
@@ -373,6 +375,8 @@ const SoftwareRuntime = struct {
             .{},
             .{ .dont_clip = true },
         );
+        text_frame_mem.to_scren_quads(&self.screen_quads);
+
         self.screen_quads.add_quad(.{
             .texture_id = self.texture_color_test,
             .position = .{

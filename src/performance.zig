@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 
 const log = @import("log.zig");
 
+const Text = @import("text.zig");
 const Font = @import("font.zig").Font;
 const ScreenQuads = @import("screen_quads.zig");
 
@@ -173,7 +174,8 @@ pub fn draw_perf(
                 log.warn(@src(), "Cannot formant performance measurement. Error: {}", .{e});
                 return;
             };
-            screen_quads.add_text(
+
+            const text = Text.init(
                 font,
                 s,
                 font.size,
@@ -186,6 +188,7 @@ pub fn draw_perf(
                 .{},
                 .{ .dont_clip = true, .center = false },
             );
+            text.to_scren_quads(screen_quads);
             perf_y += perf_y_advance;
         }
     }
@@ -204,7 +207,7 @@ pub fn draw_perf(
         log.warn(@src(), "Cannot formant performance measurement. Error: {}", .{e});
         return;
     };
-    screen_quads.add_text(
+    const text = Text.init(
         font,
         s,
         font.size,
@@ -217,4 +220,5 @@ pub fn draw_perf(
         .{},
         .{ .dont_clip = true, .center = false },
     );
+    text.to_scren_quads(screen_quads);
 }
