@@ -3,7 +3,7 @@ const log = @import("log.zig");
 
 const Perf = @import("performance.zig");
 const Texture = @import("texture.zig");
-const Font = @import("font.zig").Font;
+const Font = @import("font.zig");
 const Memory = @import("memory.zig");
 const Color = @import("color.zig").Color;
 const SoftRenderer = @import("soft_renderer/renderer.zig");

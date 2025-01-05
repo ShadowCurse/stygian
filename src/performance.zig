@@ -4,7 +4,7 @@ const Allocator = std.mem.Allocator;
 const log = @import("log.zig");
 
 const Text = @import("text.zig");
-const Font = @import("font.zig").Font;
+const Font = @import("font.zig");
 const ScreenQuads = @import("screen_quads.zig");
 
 pub const Options = struct {

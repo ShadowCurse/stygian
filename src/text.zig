@@ -1,4 +1,4 @@
-const Font = @import("font.zig").Font;
+const Font = @import("font.zig");
 const ScreenQuads = @import("screen_quads.zig");
 const ScreenQuadTag = ScreenQuads.ScreenQuadTag;
 

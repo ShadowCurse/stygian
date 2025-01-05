@@ -24,7 +24,7 @@ const Texture = stygian.texture;
 const GpuTexture = stygian.vk_renderer.gpu_texture;
 
 const Text = stygian.text;
-const Font = stygian.font.Font;
+const Font = stygian.font;
 const ScreenQuads = stygian.screen_quads;
 
 const Memory = stygian.memory;
