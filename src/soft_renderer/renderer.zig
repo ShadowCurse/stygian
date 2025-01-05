@@ -106,6 +106,7 @@ pub fn init(
         .width = width,
         .height = height,
         .channels = 4,
+        .type = .RGBA,
         .data = texture_data,
     };
 

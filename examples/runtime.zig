@@ -100,6 +100,7 @@ const SoftwareRuntime = struct {
         self.texture_item_pot = self.texture_store.load(memory, "assets/item_pot.png");
         self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
         self.texture_alex = self.texture_store.load(memory, "assets/alex_idle_sheet.png");
+        _ = self.texture_store.load_bmp(memory, "assets/color_test_pallet.bmp");
 
         self.texture_flip_book = Texture.FlipBook.init(self.texture_alex, 6);
         self.texture_flip_book.start(10.0, true);

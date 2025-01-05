@@ -79,6 +79,7 @@ pub fn init(
             .width = 512,
             .height = 512,
             .channels = 1,
+            .type = .OneByte,
         };
 
         return .{

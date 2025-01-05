@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 
+const platform = @import("platform/posix.zig");
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 const ScreenQuad = @import("screen_quads.zig").ScreenQuad;
@@ -12,9 +13,18 @@ pub const ID_DEBUG = 0;
 pub const ID_VERT_COLOR = std.math.maxInt(u32);
 pub const ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
 
+// TODO make palette index be a embedded here
+// so the type only has size of 4 bytes and not 8
+pub const Type = union(enum) {
+    RGBA: void,
+    OneByte: void,
+    Indxed: u32,
+};
+
 width: u32,
 height: u32,
 channels: u32,
+type: Type,
 data: []align(4) u8,
 
 const Self = @This();
@@ -37,11 +47,15 @@ pub const Store = struct {
     textures: []Self,
     textures_num: u32,
 
+    paletts: [][]align(4) u8,
+    paletts_num: u32,
+
     pub const DEBUG_WIDTH = 16;
     pub const DEBUG_HEIGHT = 16;
     pub const DEBUG_CHANNELS = 4;
 
     pub const MAX_TEXTURES = 8;
+    pub const MAX_PALETTS = 8;
 
     pub fn init(self: *Store, memory: *Memory) !void {
         const game_alloc = memory.game_alloc();
@@ -64,9 +78,13 @@ pub const Store = struct {
             .width = DEBUG_WIDTH,
             .height = DEBUG_HEIGHT,
             .channels = DEBUG_CHANNELS,
+            .type = .RGBA,
             .data = data_u8,
         };
         self.textures_num = 1;
+
+        self.paletts = try game_alloc.alloc([]align(4) u8, MAX_PALETTS);
+        self.paletts_num = 0;
     }
 
     pub fn reserve(self: *Store) ?Id {
@@ -133,19 +151,20 @@ pub const Store = struct {
                 @memcpy(bytes, data);
             }
 
-            self.textures[self.textures_num] = .{
+            const id = self.textures_num;
+            self.textures[id] = .{
                 .width = width,
                 .height = height,
                 .channels = channels,
+                .type = if (channels == 4) .RGBA else .OneByte,
                 .data = bytes,
             };
-            const id = self.textures_num;
+            self.textures_num += 1;
             log.info(
                 @src(),
                 "Loaded texture from the path: {s} width: {} height: {} channels: {} id: {}",
                 .{ path, width, height, channels, id },
             );
-            self.textures_num += 1;
             return id;
         } else {
             log.err(@src(), "Cannot load a texture from the path: {s} error: {s}", .{
@@ -154,6 +173,163 @@ pub const Store = struct {
             });
             return ID_DEBUG;
         }
+    }
+
+    pub fn load_bmp(self: *Store, memory: *Memory, path: [:0]const u8) Id {
+        const game_alloc = memory.game_alloc();
+
+        if (self.textures_num == self.textures.len) {
+            log.err(
+                @src(),
+                "Trying to load more textures than capacity: MAX_TEXTURES: {}, path: {s}",
+                .{ @as(u32, MAX_TEXTURES), path },
+            );
+            return ID_DEBUG;
+        }
+
+        const fm = platform.FileMem.init(path) catch |e| {
+            log.err(
+                @src(),
+                "Cannot get file memory for a font. Font path: {s} error: {}",
+                .{ path, e },
+            );
+            return ID_DEBUG;
+        };
+        defer fm.deinit();
+
+        if (!std.mem.eql(u8, fm.mem[0..2], "BM")) {
+            log.err(
+                @src(),
+                "Trying to load BMP but the magic value is incorrect. Path: {s}",
+                .{path},
+            );
+            return ID_DEBUG;
+        }
+
+        const bm_offset_offset = 2 + 4 + 2 + 2;
+        const bm_offset: u32 =
+            @as(u32, @intCast(fm.mem[bm_offset_offset + 3])) << 24 |
+            @as(u32, @intCast(fm.mem[bm_offset_offset + 2])) << 16 |
+            @as(u32, @intCast(fm.mem[bm_offset_offset + 1])) << 8 |
+            @as(u32, @intCast(fm.mem[bm_offset_offset + 0]));
+        log.debug(@src(), "offset: {d}", .{bm_offset});
+
+        const header_size_offset = bm_offset_offset + 4;
+        const header_size: u32 =
+            @as(u32, @intCast(fm.mem[header_size_offset + 3])) << 24 |
+            @as(u32, @intCast(fm.mem[header_size_offset + 2])) << 16 |
+            @as(u32, @intCast(fm.mem[header_size_offset + 1])) << 8 |
+            @as(u32, @intCast(fm.mem[header_size_offset + 0]));
+        log.debug(@src(), "header_size: {d}", .{header_size});
+
+        if (header_size < 40) {
+            log.err(@src(), "Trygin to load a BMP, but the header is too old. Path: {s}", .{path});
+            return ID_DEBUG;
+        }
+
+        const width_offset = header_size_offset + 4;
+        const width: u32 =
+            @as(u32, @intCast(fm.mem[width_offset + 3])) << 24 |
+            @as(u32, @intCast(fm.mem[width_offset + 2])) << 16 |
+            @as(u32, @intCast(fm.mem[width_offset + 1])) << 8 |
+            @as(u32, @intCast(fm.mem[width_offset + 0]));
+        log.debug(@src(), "width: {d}", .{width});
+
+        const height_offset = width_offset + 4;
+        const height: u32 =
+            @as(u32, @intCast(fm.mem[height_offset + 3])) << 24 |
+            @as(u32, @intCast(fm.mem[height_offset + 2])) << 16 |
+            @as(u32, @intCast(fm.mem[height_offset + 1])) << 8 |
+            @as(u32, @intCast(fm.mem[height_offset + 0]));
+        log.debug(@src(), "height: {d}", .{height});
+
+        if (width == 0 or height == 0) {
+            log.err(
+                @src(),
+                "Trygin to load a BMP, but the width or height is 0. Path: {s}",
+                .{path},
+            );
+            return ID_DEBUG;
+        }
+
+        const bits_per_pixel_offset = height_offset + 4 + 2;
+        const bits_per_pixel: u16 =
+            @as(u16, @intCast(fm.mem[bits_per_pixel_offset + 1])) << 8 |
+            @as(u16, @intCast(fm.mem[bits_per_pixel_offset + 0]));
+        log.debug(@src(), "bits_per_pixel: {d}", .{bits_per_pixel});
+
+        if (bits_per_pixel != 8) {
+            log.err(
+                @src(),
+                "Trygin to load a BMP, but the bits_per_pixel is {} instead of 8. Path: {s}",
+                .{ bits_per_pixel, path },
+            );
+            return ID_DEBUG;
+        }
+
+        const compression_offset = bits_per_pixel_offset + 2;
+        const compression: u32 =
+            @as(u32, @intCast(fm.mem[compression_offset + 3])) << 24 |
+            @as(u32, @intCast(fm.mem[compression_offset + 2])) << 16 |
+            @as(u32, @intCast(fm.mem[compression_offset + 1])) << 8 |
+            @as(u32, @intCast(fm.mem[compression_offset + 0]));
+        log.debug(@src(), "compression: {d}", .{compression});
+
+        if (compression != 0) {
+            log.err(@src(), "Trygin to load a BMP, but it is compressed. Path: {s}", .{path});
+            return ID_DEBUG;
+        }
+
+        const colors_used_offset = compression_offset + 4 + 4 + 4 + 4;
+        const colors_used: u32 =
+            @as(u32, @intCast(fm.mem[colors_used_offset + 3])) << 24 |
+            @as(u32, @intCast(fm.mem[colors_used_offset + 2])) << 16 |
+            @as(u32, @intCast(fm.mem[colors_used_offset + 1])) << 8 |
+            @as(u32, @intCast(fm.mem[colors_used_offset + 0]));
+        log.debug(@src(), "colors_used: {d}", .{colors_used});
+
+        const palette_offset = header_size + header_size_offset;
+        const bm_bytes = game_alloc.alignedAlloc(u8, 4, width * height) catch |e| {
+            log.err(
+                @src(),
+                "Cannot allocate memory for a texture. Texture path: {s} error: {}",
+                .{ path, e },
+            );
+            return ID_DEBUG;
+        };
+        @memcpy(bm_bytes, fm.mem[bm_offset .. bm_offset + width * height]);
+
+        const palette_bytes = game_alloc.alignedAlloc(u8, 4, colors_used * 4) catch |e| {
+            log.err(
+                @src(),
+                "Cannot allocate memory for a texture. Texture path: {s} error: {}",
+                .{ path, e },
+            );
+            return ID_DEBUG;
+        };
+        @memcpy(palette_bytes, fm.mem[palette_offset .. palette_offset + colors_used * 4]);
+
+        const texture_id = self.textures_num;
+        const palette_id = self.paletts_num;
+        self.textures[texture_id] = .{
+            .width = width,
+            .height = height,
+            .channels = 1,
+            .type = .{ .Indxed = palette_id },
+            .data = bm_bytes,
+        };
+        self.paletts[palette_id] = palette_bytes;
+
+        self.textures_num += 1;
+        self.paletts_num += 1;
+
+        log.info(
+            @src(),
+            "Loaded BMP texture from the path: {s} width: {} height: {} colors: {} texture_id: {} palette_id: {}",
+            .{ path, width, height, colors_used, texture_id, palette_id },
+        );
+
+        return texture_id;
     }
 
     pub fn get(self: Store, texture_id: Id) *const Self {
