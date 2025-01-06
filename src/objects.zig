@@ -56,7 +56,7 @@ pub const Object2d = struct {
                 });
             },
             .TextureId => |texture_id| {
-                const texture = texture_store.get(texture_id);
+                const texture = texture_store.get_texture(texture_id);
                 const texture_size = Vec2{
                     .x = @as(f32, @floatFromInt(texture.width)),
                     .y = @as(f32, @floatFromInt(texture.height)),

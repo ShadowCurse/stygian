@@ -136,7 +136,11 @@ pub fn render(
                 }
             },
             else => |texture_id| {
-                const texture = texture_store.get(texture_id);
+                const texture = texture_store.get_texture(texture_id);
+                const palette = switch (texture.type) {
+                    .Indexed => |i| texture_store.get_palette(i),
+                    else => null,
+                };
                 soft_renderer.draw_texture_with_size_and_rotation(
                     quad.position.xy(),
                     quad.size,
@@ -144,11 +148,11 @@ pub fn render(
                     quad.rotation_offset,
                     .{
                         .texture = texture,
+                        .palette = palette,
                         .position = quad.uv_offset,
                         .size = quad.uv_size,
                     },
                 );
-                // }
             },
         }
     }

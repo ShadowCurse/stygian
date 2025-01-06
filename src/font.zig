@@ -19,7 +19,7 @@ pub fn init(
     font_size: f32,
 ) Self {
     if (texture_store.reserve()) |texture_id| {
-        const texture = texture_store.get_mut(texture_id);
+        const texture = texture_store.get_texture_mut(texture_id);
         const game_alloc = memory.game_alloc();
 
         const fm = platform.FileMem.init(path) catch |e| {

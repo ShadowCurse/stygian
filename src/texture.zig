@@ -18,7 +18,7 @@ pub const ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
 pub const Type = union(enum) {
     RGBA: void,
     OneByte: void,
-    Indxed: u32,
+    Indexed: Id,
 };
 
 width: u32,
@@ -315,7 +315,7 @@ pub const Store = struct {
             .width = width,
             .height = height,
             .channels = 1,
-            .type = .{ .Indxed = palette_id },
+            .type = .{ .Indexed = palette_id },
             .data = bm_bytes,
         };
         self.paletts[palette_id] = palette_bytes;
@@ -332,7 +332,7 @@ pub const Store = struct {
         return texture_id;
     }
 
-    pub fn get(self: Store, texture_id: Id) *const Self {
+    pub fn get_texture(self: Store, texture_id: Id) *const Self {
         log.assert(
             @src(),
             texture_id < self.textures_num,
@@ -342,7 +342,7 @@ pub const Store = struct {
         return &self.textures[texture_id];
     }
 
-    pub fn get_mut(self: *Store, texture_id: Id) *Self {
+    pub fn get_texture_mut(self: *Store, texture_id: Id) *Self {
         log.assert(
             @src(),
             texture_id < self.textures_num,
@@ -350,6 +350,26 @@ pub const Store = struct {
             .{ self.textures_num, texture_id },
         );
         return &self.textures[texture_id];
+    }
+
+    pub fn get_palette(self: Store, palette_id: Id) []align(4) u8 {
+        log.assert(
+            @src(),
+            palette_id < self.paletts_num,
+            "Trying to get texture palette outside the range: {} available, {} requested",
+            .{ self.textures_num, palette_id },
+        );
+        return self.paletts[palette_id];
+    }
+
+    pub fn get_palette_mut(self: *Store, palette_id: Id) []align(4) u8 {
+        log.assert(
+            @src(),
+            palette_id < self.paletts_num,
+            "Trying to get texture palette outside the range: {} available, {} requested",
+            .{ self.textures_num, palette_id },
+        );
+        return self.paletts[palette_id];
     }
 };
 
@@ -400,7 +420,7 @@ pub const FlipBook = struct {
             }
         }
 
-        const texture = texture_store.get(self.texture_id);
+        const texture = texture_store.get_texture(self.texture_id);
         const frame_width = texture.width / self.frames;
         const frame_start = frame_width * self.current_frame;
 

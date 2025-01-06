@@ -67,6 +67,7 @@ const SoftwareRuntime = struct {
 
     texture_store: Texture.Store,
     texture_color_test: Texture.Id,
+    texture_color_test_palette: Texture.Id,
     texture_item_pot: Texture.Id,
     texture_item_coffecup: Texture.Id,
     texture_alex: Texture.Id,
@@ -97,10 +98,11 @@ const SoftwareRuntime = struct {
 
         try self.texture_store.init(memory);
         self.texture_color_test = self.texture_store.load(memory, "assets/color_test.png");
+        self.texture_color_test_palette =
+            self.texture_store.load_bmp(memory, "assets/color_test_palette.bmp");
         self.texture_item_pot = self.texture_store.load(memory, "assets/item_pot.png");
         self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
         self.texture_alex = self.texture_store.load(memory, "assets/alex_idle_sheet.png");
-        _ = self.texture_store.load_bmp(memory, "assets/color_test_pallet.bmp");
 
         self.texture_flip_book = Texture.FlipBook.init(self.texture_alex, 6);
         self.texture_flip_book.start(10.0, true);
@@ -235,13 +237,13 @@ const SoftwareRuntime = struct {
                 },
             },
             .{
-                .type = .{ .Color = Color.ORAGE },
+                .type = .{ .TextureId = self.texture_color_test_palette },
                 .transform = .{
                     .position = .{
                         .x = 100.0,
                         .y = 0.0,
                     },
-                    .rotation = 0.0,
+                    .rotation = -A.a,
                 },
                 .size = .{
                     .x = 50.0,
@@ -390,8 +392,8 @@ const SoftwareRuntime = struct {
             },
             .uv_offset = .{},
             .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.texture_store.get(self.texture_color_test).width)),
-                .y = @as(f32, @floatFromInt(self.texture_store.get(self.texture_color_test).height)),
+                .x = @as(f32, @floatFromInt(self.texture_store.get_texture(self.texture_color_test).width)),
+                .y = @as(f32, @floatFromInt(self.texture_store.get_texture(self.texture_color_test).height)),
             },
             .tag = .DontClip,
         });
@@ -467,7 +469,7 @@ const VulkanRuntime = struct {
 
         self.vk_renderer = try VkRenderer.init(memory, window, width, height);
 
-        const debug_texture = self.texture_store.get(Texture.ID_DEBUG);
+        const debug_texture = self.texture_store.get_texture(Texture.ID_DEBUG);
         self.gpu_debug_texture = try self.vk_renderer.create_texture(
             debug_texture.width,
             debug_texture.height,
@@ -478,7 +480,7 @@ const VulkanRuntime = struct {
             debug_texture,
         );
 
-        const letter_a_texture = self.texture_store.get(self.texture_letter_a);
+        const letter_a_texture = self.texture_store.get_texture(self.texture_letter_a);
         self.gpu_letter_a_texture = try self.vk_renderer.create_texture(
             letter_a_texture.width,
             letter_a_texture.height,
@@ -489,7 +491,7 @@ const VulkanRuntime = struct {
             letter_a_texture,
         );
 
-        const font_texture = self.texture_store.get(self.font.texture_id);
+        const font_texture = self.texture_store.get_texture(self.font.texture_id);
         self.gpu_font_texture = try self.vk_renderer.create_texture(
             font_texture.width,
             font_texture.height,
@@ -630,7 +632,7 @@ const VulkanRuntime = struct {
             },
         });
 
-        const letter_a = self.texture_store.get(self.texture_letter_a);
+        const letter_a = self.texture_store.get_texture(self.texture_letter_a);
         self.screen_quads.add_quad(.{
             .texture_id = self.texture_letter_a,
             .position = .{

@@ -24,6 +24,7 @@ pub const perf = Perf.Measurements(struct {
 // Texture rectangle with 0,0 at the top left
 pub const TextureRect = struct {
     texture: *const Texture,
+    palette: ?[]align(4) u8,
     position: Vec2,
     size: Vec2,
 
@@ -157,6 +158,7 @@ pub fn end_rendering(self: *const Self) void {
 pub fn as_texture_rect(self: *const Self) TextureRect {
     return .{
         .texture = &self.surface_texture,
+        .palette = null,
         .position = .{},
         .size = .{
             .x = @floatFromInt(self.surface_texture.width),
@@ -457,50 +459,97 @@ pub fn draw_texture_with_size_and_rotation(
         const dst_data_color = self.surface_texture.as_color_slice();
         const src_data_u8 = texture_rect.texture.data;
 
-        for (0..height) |y| {
-            for (0..width) |x| {
-                const p: Vec2 = .{
-                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-                };
-                const ap = p.sub(p_a);
-                const bp = p.sub(p_b);
-                const dp = p.sub(p_d);
-                const cp = p.sub(p_c);
-
-                const ab_test = ab.dot(ap);
-                const bd_test = bd.dot(bp);
-                const dc_test = dc.dot(dp);
-                const ca_test = ca.dot(cp);
-
-                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
-                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
-                    u_i32 = @min(@max(0, u_i32), texture_width - 1);
-                    v_i32 = @min(@max(0, v_i32), texture_height - 1);
-
-                    const u: u32 = @intCast(u_i32);
-                    const v: u32 = @as(u32, @intCast(texture_height - 1)) -
-                        @as(u32, @intCast(v_i32));
-
-                    const src_u8 = src_data_u8[
-                        src_data_start +
-                            u +
-                            v * src_pitch
-                    ];
-                    const src: Color = .{
-                        .format = .{
-                            .r = src_u8,
-                            .g = src_u8,
-                            .b = src_u8,
-                            .a = src_u8,
-                        },
+        if (texture_rect.palette) |palette| {
+            for (0..height) |y| {
+                for (0..width) |x| {
+                    const p: Vec2 = .{
+                        .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                        .y = intersection.min.y + @as(f32, @floatFromInt(y)),
                     };
-                    const dst = &dst_data_color[dst_data_start + x];
-                    dst.* = src.mix(dst.*);
+                    const ap = p.sub(p_a);
+                    const bp = p.sub(p_b);
+                    const dp = p.sub(p_d);
+                    const cp = p.sub(p_c);
+
+                    const ab_test = ab.dot(ap);
+                    const bd_test = bd.dot(bp);
+                    const dc_test = dc.dot(dp);
+                    const ca_test = ca.dot(cp);
+
+                    if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                        var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
+                        var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
+                        u_i32 = @min(@max(0, u_i32), texture_width - 1);
+                        v_i32 = @min(@max(0, v_i32), texture_height - 1);
+
+                        const u: u32 = @intCast(u_i32);
+                        const v: u32 = @intCast(v_i32);
+
+                        const palette_index = src_data_u8[
+                            src_data_start +
+                                u +
+                                v * src_pitch
+                        ];
+                        const src: Color = .{
+                            .format = .{
+                                .r = palette[palette_index * 4 + 2],
+                                .g = palette[palette_index * 4 + 1],
+                                .b = palette[palette_index * 4],
+                                .a = 255,
+                            },
+                        };
+                        const dst = &dst_data_color[dst_data_start + x];
+                        dst.* = src.mix(dst.*);
+                    }
                 }
+                dst_data_start += dst_pitch;
             }
-            dst_data_start += dst_pitch;
+        } else {
+            for (0..height) |y| {
+                for (0..width) |x| {
+                    const p: Vec2 = .{
+                        .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                        .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+                    };
+                    const ap = p.sub(p_a);
+                    const bp = p.sub(p_b);
+                    const dp = p.sub(p_d);
+                    const cp = p.sub(p_c);
+
+                    const ab_test = ab.dot(ap);
+                    const bd_test = bd.dot(bp);
+                    const dc_test = dc.dot(dp);
+                    const ca_test = ca.dot(cp);
+
+                    if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                        var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
+                        var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
+                        u_i32 = @min(@max(0, u_i32), texture_width - 1);
+                        v_i32 = @min(@max(0, v_i32), texture_height - 1);
+
+                        const u: u32 = @intCast(u_i32);
+                        const v: u32 = @as(u32, @intCast(texture_height - 1)) -
+                            @as(u32, @intCast(v_i32));
+
+                        const src_u8 = src_data_u8[
+                            src_data_start +
+                                u +
+                                v * src_pitch
+                        ];
+                        const src: Color = .{
+                            .format = .{
+                                .r = src_u8,
+                                .g = src_u8,
+                                .b = src_u8,
+                                .a = src_u8,
+                            },
+                        };
+                        const dst = &dst_data_color[dst_data_start + x];
+                        dst.* = src.mix(dst.*);
+                    }
+                }
+                dst_data_start += dst_pitch;
+            }
         }
     } else {
         log.warn(
