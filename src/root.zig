@@ -15,7 +15,7 @@ pub const particles = @import("particles.zig");
 pub const performance = @import("performance.zig");
 pub const screen_quads = @import("screen_quads.zig");
 pub const text = @import("text.zig");
-pub const texture = @import("texture.zig");
+pub const textures = @import("textures.zig");
 pub const tile_map = @import("tile_map.zig");
 
 pub const build_options = @import("build_options");

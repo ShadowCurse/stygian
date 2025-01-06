@@ -2,7 +2,7 @@ const std = @import("std");
 const log = @import("log.zig");
 
 const Perf = @import("performance.zig");
-const Texture = @import("texture.zig");
+const Textures = @import("textures.zig");
 const Font = @import("font.zig");
 const Memory = @import("memory.zig");
 const Color = @import("color.zig").Color;
@@ -41,7 +41,7 @@ pub const ScreenQuad = extern struct {
 
     rotation: f32 = 0.0,
     color: Color = Color.WHITE,
-    texture_id: Texture.Id = Texture.ID_DEBUG,
+    texture_id: Textures.Texture.Id = Textures.Texture.ID_DEBUG,
     tag: ScreenQuadTag = .Clip,
 };
 
@@ -99,7 +99,7 @@ pub fn render(
     self: *Self,
     soft_renderer: *SoftRenderer,
     clip_z: f32,
-    texture_store: *const Texture.Store,
+    texture_store: *const Textures.Store,
 ) void {
     const perf_start = perf.start();
     defer perf.end(@src(), perf_start);
@@ -117,8 +117,8 @@ pub fn render(
         }
 
         switch (quad.texture_id) {
-            Texture.ID_VERT_COLOR => {},
-            Texture.ID_SOLID_COLOR => {
+            Textures.Texture.ID_VERT_COLOR => {},
+            Textures.Texture.ID_SOLID_COLOR => {
                 if (quad.rotation == 0.0) {
                     soft_renderer.draw_color_rect(
                         quad.position.xy(),
@@ -137,10 +137,10 @@ pub fn render(
             },
             else => |texture_id| {
                 const texture = texture_store.get_texture(texture_id);
-                const palette = switch (texture.type) {
-                    .Indexed => |i| texture_store.get_palette(i),
-                    else => null,
-                };
+                const palette = if (texture.palette_id) |pid|
+                    texture_store.get_palette(pid)
+                else
+                    null;
                 soft_renderer.draw_texture_with_size_and_rotation(
                     quad.position.xy(),
                     quad.size,

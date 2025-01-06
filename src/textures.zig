@@ -8,47 +8,63 @@ const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 const ScreenQuad = @import("screen_quads.zig").ScreenQuad;
 
-pub const Id = u32;
-pub const ID_DEBUG = 0;
-pub const ID_VERT_COLOR = std.math.maxInt(u32);
-pub const ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
+pub const Texture = struct {
+    width: u32 = 0,
+    height: u32 = 0,
+    channels: u32 = 0,
+    palette_id: ?u16 = null,
+    data: []align(4) u8 = &.{},
 
-// TODO make palette index be a embedded here
-// so the type only has size of 4 bytes and not 8
-pub const Type = union(enum) {
-    RGBA: void,
-    OneByte: void,
-    Indexed: Id,
+    pub const Id = u32;
+    pub const ID_DEBUG = 0;
+    pub const ID_VERT_COLOR = std.math.maxInt(u32);
+    pub const ID_SOLID_COLOR = std.math.maxInt(u32) - 1;
+
+    const Self = @This();
+
+    pub fn as_color_slice(self: Self) []Color {
+        log.assert(
+            @src(),
+            self.channels == 4 and self.data.len % 4 == 0,
+            "Trying to convert texture with {} channels and {} bytes to a slice of Color",
+            .{ self.channels, self.data.len },
+        );
+        var slice: []Color = undefined;
+        slice.ptr = @alignCast(@ptrCast(self.data.ptr));
+        slice.len = self.data.len / 4;
+        return slice;
+    }
 };
 
-width: u32,
-height: u32,
-channels: u32,
-type: Type,
-data: []align(4) u8,
+pub const Palette = struct {
+    data: []align(4) u8,
 
-const Self = @This();
+    pub const Id = u32;
+    pub const ID_DEBUG = 0;
 
-pub fn as_color_slice(self: Self) []Color {
-    log.assert(
-        @src(),
-        self.channels == 4,
-        "Trying to convert texture with {} channels to a slice of Color",
-        .{self.channels},
-    );
-    var slice: []Color = undefined;
-    slice.ptr = @alignCast(@ptrCast(self.data.ptr));
-    slice.len = self.data.len / 4;
-    return slice;
-}
+    const Self = @This();
+
+    pub fn as_color_slice(self: Self) []Color {
+        log.assert(
+            @src(),
+            self.data.len % 4 == 0,
+            "Trying to convert color palette with {} bytes to a slice of Color",
+            .{self.data.len},
+        );
+        var slice: []Color = undefined;
+        slice.ptr = @alignCast(@ptrCast(self.data.ptr));
+        slice.len = self.data.len / 4;
+        return slice;
+    }
+};
 
 // This type assumes it will never be moved
 pub const Store = struct {
-    textures: []Self,
+    textures: []Texture,
     textures_num: u32,
 
-    paletts: [][]align(4) u8,
-    paletts_num: u32,
+    paletts: []Palette,
+    paletts_num: u16,
 
     pub const DEBUG_WIDTH = 16;
     pub const DEBUG_HEIGHT = 16;
@@ -57,10 +73,12 @@ pub const Store = struct {
     pub const MAX_TEXTURES = 8;
     pub const MAX_PALETTS = 8;
 
-    pub fn init(self: *Store, memory: *Memory) !void {
+    const Self = @This();
+
+    pub fn init(self: *Self, memory: *Memory) !void {
         const game_alloc = memory.game_alloc();
 
-        self.textures = try game_alloc.alloc(Self, MAX_TEXTURES);
+        self.textures = try game_alloc.alloc(Texture, MAX_TEXTURES);
         var debug_texture_data = try game_alloc.alignedAlloc(Color, 4, DEBUG_WIDTH * DEBUG_HEIGHT);
         for (0..DEBUG_HEIGHT) |y| {
             for (0..DEBUG_WIDTH) |x| {
@@ -74,20 +92,24 @@ pub const Store = struct {
         data_u8.ptr = @ptrCast(debug_texture_data.ptr);
         data_u8.len = debug_texture_data.len * DEBUG_CHANNELS;
 
-        self.textures[ID_DEBUG] = .{
+        self.textures[Texture.ID_DEBUG] = .{
             .width = DEBUG_WIDTH,
             .height = DEBUG_HEIGHT,
             .channels = DEBUG_CHANNELS,
-            .type = .RGBA,
             .data = data_u8,
         };
         self.textures_num = 1;
 
-        self.paletts = try game_alloc.alloc([]align(4) u8, MAX_PALETTS);
-        self.paletts_num = 0;
+        self.paletts = try game_alloc.alloc(Palette, MAX_PALETTS);
+        self.paletts[0].data = try game_alloc.alignedAlloc(u8, 4, 4 * 256);
+        const debug_palette_colors = self.paletts[0].as_color_slice();
+        for (debug_palette_colors) |*c| {
+            c.* = Color.WHITE;
+        }
+        self.paletts_num = 1;
     }
 
-    pub fn reserve(self: *Store) ?Id {
+    pub fn reserve(self: *Store) ?Texture.Id {
         if (self.textures_num != self.textures.len) {
             const id = self.textures_num;
             self.textures_num += 1;
@@ -97,7 +119,7 @@ pub const Store = struct {
         }
     }
 
-    pub fn load(self: *Store, memory: *Memory, path: [:0]const u8) Id {
+    pub fn load(self: *Store, memory: *Memory, path: [:0]const u8) Texture.Id {
         const game_alloc = memory.game_alloc();
 
         if (self.textures_num == self.textures.len) {
@@ -106,7 +128,7 @@ pub const Store = struct {
                 "Trying to load more textures than capacity: MAX_TEXTURES: {}, path: {s}",
                 .{ @as(u32, MAX_TEXTURES), path },
             );
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
 
         var x: i32 = undefined;
@@ -125,7 +147,7 @@ pub const Store = struct {
                     "Cannot allocate memory for a texture. Texture path: {s} error: {}",
                     .{ path, e },
                 );
-                return ID_DEBUG;
+                return Texture.ID_DEBUG;
             };
             var data: []u8 = undefined;
             data.ptr = image;
@@ -156,7 +178,6 @@ pub const Store = struct {
                 .width = width,
                 .height = height,
                 .channels = channels,
-                .type = if (channels == 4) .RGBA else .OneByte,
                 .data = bytes,
             };
             self.textures_num += 1;
@@ -171,11 +192,11 @@ pub const Store = struct {
                 path,
                 stb.stbi_failure_reason(),
             });
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
     }
 
-    pub fn load_bmp(self: *Store, memory: *Memory, path: [:0]const u8) Id {
+    pub fn load_bmp(self: *Self, memory: *Memory, path: [:0]const u8) Texture.Id {
         const game_alloc = memory.game_alloc();
 
         if (self.textures_num == self.textures.len) {
@@ -184,7 +205,7 @@ pub const Store = struct {
                 "Trying to load more textures than capacity: MAX_TEXTURES: {}, path: {s}",
                 .{ @as(u32, MAX_TEXTURES), path },
             );
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
 
         const fm = platform.FileMem.init(path) catch |e| {
@@ -193,7 +214,7 @@ pub const Store = struct {
                 "Cannot get file memory for a font. Font path: {s} error: {}",
                 .{ path, e },
             );
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         };
         defer fm.deinit();
 
@@ -203,7 +224,7 @@ pub const Store = struct {
                 "Trying to load BMP but the magic value is incorrect. Path: {s}",
                 .{path},
             );
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
 
         const bm_offset_offset = 2 + 4 + 2 + 2;
@@ -224,7 +245,7 @@ pub const Store = struct {
 
         if (header_size < 40) {
             log.err(@src(), "Trygin to load a BMP, but the header is too old. Path: {s}", .{path});
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
 
         const width_offset = header_size_offset + 4;
@@ -249,7 +270,7 @@ pub const Store = struct {
                 "Trygin to load a BMP, but the width or height is 0. Path: {s}",
                 .{path},
             );
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
 
         const bits_per_pixel_offset = height_offset + 4 + 2;
@@ -264,7 +285,7 @@ pub const Store = struct {
                 "Trygin to load a BMP, but the bits_per_pixel is {} instead of 8. Path: {s}",
                 .{ bits_per_pixel, path },
             );
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
 
         const compression_offset = bits_per_pixel_offset + 2;
@@ -277,7 +298,7 @@ pub const Store = struct {
 
         if (compression != 0) {
             log.err(@src(), "Trygin to load a BMP, but it is compressed. Path: {s}", .{path});
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         }
 
         const colors_used_offset = compression_offset + 4 + 4 + 4 + 4;
@@ -289,15 +310,9 @@ pub const Store = struct {
         log.debug(@src(), "colors_used: {d}", .{colors_used});
 
         const palette_offset = header_size + header_size_offset;
-        const bm_bytes = game_alloc.alignedAlloc(u8, 4, width * height) catch |e| {
-            log.err(
-                @src(),
-                "Cannot allocate memory for a texture. Texture path: {s} error: {}",
-                .{ path, e },
-            );
-            return ID_DEBUG;
-        };
-        @memcpy(bm_bytes, fm.mem[bm_offset .. bm_offset + width * height]);
+
+        const palette_id = self.paletts_num;
+        self.paletts_num += 1;
 
         const palette_bytes = game_alloc.alignedAlloc(u8, 4, colors_used * 4) catch |e| {
             log.err(
@@ -305,23 +320,42 @@ pub const Store = struct {
                 "Cannot allocate memory for a texture. Texture path: {s} error: {}",
                 .{ path, e },
             );
-            return ID_DEBUG;
+            return Texture.ID_DEBUG;
         };
-        @memcpy(palette_bytes, fm.mem[palette_offset .. palette_offset + colors_used * 4]);
+        self.paletts[palette_id].data = palette_bytes;
+
+        const palette_colors = self.paletts[palette_id].as_color_slice();
+        for (0..colors_used) |i| {
+            const color: Color = .{
+                .format = .{
+                    .r = fm.mem[palette_offset + i * 4 + 2],
+                    .g = fm.mem[palette_offset + i * 4 + 1],
+                    .b = fm.mem[palette_offset + i * 4],
+                    .a = 255,
+                },
+            };
+            palette_colors[i] = color;
+        }
 
         const texture_id = self.textures_num;
-        const palette_id = self.paletts_num;
+        self.textures_num += 1;
+
+        const texture_bytes = game_alloc.alignedAlloc(u8, 4, width * height) catch |e| {
+            log.err(
+                @src(),
+                "Cannot allocate memory for a texture. Texture path: {s} error: {}",
+                .{ path, e },
+            );
+            return Texture.ID_DEBUG;
+        };
         self.textures[texture_id] = .{
             .width = width,
             .height = height,
             .channels = 1,
-            .type = .{ .Indexed = palette_id },
-            .data = bm_bytes,
+            .palette_id = palette_id,
+            .data = texture_bytes,
         };
-        self.paletts[palette_id] = palette_bytes;
-
-        self.textures_num += 1;
-        self.paletts_num += 1;
+        @memcpy(self.textures[texture_id].data, fm.mem[bm_offset .. bm_offset + width * height]);
 
         log.info(
             @src(),
@@ -332,7 +366,7 @@ pub const Store = struct {
         return texture_id;
     }
 
-    pub fn get_texture(self: Store, texture_id: Id) *const Self {
+    pub fn get_texture(self: Self, texture_id: Texture.Id) *const Texture {
         log.assert(
             @src(),
             texture_id < self.textures_num,
@@ -342,7 +376,7 @@ pub const Store = struct {
         return &self.textures[texture_id];
     }
 
-    pub fn get_texture_mut(self: *Store, texture_id: Id) *Self {
+    pub fn get_texture_mut(self: *Self, texture_id: Texture.Id) *Texture {
         log.assert(
             @src(),
             texture_id < self.textures_num,
@@ -352,29 +386,29 @@ pub const Store = struct {
         return &self.textures[texture_id];
     }
 
-    pub fn get_palette(self: Store, palette_id: Id) []align(4) u8 {
+    pub fn get_palette(self: Self, palette_id: Palette.Id) *Palette {
         log.assert(
             @src(),
             palette_id < self.paletts_num,
             "Trying to get texture palette outside the range: {} available, {} requested",
             .{ self.textures_num, palette_id },
         );
-        return self.paletts[palette_id];
+        return &self.paletts[palette_id];
     }
 
-    pub fn get_palette_mut(self: *Store, palette_id: Id) []align(4) u8 {
+    pub fn get_palette_mut(self: *Self, palette_id: Palette.Id) *const Palette {
         log.assert(
             @src(),
             palette_id < self.paletts_num,
             "Trying to get texture palette outside the range: {} available, {} requested",
             .{ self.textures_num, palette_id },
         );
-        return self.paletts[palette_id];
+        return &self.paletts[palette_id];
     }
 };
 
 pub const FlipBook = struct {
-    texture_id: Id,
+    texture_id: Texture.Id,
     frames: u32,
 
     is_playing: bool = false,
@@ -383,7 +417,7 @@ pub const FlipBook = struct {
     current_time: f32 = 0.0,
     seconds_per_frame: f32 = 0.0,
 
-    pub fn init(texture_id: Id, frames: u32) FlipBook {
+    pub fn init(texture_id: Texture.Id, frames: u32) FlipBook {
         log.assert(@src(), frames != 0, "Trying to create a FlipBook with 0 frames", .{});
         return .{
             .texture_id = texture_id,

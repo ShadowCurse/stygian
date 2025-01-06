@@ -5,7 +5,7 @@ const sdl = @import("../bindings/sdl.zig");
 const stb = @import("../bindings/stb.zig");
 
 const Memory = @import("../memory.zig");
-const Texture = @import("../texture.zig");
+const Textures = @import("../textures.zig");
 const Color = @import("../color.zig").Color;
 
 const VkContext = @import("context.zig");
@@ -103,7 +103,7 @@ pub fn delete_texture(self: *Self, texture: *const GpuTexture) void {
 pub fn upload_texture_to_gpu(
     self: *Self,
     gpu_texture: *const GpuTexture,
-    texture: *const Texture,
+    texture: *const Textures.Texture,
 ) !void {
     if ((vk.VK_FORMAT_R8G8B8A8_UNORM <= gpu_texture.format and
         gpu_texture.format <= vk.VK_FORMAT_A2B10G10R10_SINT_PACK32) and

@@ -3,18 +3,18 @@ const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 const platform = @import("platform/posix.zig");
 
-const Texture = @import("texture.zig");
+const Textures = @import("textures.zig");
 const Memory = @import("memory.zig");
 
 const Self = @This();
 
 size: f32 = 0,
 char_info: []stb.stbtt_bakedchar = &.{},
-texture_id: u32 = Texture.ID_DEBUG,
+texture_id: u32 = Textures.Texture.ID_DEBUG,
 
 pub fn init(
     memory: *Memory,
-    texture_store: *Texture.Store,
+    texture_store: *Textures.Store,
     path: [:0]const u8,
     font_size: f32,
 ) Self {
@@ -79,7 +79,6 @@ pub fn init(
             .width = 512,
             .height = 512,
             .channels = 1,
-            .type = .OneByte,
         };
 
         return .{

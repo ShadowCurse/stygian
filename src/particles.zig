@@ -5,7 +5,7 @@ const Perf = @import("performance.zig");
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 const Objects = @import("objects.zig");
-const Texture = @import("texture.zig");
+const Textures = @import("textures.zig");
 const ScreenQuads = @import("screen_quads.zig");
 
 const _camera = @import("camera.zig");
@@ -121,7 +121,7 @@ pub fn update(
 pub fn to_screen_quad(
     self: Self,
     camera_controller: *const CameraController2d,
-    texture_store: *const Texture.Store,
+    texture_store: *const Textures.Store,
     screen_quads: *ScreenQuads,
 ) void {
     const perf_start = perf.start();

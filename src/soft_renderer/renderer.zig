@@ -3,7 +3,7 @@ const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
 const Perf = @import("../performance.zig");
-const Texture = @import("../texture.zig");
+const Textures = @import("../textures.zig");
 const Color = @import("../color.zig").Color;
 const Memory = @import("../memory.zig");
 
@@ -23,8 +23,8 @@ pub const perf = Perf.Measurements(struct {
 
 // Texture rectangle with 0,0 at the top left
 pub const TextureRect = struct {
-    texture: *const Texture,
-    palette: ?[]align(4) u8,
+    texture: *const Textures.Texture,
+    palette: ?*const Textures.Palette,
     position: Vec2,
     size: Vec2,
 
@@ -82,7 +82,7 @@ pub const AABB = struct {
 window: *sdl.SDL_Window,
 sdl_renderer: *sdl.SDL_Renderer,
 sdl_texture: *sdl.SDL_Texture,
-surface_texture: Texture,
+surface_texture: Textures.Texture,
 
 const Self = @This();
 
@@ -103,11 +103,10 @@ pub fn init(
         @panic("Cannot allocate memory for software renderer surface texture");
     };
 
-    const surface_texture: Texture = .{
+    const surface_texture: Textures.Texture = .{
         .width = width,
         .height = height,
         .channels = 4,
-        .type = .RGBA,
         .data = texture_data,
     };
 
@@ -460,6 +459,7 @@ pub fn draw_texture_with_size_and_rotation(
         const src_data_u8 = texture_rect.texture.data;
 
         if (texture_rect.palette) |palette| {
+            const palette_colors = palette.as_color_slice();
             for (0..height) |y| {
                 for (0..width) |x| {
                     const p: Vec2 = .{
@@ -490,14 +490,7 @@ pub fn draw_texture_with_size_and_rotation(
                                 u +
                                 v * src_pitch
                         ];
-                        const src: Color = .{
-                            .format = .{
-                                .r = palette[palette_index * 4 + 2],
-                                .g = palette[palette_index * 4 + 1],
-                                .b = palette[palette_index * 4],
-                                .a = 255,
-                            },
-                        };
+                        const src = palette_colors[palette_index];
                         const dst = &dst_data_color[dst_data_start + x];
                         dst.* = src.mix(dst.*);
                     }

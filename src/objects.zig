@@ -3,7 +3,7 @@ const CameraController2d = _camera.CameraController2d;
 
 const Perf = @import("performance.zig");
 const ScreenQuads = @import("screen_quads.zig");
-const Texture = @import("texture.zig");
+const Textures = @import("textures.zig");
 const Color = @import("color.zig").Color;
 
 const _math = @import("math.zig");
@@ -24,7 +24,7 @@ pub const Transform2d = struct {
 
 pub const Object2dType = union(enum) {
     Color: Color,
-    TextureId: Texture.Id,
+    TextureId: Textures.Texture.Id,
 };
 
 pub const Object2d = struct {
@@ -37,7 +37,7 @@ pub const Object2d = struct {
     pub fn to_screen_quad(
         self: Self,
         camera_controller: *const CameraController2d,
-        texture_store: *const Texture.Store,
+        texture_store: *const Textures.Store,
         screen_quads: *ScreenQuads,
     ) void {
         const perf_start = perf.start();
@@ -48,7 +48,7 @@ pub const Object2d = struct {
             .Color => |color| {
                 screen_quads.add_quad(.{
                     .color = color,
-                    .texture_id = Texture.ID_SOLID_COLOR,
+                    .texture_id = Textures.Texture.ID_SOLID_COLOR,
                     .position = position.xy().extend(self.transform.position.z),
                     .size = self.size.mul_f32(position.z),
                     .rotation = self.transform.rotation,

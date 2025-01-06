@@ -20,7 +20,7 @@ const _audio = stygian.audio;
 const Audio = _audio.Audio;
 const SoundtrackId = _audio.SoundtrackId;
 
-const Texture = stygian.texture;
+const Textures = stygian.textures;
 const GpuTexture = stygian.vk_renderer.gpu_texture;
 
 const Text = stygian.text;
@@ -65,13 +65,13 @@ const Particles = stygian.particles;
 const SoftwareRuntime = struct {
     camera_controller: CameraController2d,
 
-    texture_store: Texture.Store,
-    texture_color_test: Texture.Id,
-    texture_color_test_palette: Texture.Id,
-    texture_item_pot: Texture.Id,
-    texture_item_coffecup: Texture.Id,
-    texture_alex: Texture.Id,
-    texture_flip_book: Texture.FlipBook,
+    texture_store: Textures.Store,
+    texture_color_test: Textures.Texture.Id,
+    texture_color_test_palette: Textures.Texture.Id,
+    texture_item_pot: Textures.Texture.Id,
+    texture_item_coffecup: Textures.Texture.Id,
+    texture_alex: Textures.Texture.Id,
+    texture_flip_book: Textures.FlipBook,
 
     font: Font,
 
@@ -104,7 +104,7 @@ const SoftwareRuntime = struct {
         self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
         self.texture_alex = self.texture_store.load(memory, "assets/alex_idle_sheet.png");
 
-        self.texture_flip_book = Texture.FlipBook.init(self.texture_alex, 6);
+        self.texture_flip_book = Textures.FlipBook.init(self.texture_alex, 6);
         self.texture_flip_book.start(10.0, true);
 
         self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 16);
@@ -424,8 +424,8 @@ const SoftwareRuntime = struct {
 const VulkanRuntime = struct {
     camera_controller: CameraController3d,
 
-    texture_store: Texture.Store,
-    texture_letter_a: Texture.Id,
+    texture_store: Textures.Store,
+    texture_letter_a: Textures.Texture.Id,
 
     font: Font,
     screen_quads: ScreenQuads,
@@ -469,7 +469,7 @@ const VulkanRuntime = struct {
 
         self.vk_renderer = try VkRenderer.init(memory, window, width, height);
 
-        const debug_texture = self.texture_store.get_texture(Texture.ID_DEBUG);
+        const debug_texture = self.texture_store.get_texture(Textures.Texture.ID_DEBUG);
         self.gpu_debug_texture = try self.vk_renderer.create_texture(
             debug_texture.width,
             debug_texture.height,
@@ -609,7 +609,7 @@ const VulkanRuntime = struct {
             .{},
         );
         self.screen_quads.add_quad(.{
-            .texture_id = Texture.ID_VERT_COLOR,
+            .texture_id = Textures.Texture.ID_VERT_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 100.0,
@@ -621,7 +621,7 @@ const VulkanRuntime = struct {
         });
         self.screen_quads.add_quad(.{
             .color = Color.MAGENTA,
-            .texture_id = Texture.ID_SOLID_COLOR,
+            .texture_id = Textures.Texture.ID_SOLID_COLOR,
             .position = .{
                 .x = 100.0,
                 .y = 300.0,
