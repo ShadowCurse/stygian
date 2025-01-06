@@ -4,6 +4,7 @@ pub const soft_renderer = @import("soft_renderer/root.zig");
 pub const vk_renderer = @import("vk_renderer/root.zig");
 pub const audio = @import("audio.zig");
 pub const camera = @import("camera.zig");
+pub const flip_book = @import("flip_book.zig");
 pub const color = @import("color.zig");
 pub const font = @import("font.zig");
 pub const log = @import("log.zig");

@@ -25,6 +25,7 @@ const GpuTexture = stygian.vk_renderer.gpu_texture;
 
 const Text = stygian.text;
 const Font = stygian.font;
+const FlipBook = stygian.flip_book;
 const ScreenQuads = stygian.screen_quads;
 
 const Memory = stygian.memory;
@@ -71,8 +72,8 @@ const SoftwareRuntime = struct {
     texture_item_pot: Textures.Texture.Id,
     texture_item_coffecup: Textures.Texture.Id,
     texture_alex: Textures.Texture.Id,
-    texture_flip_book: Textures.FlipBook,
 
+    flip_book: FlipBook,
     font: Font,
 
     screen_quads: ScreenQuads,
@@ -104,8 +105,8 @@ const SoftwareRuntime = struct {
         self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
         self.texture_alex = self.texture_store.load(memory, "assets/alex_idle_sheet.png");
 
-        self.texture_flip_book = Textures.FlipBook.init(self.texture_alex, 6);
-        self.texture_flip_book.start(10.0, true);
+        self.flip_book = FlipBook.init(self.texture_alex, 6);
+        self.flip_book.start(10.0, true);
 
         self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 16);
 
@@ -346,7 +347,7 @@ const SoftwareRuntime = struct {
                 .y = 128.0 * alex_pos.z,
             },
         };
-        self.texture_flip_book.update(&self.texture_store, &flip_book_quad, dt);
+        self.flip_book.update(&self.texture_store, &flip_book_quad, dt);
         self.screen_quads.add_quad(flip_book_quad);
 
         const text_fps = Text.init(
