@@ -13,8 +13,8 @@ pub const Options = struct {
 };
 
 const root = @import("root");
-pub const options: Options = if (@hasDecl(root, "performance_options"))
-    root.performance_options
+pub const options: Options = if (@hasDecl(root, "tracing_options"))
+    root.tracing_options
 else
     .{};
 
@@ -39,8 +39,8 @@ pub fn calculate_total_time(comptime all_perf_types: type) i128 {
     var total: i128 = 0;
     const fields = comptime @typeInfo(all_perf_types).Struct.fields;
     inline for (fields) |field| {
-        const perf = field.type.perf;
-        const data = perf.previous();
+        const trace = field.type.trace;
+        const data = trace.previous();
         const data_fields = comptime @typeInfo(@TypeOf(data.*)).Struct.fields;
         inline for (data_fields) |df| {
             total += @field(data.*, df.name).ns;
@@ -53,16 +53,16 @@ pub fn zero_current(comptime all_perf_types: type) void {
 
     const fields = comptime @typeInfo(all_perf_types).Struct.fields;
     inline for (fields) |field| {
-        const perf = field.type.perf;
-        perf.zero_current();
+        const trace = field.type.trace;
+        trace.zero_current();
     }
 }
 
-pub const Fn = struct {
+pub const Counter = struct {
     ns: i128 = 0,
     count: u32 = 0,
 
-    pub fn avg(self: Fn) i128 {
+    pub fn avg(self: Counter) i128 {
         if (self.count != 0)
             return @divTrunc(self.ns, @as(i128, self.count))
         else
@@ -135,34 +135,27 @@ pub fn Measurements(comptime T: type) type {
         };
 }
 
-pub fn draw_perf(
-    comptime all_perf_types: type,
+pub fn to_screen_quads(
+    comptime all_traced_types: type,
     allocator: Allocator,
     screen_quads: *ScreenQuads,
     font: *const Font,
 ) void {
     if (!options.enabled) return;
 
-    var perf_y: f32 = font.size;
-    const perf_y_advance: f32 = font.size;
-    const perf_x: f32 = font.size;
+    var y: f32 = font.size;
+    const y_advance: f32 = font.size;
+    const x: f32 = font.size;
 
-    const pt_fields = comptime @typeInfo(all_perf_types).Struct.fields;
+    const pt_fields = comptime @typeInfo(all_traced_types).Struct.fields;
     inline for (pt_fields) |ptf| {
-        const perf = ptf.type.perf;
-        const measurement = perf.previous();
-        const sum = perf.sum_all();
+        const trace = ptf.type.trace;
+        const measurement = trace.previous();
+        const sum = trace.sum_all();
 
         const m_fields = comptime @typeInfo(@TypeOf(measurement.*)).Struct.fields;
         inline for (m_fields) |mf| {
             const field_avg = @field(sum, mf.name).avg();
-            log.assert(
-                @src(),
-                0 <= field_avg,
-                "Total measurement avg is bellow zero",
-                .{},
-            );
-
             const m = @field(measurement.*, mf.name);
             const name_width = @min(mf.name.len, 20);
             const s =
@@ -180,8 +173,8 @@ pub fn draw_perf(
                 s,
                 font.size,
                 .{
-                    .x = perf_x,
-                    .y = perf_y,
+                    .x = x,
+                    .y = y,
                     .z = std.math.floatMax(f32),
                 },
                 0.0,
@@ -189,36 +182,7 @@ pub fn draw_perf(
                 .{ .dont_clip = true, .center = false },
             );
             text.to_scren_quads(screen_quads);
-            perf_y += perf_y_advance;
+            y += y_advance;
         }
     }
-
-    const p = if (current_measurement == 0)
-        options.max_measurements - 1
-    else
-        current_measurement - 1;
-
-    const s =
-        std.fmt.allocPrint(
-        allocator,
-        "Total: {}ns avg: {}ns",
-        .{ total_time[p], total_avg },
-    ) catch |e| {
-        log.warn(@src(), "Cannot formant performance measurement. Error: {}", .{e});
-        return;
-    };
-    const text = Text.init(
-        font,
-        s,
-        font.size,
-        .{
-            .x = perf_x,
-            .y = perf_y,
-            .z = std.math.floatMax(f32),
-        },
-        0.0,
-        .{},
-        .{ .dont_clip = true, .center = false },
-    );
-    text.to_scren_quads(screen_quads);
 }

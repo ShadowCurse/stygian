@@ -1,11 +1,11 @@
 const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
-const Perf = @import("performance.zig");
+const Tracing = @import("tracing.zig");
 const Memory = @import("memory.zig");
 
-pub const perf = Perf.Measurements(struct {
-    callback: Perf.Fn,
+pub const trace = Tracing.Measurements(struct {
+    callback: Tracing.Counter,
 });
 
 pub const PlayingSoundtrack = struct {
@@ -43,8 +43,8 @@ pub const Audio = struct {
     const Self = @This();
 
     pub fn callback(self: *Self, stream_ptr: [*]u8, stream_len: i32) callconv(.C) void {
-        const perf_start = perf.start();
-        defer perf.end(@src(), perf_start);
+        const trace_start = trace.start();
+        defer trace.end(@src(), trace_start);
 
         const stream_len_u32 = @as(u32, @intCast(stream_len));
 

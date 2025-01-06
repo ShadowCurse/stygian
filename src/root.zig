@@ -13,10 +13,10 @@ pub const memory = @import("memory.zig");
 pub const mesh = @import("mesh.zig");
 pub const objects = @import("objects.zig");
 pub const particles = @import("particles.zig");
-pub const performance = @import("performance.zig");
 pub const screen_quads = @import("screen_quads.zig");
 pub const text = @import("text.zig");
 pub const textures = @import("textures.zig");
 pub const tile_map = @import("tile_map.zig");
+pub const tracing = @import("tracing.zig");
 
 pub const build_options = @import("build_options");

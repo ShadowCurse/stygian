@@ -8,8 +8,8 @@ pub const log_options = log.Options{
     .level = .Info,
 };
 
-const Performance = stygian.performance;
-pub const performance_options = Performance.Options{
+const Tracing = stygian.tracing;
+pub const tracing_options = Tracing.Options{
     .max_measurements = 256,
     .enabled = true,
 };
@@ -148,20 +148,20 @@ const SoftwareRuntime = struct {
         self.screen_quads.reset();
         const frame_alloc = memory.frame_alloc();
 
-        Performance.prepare_next_frame(struct {
+        Tracing.prepare_next_frame(struct {
             SoftRenderer,
             ScreenQuads,
             Particles,
             _objects,
             _audio,
         });
-        Performance.draw_perf(
+        Tracing.to_screen_quads(
             struct { SoftRenderer, ScreenQuads, Particles, _objects, _audio },
             frame_alloc,
             &self.screen_quads,
             &self.font,
         );
-        Performance.zero_current(struct {
+        Tracing.zero_current(struct {
             SoftRenderer,
             ScreenQuads,
             Particles,

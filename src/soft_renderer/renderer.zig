@@ -2,7 +2,7 @@ const buildin = @import("builtin");
 const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
-const Perf = @import("../performance.zig");
+const Tracing = @import("../tracing.zig");
 const Textures = @import("../textures.zig");
 const Color = @import("../color.zig").Color;
 const Memory = @import("../memory.zig");
@@ -10,15 +10,15 @@ const Memory = @import("../memory.zig");
 const _math = @import("../math.zig");
 const Vec2 = _math.Vec2;
 
-pub const perf = Perf.Measurements(struct {
-    start_rendering: Perf.Fn,
-    end_rendering: Perf.Fn,
-    draw_line: Perf.Fn,
-    draw_aabb: Perf.Fn,
-    draw_texture: Perf.Fn,
-    draw_texture_with_size_and_rotation: Perf.Fn,
-    draw_color_rect: Perf.Fn,
-    draw_color_rect_with_size_and_rotation: Perf.Fn,
+pub const trace = Tracing.Measurements(struct {
+    start_rendering: Tracing.Counter,
+    end_rendering: Tracing.Counter,
+    draw_line: Tracing.Counter,
+    draw_aabb: Tracing.Counter,
+    draw_texture: Tracing.Counter,
+    draw_texture_with_size_and_rotation: Tracing.Counter,
+    draw_color_rect: Tracing.Counter,
+    draw_color_rect_with_size_and_rotation: Tracing.Counter,
 });
 
 // Texture rectangle with 0,0 at the top left
@@ -134,15 +134,15 @@ pub fn init(
 }
 
 pub fn start_rendering(self: *const Self) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     @memset(self.surface_texture.data, 0);
 }
 
 pub fn end_rendering(self: *const Self) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     _ = sdl.SDL_UpdateTexture(
         self.sdl_texture,
@@ -167,8 +167,8 @@ pub fn as_texture_rect(self: *const Self) TextureRect {
 }
 
 pub fn draw_line(self: *Self, point_a: Vec2, point_b: Vec2, color: Color) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const steps = @max(@abs(point_a.x - point_b.x), @abs(point_a.y - point_b.y));
     const steps_u32: u32 = @intFromFloat(steps);
@@ -199,8 +199,8 @@ pub fn draw_line(self: *Self, point_a: Vec2, point_b: Vec2, color: Color) void {
 }
 
 pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
@@ -252,8 +252,8 @@ pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
 
 // TODO add an option to skip alpha blend and do a simple memcopy instead.
 pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
@@ -345,8 +345,8 @@ pub fn draw_texture_with_size_and_rotation(
     rotation_offset: Vec2,
     texture_rect: TextureRect,
 ) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const c = @cos(-rotation);
     const s = @sin(-rotation);
@@ -559,8 +559,8 @@ pub fn draw_color_rect(
     size: Vec2,
     color: Color,
 ) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const x_axis = Vec2.X.mul_f32(size.x / 2.0);
     const y_axis = Vec2.NEG_Y.mul_f32(size.y / 2.0);
@@ -629,8 +629,8 @@ pub fn draw_color_rect_with_size_and_rotation(
     rotation_offset: Vec2,
     color: Color,
 ) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const c = @cos(-rotation);
     const s = @sin(-rotation);

@@ -1,7 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 
-const Perf = @import("performance.zig");
+const Tracing = @import("tracing.zig");
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 const Objects = @import("objects.zig");
@@ -15,9 +15,9 @@ const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
 
-pub const perf = Perf.Measurements(struct {
-    update: Perf.Fn,
-    to_screen_quad: Perf.Fn,
+pub const trace = Tracing.Measurements(struct {
+    update: Tracing.Counter,
+    to_screen_quad: Tracing.Counter,
 });
 
 pub const Particle = struct {
@@ -97,8 +97,8 @@ pub fn update(
     update_fn: UpdateFn,
     dt: f32,
 ) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     for (self.active_particles, 0..) |*p, i| {
         if (!p.alive) {
@@ -122,8 +122,8 @@ pub fn to_screen_quad(
     texture_store: *const Textures.Store,
     screen_quads: *ScreenQuads,
 ) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     for (self.active_particles) |*p| {
         if (!p.alive) {

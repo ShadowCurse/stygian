@@ -1,7 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 
-const Perf = @import("performance.zig");
+const Tracing = @import("tracing.zig");
 const Textures = @import("textures.zig");
 const Font = @import("font.zig");
 const Memory = @import("memory.zig");
@@ -13,10 +13,10 @@ const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
 const Mat4 = _math.Mat4;
 
-pub const perf = Perf.Measurements(struct {
-    add_quad: Perf.Fn,
-    add_text: Perf.Fn,
-    render: Perf.Fn,
+pub const trace = Tracing.Measurements(struct {
+    add_quad: Tracing.Counter,
+    add_text: Tracing.Counter,
+    render: Tracing.Counter,
 });
 
 pub const ScreenQuadTag = enum(u32) {
@@ -78,8 +78,8 @@ pub fn slice(self: *Self) []ScreenQuad {
 }
 
 pub fn add_quad(self: *Self, quad: ScreenQuad) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const remaining_quads = self.quads.len - @as(usize, @intCast(self.used_quads));
     if (remaining_quads < 1) {
@@ -101,8 +101,8 @@ pub fn render(
     clip_z: f32,
     texture_store: *const Textures.Store,
 ) void {
-    const perf_start = perf.start();
-    defer perf.end(@src(), perf_start);
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
 
     const quads = self.slice();
     const Compare = struct {
