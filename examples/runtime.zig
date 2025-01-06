@@ -70,7 +70,6 @@ const SoftwareRuntime = struct {
     texture_color_test: Textures.Texture.Id,
     texture_color_test_palette: Textures.Texture.Id,
     texture_item_pot: Textures.Texture.Id,
-    texture_item_coffecup: Textures.Texture.Id,
     texture_alex: Textures.Texture.Id,
 
     flip_book: FlipBook,
@@ -102,21 +101,22 @@ const SoftwareRuntime = struct {
         self.texture_color_test_palette =
             self.texture_store.load_bmp(memory, "assets/color_test_palette.bmp");
         self.texture_item_pot = self.texture_store.load(memory, "assets/item_pot.png");
-        self.texture_item_coffecup = self.texture_store.load(memory, "assets/item_coffecup.png");
         self.texture_alex = self.texture_store.load(memory, "assets/alex_idle_sheet.png");
 
         self.flip_book = FlipBook.init(self.texture_alex, 6);
         self.flip_book.start(10.0, true);
-
         self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 16);
 
         self.screen_quads = try ScreenQuads.init(memory, 2048);
-        self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
+
+        const tm_width = 40;
+        const tm_height = 20;
+        self.tile_map = try TileMap.init(memory, tm_width, tm_height, 0.2, 0.2);
         var y: u32 = 0;
-        while (y < 5) : (y += 1) {
+        while (y < tm_height) : (y += 1) {
             var x: u32 = 0;
-            while (x < 5) : (x += 1) {
-                if (!(0 < y and y < 4 and 0 < x and x < 4)) {
+            while (x < tm_width) : (x += 1) {
+                if (!(0 < y and y < tm_height - 1 and 0 < x and x < tm_width - 1)) {
                     self.tile_map.set_tile(x, y, .Wall);
                 }
             }
@@ -210,41 +210,10 @@ const SoftwareRuntime = struct {
 
         const objects = [_]Object2d{
             .{
-                .type = .{ .TextureId = self.texture_item_pot },
+                .type = .{ .Color = Color.ORAGE },
                 .transform = .{
-                    .position = .{
-                        .x = 0.0,
-                        .y = 0.0,
-                    },
+                    .position = .{},
                     .rotation = A.a,
-                },
-                .size = .{
-                    .x = 64.0,
-                    .y = 64.0,
-                },
-            },
-            .{
-                .type = .{ .TextureId = self.texture_item_coffecup },
-                .transform = .{
-                    .position = .{
-                        .x = 0.0,
-                        .y = -100.0,
-                    },
-                    .rotation = -A.a,
-                },
-                .size = .{
-                    .x = 64.0,
-                    .y = 64.0,
-                },
-            },
-            .{
-                .type = .{ .TextureId = self.texture_color_test_palette },
-                .transform = .{
-                    .position = .{
-                        .x = 100.0,
-                        .y = 0.0,
-                    },
-                    .rotation = -A.a,
                 },
                 .size = .{
                     .x = 50.0,
@@ -252,10 +221,24 @@ const SoftwareRuntime = struct {
                 },
             },
             .{
-                .type = .{ .Color = Color.ORAGE },
+                .type = .{ .TextureId = self.texture_item_pot },
                 .transform = .{
                     .position = .{
                         .x = -100.0,
+                        .y = 0.0,
+                    },
+                    .rotation = A.a,
+                },
+                .size = .{
+                    .x = 50.0,
+                    .y = 50.0,
+                },
+            },
+            .{
+                .type = .{ .TextureId = self.texture_color_test_palette },
+                .transform = .{
+                    .position = .{
+                        .x = 100.0,
                         .y = 0.0,
                     },
                     .rotation = A.a,
@@ -280,12 +263,9 @@ const SoftwareRuntime = struct {
             const object = Object2d{
                 .type = .{ .Color = Color.ORAGE },
                 .transform = .{
-                    .position = tile_pos.mul_f32(40.0).extend(0.0),
+                    .position = tile_pos.mul_f32(25.0).extend(0.0),
                 },
-                .size = .{
-                    .x = 80.0,
-                    .y = 80.0,
-                },
+                .size = .{ .x = 50.0, .y = 50.0 },
             };
             object.to_screen_quad(
                 &self.camera_controller,
@@ -295,23 +275,24 @@ const SoftwareRuntime = struct {
         }
 
         const ParticleUpdate = struct {
-            var offset: Vec3 = .{};
+            var rotation: f32 = 0.0;
             fn update(
-                _particle_offset: *anyopaque,
+                _rotation: *anyopaque,
                 particle_index: u32,
                 particle: *Particles.Particle,
                 rng: *std.rand.DefaultPrng,
                 _dt: f32,
             ) void {
-                const particle_offset: *Vec3 = @alignCast(@ptrCast(_particle_offset));
+                const r: *f32 = @alignCast(@ptrCast(_rotation));
                 const random = rng.random();
-                const angle = std.math.pi * 2.0 / 16.0 * @as(f32, @floatFromInt(particle_index));
+                const angle = r.* + std.math.pi * 2.0 / 16.0 *
+                    @as(f32, @floatFromInt(particle_index));
                 const rng_angle = angle + (random.float(f32) * 2.0 - 1.0) * std.math.pi / 2.0;
                 const c = @cos(rng_angle);
                 const s = @sin(rng_angle);
                 const additional_offset: Vec3 = .{ .x = c, .y = s, .z = 0.0 };
                 particle.object.transform.position =
-                    particle.object.transform.position.add(additional_offset).add(particle_offset.*);
+                    particle.object.transform.position.add(additional_offset);
 
                 const rng_size = random.float(f32) * 2.0 - 1.0;
                 particle.object.size =
@@ -327,9 +308,9 @@ const SoftwareRuntime = struct {
                 } } };
             }
         };
-        ParticleUpdate.offset.x = @cos(A.a);
+        ParticleUpdate.rotation = @sin(A.a) * 1.5;
 
-        self.particles.update(&ParticleUpdate.offset, &ParticleUpdate.update, dt);
+        self.particles.update(&ParticleUpdate.rotation, &ParticleUpdate.update, dt);
         self.particles.to_screen_quad(
             &self.camera_controller,
             &self.texture_store,
@@ -338,7 +319,7 @@ const SoftwareRuntime = struct {
 
         const alex_pos = self.camera_controller.transform(.{
             .x = 0.0,
-            .y = -280.0,
+            .y = 425.0,
         });
         var flip_book_quad: ScreenQuads.ScreenQuad = .{
             .position = alex_pos.xy().extend(0.0),
@@ -359,7 +340,7 @@ const SoftwareRuntime = struct {
             ) catch unreachable,
             32.0,
             .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
+                .x = @as(f32, @floatFromInt(width)) / 2.0,
                 .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
             },
             0.0,
@@ -367,56 +348,30 @@ const SoftwareRuntime = struct {
             .{ .dont_clip = true },
         );
         text_fps.to_scren_quads(&self.screen_quads);
-        const text_frame_mem = Text.init(
+
+        const text_world_space = Text.init(
             &self.font,
             std.fmt.allocPrint(
                 frame_alloc,
-                "FM: {} bytes",
-                .{memory.frame_allocator.end_index},
+                "Camera positon: x: {d:.1} y: {d:.1} z: {d:.1}",
+                .{
+                    self.camera_controller.position.x,
+                    self.camera_controller.position.y,
+                    self.camera_controller.position.z,
+                },
             ) catch unreachable,
-            16.0,
+            32.0,
             .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
-                .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
+                .x = -300.0,
+                .y = 350.0,
             },
-            @sin(A.a) * 0.25,
+            0.0,
             .{},
-            .{ .dont_clip = true },
+            .{},
         );
-        text_frame_mem.to_scren_quads(&self.screen_quads);
-
-        self.screen_quads.add_quad(.{
-            .texture_id = self.texture_color_test,
-            .position = .{
-                .x = 100.0,
-                .y = 600.0,
-            },
-            .size = .{
-                .x = 200.0,
-                .y = 200.0,
-            },
-            .uv_offset = .{},
-            .uv_size = .{
-                .x = @as(f32, @floatFromInt(self.texture_store.get_texture(self.texture_color_test).width)),
-                .y = @as(f32, @floatFromInt(self.texture_store.get_texture(self.texture_color_test).height)),
-            },
-            .tag = .DontClip,
-        });
+        text_world_space.to_scren_quads_world_space(&self.camera_controller, &self.screen_quads);
 
         self.soft_renderer.start_rendering();
-
-        self.soft_renderer.draw_line(
-            .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0 + 440.0,
-                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
-            },
-            .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0 + 440.0 + 30.0 * @sin(A.a),
-                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0 + 30.0 * @cos(A.a),
-            },
-            Color.GREEN,
-        );
-
         self.screen_quads.render(
             &self.soft_renderer,
             self.camera_controller.position.z,
