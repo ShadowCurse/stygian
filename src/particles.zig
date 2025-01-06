@@ -28,6 +28,7 @@ pub const Particle = struct {
 };
 
 pub const UpdateFn = *const fn (
+    data: *anyopaque,
     particle_index: u32,
     particle: *Particle,
     rng: *std.rand.DefaultPrng,
@@ -50,7 +51,6 @@ pub fn init(
     original_size: Vec2,
     original_rotation: f32,
     lifespan: f32,
-    // spread_angle: f32,
     one_shot: bool,
 ) Self {
     const game_alloc = memory.game_alloc();
@@ -66,10 +66,7 @@ pub fn init(
 
     const rng = std.rand.DefaultPrng.init(0);
 
-    for (original_particles, active_particles, 0..) |*origina_particle, *active_particle, i| {
-        var v_y: f32 = -@as(f32, @floatFromInt(particle_num / 2));
-        v_y += @as(f32, @floatFromInt(i));
-        v_y *= 10.0;
+    for (original_particles, active_particles) |*origina_particle, *active_particle| {
         origina_particle.* = .{
             .object = .{
                 .type = @"type",
@@ -96,6 +93,7 @@ pub fn init(
 
 pub fn update(
     self: *Self,
+    data: *anyopaque,
     update_fn: UpdateFn,
     dt: f32,
 ) void {
@@ -106,7 +104,7 @@ pub fn update(
         if (!p.alive) {
             continue;
         }
-        update_fn(@intCast(i), p, &self.rng, dt);
+        update_fn(data, @intCast(i), p, &self.rng, dt);
         p.lifespan += self.lifespan_per_second * dt;
         if (1.0 <= p.lifespan) {
             if (!self.one_shot) {

@@ -294,20 +294,23 @@ const SoftwareRuntime = struct {
         }
 
         const ParticleUpdate = struct {
+            var offset: Vec3 = .{};
             fn update(
+                _particle_offset: *anyopaque,
                 particle_index: u32,
                 particle: *Particles.Particle,
                 rng: *std.rand.DefaultPrng,
                 _dt: f32,
             ) void {
+                const particle_offset: *Vec3 = @alignCast(@ptrCast(_particle_offset));
                 const random = rng.random();
                 const angle = std.math.pi * 2.0 / 16.0 * @as(f32, @floatFromInt(particle_index));
                 const rng_angle = angle + (random.float(f32) * 2.0 - 1.0) * std.math.pi / 2.0;
                 const c = @cos(rng_angle);
                 const s = @sin(rng_angle);
-                const offset: Vec3 = .{ .x = c, .y = s, .z = 0.0 };
+                const additional_offset: Vec3 = .{ .x = c, .y = s, .z = 0.0 };
                 particle.object.transform.position =
-                    particle.object.transform.position.add(offset);
+                    particle.object.transform.position.add(additional_offset).add(particle_offset.*);
 
                 const rng_size = random.float(f32) * 2.0 - 1.0;
                 particle.object.size =
@@ -323,8 +326,9 @@ const SoftwareRuntime = struct {
                 } } };
             }
         };
+        ParticleUpdate.offset.x = @cos(A.a);
 
-        self.particles.update(&ParticleUpdate.update, dt);
+        self.particles.update(&ParticleUpdate.offset, &ParticleUpdate.update, dt);
         self.particles.to_screen_quad(
             &self.camera_controller,
             &self.texture_store,
