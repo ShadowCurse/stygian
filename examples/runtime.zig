@@ -105,7 +105,7 @@ const SoftwareRuntime = struct {
 
         self.flip_book = FlipBook.init(self.texture_alex, 6);
         self.flip_book.start(10.0, true);
-        self.font = Font.init(memory, &self.texture_store, "assets/font.ttf", 16);
+        self.font = Font.init(memory, &self.texture_store, "assets/Hack-Regular.ttf", 64);
 
         self.screen_quads = try ScreenQuads.init(memory, 2048);
 
@@ -160,6 +160,7 @@ const SoftwareRuntime = struct {
             frame_alloc,
             &self.screen_quads,
             &self.font,
+            32.0,
         );
         Tracing.zero_current(struct {
             SoftRenderer,

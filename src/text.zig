@@ -60,16 +60,13 @@ pub fn to_scren_quads_world_space(
         const char_info = self.font.char_info[c];
         const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
         const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
-        const char_origin: Vec3 = .{
-            .x = world_position.x + x_offset,
-            .y = world_position.y,
-            .z = world_position.z,
-        };
-        const char_position = char_origin.add(.{
+        const char_origin: Vec3 = world_position.add(.{ .x = x_offset });
+        const char_offset = Vec3{
             .x = char_info.xoff,
             .y = char_info.yoff + char_height * 0.5,
             .z = 0.0,
-        });
+        };
+        const char_position = char_origin.add(char_offset.mul_f32(scale));
         screen_quads.add_quad(.{
             .color = .{},
             .texture_id = self.font.texture_id,
@@ -109,16 +106,13 @@ pub fn to_scren_quads(
         const char_info = self.font.char_info[c];
         const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
         const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
-        const char_origin: Vec3 = .{
-            .x = self.position.x + x_offset,
-            .y = self.position.y,
-            .z = self.position.z,
-        };
-        const char_position = char_origin.add(.{
+        const char_origin: Vec3 = self.position.add(.{ .x = x_offset });
+        const char_offset = Vec3{
             .x = char_info.xoff,
             .y = char_info.yoff + char_height * 0.5,
             .z = 0.0,
-        });
+        };
+        const char_position = char_origin.add(char_offset.mul_f32(scale));
         screen_quads.add_quad(.{
             .color = .{},
             .texture_id = self.font.texture_id,

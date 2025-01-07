@@ -140,12 +140,13 @@ pub fn to_screen_quads(
     allocator: Allocator,
     screen_quads: *ScreenQuads,
     font: *const Font,
+    size: f32,
 ) void {
     if (!options.enabled) return;
 
-    var y: f32 = font.size;
-    const y_advance: f32 = font.size;
-    const x: f32 = font.size;
+    var y: f32 = size;
+    const y_advance: f32 = size;
+    const x: f32 = size;
 
     const pt_fields = comptime @typeInfo(all_traced_types).Struct.fields;
     inline for (pt_fields) |ptf| {
@@ -171,7 +172,7 @@ pub fn to_screen_quads(
             const text = Text.init(
                 font,
                 s,
-                font.size,
+                size,
                 .{
                     .x = x,
                     .y = y,
