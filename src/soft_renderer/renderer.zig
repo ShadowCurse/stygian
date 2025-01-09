@@ -254,12 +254,45 @@ pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
 pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
+    if (texture_rect.texture.channels == 4) {
+        const SrcData = struct {
+            color: []const Color,
+            pub fn get_src(this: @This(), offset: u32) Color {
+                return this.color[offset];
+            }
+        };
+        const src_data: SrcData = .{
+            .color = texture_rect.texture.as_color_slice(),
+        };
+        self.draw_texture_inner(position, texture_rect, src_data);
+    } else if (texture_rect.texture.channels == 1) {
+        const SrcData = struct {
+            bytes: []const u8,
+            pub fn get_src(this: @This(), offset: u32) Color {
+                const b = this.bytes[offset];
+                return .{ .format = .{ .r = b, .g = b, .b = b, .a = b } };
+            }
+        };
+        const src_data: SrcData = .{
+            .bytes = texture_rect.texture.data,
+        };
+        self.draw_texture_inner(position, texture_rect, src_data);
+    } else {
+        log.warn(
+            @src(),
+            "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
+            .{ self.surface_texture.channels, texture_rect.texture.channels },
+        );
+    }
+}
 
+fn draw_texture_inner(self: *Self, position: Vec2, texture_rect: TextureRect, src_data: anytype) void {
     const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
     // Positon is the center of the destination
     const dst_rect: TextureRect = .{
         .texture = undefined,
+        .palette = null,
         .position = position.sub(texture_rect.size.mul_f32(0.5)),
         .size = texture_rect.size,
     };
@@ -273,66 +306,26 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
 
-    if (texture_rect.texture.channels == 4) {
-        const dst_pitch = self.surface_texture.width;
-        const src_pitch = texture_rect.texture.width;
+    const dst_pitch = self.surface_texture.width;
+    const src_pitch = texture_rect.texture.width;
 
-        const dst_start_x: u32 = @intFromFloat(intersection.min.x);
-        const dst_start_y: u32 = @intFromFloat(intersection.min.y);
-        const src_start_x: u32 = @intFromFloat(texture_rect.position.x);
-        const src_start_y: u32 = @intFromFloat(texture_rect.position.y);
+    const dst_start_x: u32 = @intFromFloat(intersection.min.x);
+    const dst_start_y: u32 = @intFromFloat(intersection.min.y);
+    const src_start_x: u32 = @intFromFloat(texture_rect.position.x);
+    const src_start_y: u32 = @intFromFloat(texture_rect.position.y);
 
-        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
-        var src_data_start = src_start_x + src_start_y * src_pitch;
+    var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
+    var src_data_start = src_start_x + src_start_y * src_pitch;
 
-        const dst_data_color = self.surface_texture.as_color_slice();
-        const src_data_color = texture_rect.texture.as_color_slice();
-        for (0..height) |_| {
-            for (0..width) |x| {
-                const src = src_data_color[src_data_start + x];
-                const dst = &dst_data_color[dst_data_start + x];
-                dst.* = src.mix(dst.*);
-            }
-            dst_data_start += dst_pitch;
-            src_data_start += src_pitch;
+    const dst_data_color = self.surface_texture.as_color_slice();
+    for (0..height) |_| {
+        for (0..width) |x| {
+            const src = src_data.get_src(src_data_start + @as(u32, @intCast(x)));
+            const dst = &dst_data_color[dst_data_start + x];
+            dst.* = src.mix(dst.*);
         }
-    } else if (texture_rect.texture.channels == 1) {
-        const dst_pitch = self.surface_texture.width;
-        const src_pitch = texture_rect.texture.width * texture_rect.texture.channels;
-
-        const dst_start_x: u32 = @intFromFloat(intersection.min.x);
-        const dst_start_y: u32 = @intFromFloat(intersection.min.y);
-        const src_start_x: u32 = @intFromFloat(texture_rect.position.x);
-        const src_start_y: u32 = @intFromFloat(texture_rect.position.y);
-
-        var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
-        var src_data_start = src_start_x * texture_rect.texture.channels + src_start_y * src_pitch;
-
-        const dst_data_color = self.surface_texture.as_color_slice();
-        const src_data_u8 = texture_rect.texture.data;
-        for (0..height) |_| {
-            for (0..width) |x| {
-                const src_u8 = src_data_u8[src_data_start + x];
-                const src: Color = .{
-                    .format = .{
-                        .r = src_u8,
-                        .g = src_u8,
-                        .b = src_u8,
-                        .a = src_u8,
-                    },
-                };
-                const dst = &dst_data_color[dst_data_start + x];
-                dst.* = src.mix(dst.*);
-            }
-            dst_data_start += dst_pitch;
-            src_data_start += src_pitch;
-        }
-    } else {
-        log.warn(
-            @src(),
-            "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
-            .{ self.surface_texture.channels, texture_rect.texture.channels },
-        );
+        dst_data_start += dst_pitch;
+        src_data_start += src_pitch;
     }
 }
 
@@ -348,6 +341,84 @@ pub fn draw_texture_with_size_and_rotation(
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
 
+    if (texture_rect.texture.channels == 4) {
+        const SrcData = struct {
+            color: []const Color,
+            pub fn get_src(this: @This(), offset: u32) Color {
+                return this.color[offset];
+            }
+        };
+        const src_data: SrcData = .{
+            .color = texture_rect.texture.as_color_slice(),
+        };
+        self.draw_texture_with_size_and_rotation_inner(
+            position,
+            size,
+            rotation,
+            rotation_offset,
+            texture_rect,
+            src_data,
+        );
+    } else if (texture_rect.texture.channels == 1) {
+        if (texture_rect.palette) |palette| {
+            const SrcData = struct {
+                bytes: []const u8,
+                palette: []const Color,
+                pub fn get_src(this: @This(), offset: u32) Color {
+                    const index = this.bytes[offset];
+                    return this.palette[index];
+                }
+            };
+            const src_data: SrcData = .{
+                .bytes = texture_rect.texture.data,
+                .palette = palette.as_color_slice(),
+            };
+            self.draw_texture_with_size_and_rotation_inner(
+                position,
+                size,
+                rotation,
+                rotation_offset,
+                texture_rect,
+                src_data,
+            );
+        } else {
+            const SrcData = struct {
+                bytes: []const u8,
+                pub fn get_src(this: @This(), offset: u32) Color {
+                    const b = this.bytes[offset];
+                    return .{ .format = .{ .r = b, .g = b, .b = b, .a = b } };
+                }
+            };
+            const src_data: SrcData = .{
+                .bytes = texture_rect.texture.data,
+            };
+            self.draw_texture_with_size_and_rotation_inner(
+                position,
+                size,
+                rotation,
+                rotation_offset,
+                texture_rect,
+                src_data,
+            );
+        }
+    } else {
+        log.warn(
+            @src(),
+            "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
+            .{ self.surface_texture.channels, texture_rect.texture.channels },
+        );
+    }
+}
+
+fn draw_texture_with_size_and_rotation_inner(
+    self: *Self,
+    position: Vec2,
+    size: Vec2,
+    rotation: f32,
+    rotation_offset: Vec2,
+    texture_rect: TextureRect,
+    src_data: anytype,
+) void {
     const c = @cos(-rotation);
     const s = @sin(-rotation);
     const new_position = position.add(rotation_offset).add(
@@ -413,143 +484,42 @@ pub fn draw_texture_with_size_and_rotation(
     var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
     const src_data_start = src_start_x + src_start_y * src_pitch;
 
-    if (texture_rect.texture.channels == 4) {
-        const dst_data_u32 = self.surface_texture.as_color_slice();
-        const src_data_u32 = texture_rect.texture.as_color_slice();
+    const dst_data_u32 = self.surface_texture.as_color_slice();
 
-        for (0..height) |y| {
-            for (0..width) |x| {
-                const p: Vec2 = .{
-                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-                };
-                const ap = p.sub(p_a);
-                const bp = p.sub(p_b);
-                const dp = p.sub(p_d);
-                const cp = p.sub(p_c);
+    for (0..height) |y| {
+        for (0..width) |x| {
+            const p: Vec2 = .{
+                .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+            };
+            const ap = p.sub(p_a);
+            const bp = p.sub(p_b);
+            const dp = p.sub(p_d);
+            const cp = p.sub(p_c);
 
-                const ab_test = ab.dot(ap);
-                const bd_test = bd.dot(bp);
-                const dc_test = dc.dot(dp);
-                const ca_test = ca.dot(cp);
+            const ab_test = ab.dot(ap);
+            const bd_test = bd.dot(bp);
+            const dc_test = dc.dot(dp);
+            const ca_test = ca.dot(cp);
 
-                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
-                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
-                    u_i32 = @min(@max(0, u_i32), texture_width - 1);
-                    v_i32 = @min(@max(0, v_i32), texture_height - 1);
+            if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
+                var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
+                u_i32 = @min(@max(0, u_i32), texture_width - 1);
+                v_i32 = @min(@max(0, v_i32), texture_height - 1);
 
-                    const u: u32 = @intCast(u_i32);
-                    const v: u32 = @as(u32, @intCast(texture_height - 1)) -
-                        @as(u32, @intCast(v_i32));
+                const u: u32 = @intCast(u_i32);
+                const v: u32 = @as(u32, @intCast(texture_height - 1)) -
+                    @as(u32, @intCast(v_i32));
 
-                    const src = src_data_u32[
-                        src_data_start +
-                            u +
-                            v * src_pitch
-                    ];
-                    const dst = &dst_data_u32[dst_data_start + x];
-                    dst.* = src.mix(dst.*);
-                }
-            }
-            dst_data_start += dst_pitch;
-        }
-    } else if (texture_rect.texture.channels == 1) {
-        const dst_data_color = self.surface_texture.as_color_slice();
-        const src_data_u8 = texture_rect.texture.data;
-
-        if (texture_rect.palette) |palette| {
-            const palette_colors = palette.as_color_slice();
-            for (0..height) |y| {
-                for (0..width) |x| {
-                    const p: Vec2 = .{
-                        .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                        .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-                    };
-                    const ap = p.sub(p_a);
-                    const bp = p.sub(p_b);
-                    const dp = p.sub(p_d);
-                    const cp = p.sub(p_c);
-
-                    const ab_test = ab.dot(ap);
-                    const bd_test = bd.dot(bp);
-                    const dc_test = dc.dot(dp);
-                    const ca_test = ca.dot(cp);
-
-                    if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                        var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
-                        var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
-                        u_i32 = @min(@max(0, u_i32), texture_width - 1);
-                        v_i32 = @min(@max(0, v_i32), texture_height - 1);
-
-                        const u: u32 = @intCast(u_i32);
-                        const v: u32 = @intCast(v_i32);
-
-                        const palette_index = src_data_u8[
-                            src_data_start +
-                                u +
-                                v * src_pitch
-                        ];
-                        const src = palette_colors[palette_index];
-                        const dst = &dst_data_color[dst_data_start + x];
-                        dst.* = src.mix(dst.*);
-                    }
-                }
-                dst_data_start += dst_pitch;
-            }
-        } else {
-            for (0..height) |y| {
-                for (0..width) |x| {
-                    const p: Vec2 = .{
-                        .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                        .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-                    };
-                    const ap = p.sub(p_a);
-                    const bp = p.sub(p_b);
-                    const dp = p.sub(p_d);
-                    const cp = p.sub(p_c);
-
-                    const ab_test = ab.dot(ap);
-                    const bd_test = bd.dot(bp);
-                    const dc_test = dc.dot(dp);
-                    const ca_test = ca.dot(cp);
-
-                    if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                        var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
-                        var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
-                        u_i32 = @min(@max(0, u_i32), texture_width - 1);
-                        v_i32 = @min(@max(0, v_i32), texture_height - 1);
-
-                        const u: u32 = @intCast(u_i32);
-                        const v: u32 = @as(u32, @intCast(texture_height - 1)) -
-                            @as(u32, @intCast(v_i32));
-
-                        const src_u8 = src_data_u8[
-                            src_data_start +
-                                u +
-                                v * src_pitch
-                        ];
-                        const src: Color = .{
-                            .format = .{
-                                .r = src_u8,
-                                .g = src_u8,
-                                .b = src_u8,
-                                .a = src_u8,
-                            },
-                        };
-                        const dst = &dst_data_color[dst_data_start + x];
-                        dst.* = src.mix(dst.*);
-                    }
-                }
-                dst_data_start += dst_pitch;
+                const src = src_data.get_src(src_data_start +
+                    u +
+                    v * src_pitch);
+                const dst = &dst_data_u32[dst_data_start + x];
+                dst.* = src.mix(dst.*);
             }
         }
-    } else {
-        log.warn(
-            @src(),
-            "Skipping drawing texture as channel numbers are incopatible: self: {}, texture: {}",
-            .{ self.surface_texture.channels, texture_rect.texture.channels },
-        );
+        dst_data_start += dst_pitch;
     }
 }
 
@@ -632,6 +602,52 @@ pub fn draw_color_rect_with_size_and_rotation(
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
 
+    if (color.format.a == 255) {
+        const SrcData = struct {
+            color: Color,
+            pub fn get_src(this: @This(), dst: Color) Color {
+                _ = dst;
+                return this.color;
+            }
+        };
+        const src_data: SrcData = .{
+            .color = color,
+        };
+        self.draw_color_rect_with_size_and_rotation_inner(
+            position,
+            size,
+            rotation,
+            rotation_offset,
+            src_data,
+        );
+    } else {
+        const SrcData = struct {
+            color: Color,
+            pub fn get_src(this: @This(), dst: Color) Color {
+                return this.color.mix(dst);
+            }
+        };
+        const src_data: SrcData = .{
+            .color = color,
+        };
+        self.draw_color_rect_with_size_and_rotation_inner(
+            position,
+            size,
+            rotation,
+            rotation_offset,
+            src_data,
+        );
+    }
+}
+
+fn draw_color_rect_with_size_and_rotation_inner(
+    self: *Self,
+    position: Vec2,
+    size: Vec2,
+    rotation: f32,
+    rotation_offset: Vec2,
+    src_data: anytype,
+) void {
     const c = @cos(-rotation);
     const s = @sin(-rotation);
     const new_position = position.add(rotation_offset).add(
@@ -687,54 +703,27 @@ pub fn draw_color_rect_with_size_and_rotation(
     const ca = p_a.sub(p_c).perp();
 
     const dst_data_color = self.surface_texture.as_color_slice();
+    for (0..height) |y| {
+        for (0..width) |x| {
+            const p: Vec2 = .{
+                .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+            };
+            const ap = p.sub(p_a);
+            const bp = p.sub(p_b);
+            const dp = p.sub(p_d);
+            const cp = p.sub(p_c);
 
-    if (color.format.a == 255) {
-        for (0..height) |y| {
-            for (0..width) |x| {
-                const p: Vec2 = .{
-                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-                };
-                const ap = p.sub(p_a);
-                const bp = p.sub(p_b);
-                const dp = p.sub(p_d);
-                const cp = p.sub(p_c);
+            const ab_test = ab.dot(ap);
+            const bd_test = bd.dot(bp);
+            const dc_test = dc.dot(dp);
+            const ca_test = ca.dot(cp);
 
-                const ab_test = ab.dot(ap);
-                const bd_test = bd.dot(bp);
-                const dc_test = dc.dot(dp);
-                const ca_test = ca.dot(cp);
-
-                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                    const dst = &dst_data_color[dst_data_start + x];
-                    dst.* = color;
-                }
+            if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                const dst = &dst_data_color[dst_data_start + x];
+                dst.* = src_data.get_src(dst.*);
             }
-            dst_data_start += dst_pitch;
         }
-    } else {
-        for (0..height) |y| {
-            for (0..width) |x| {
-                const p: Vec2 = .{
-                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-                };
-                const ap = p.sub(p_a);
-                const bp = p.sub(p_b);
-                const dp = p.sub(p_d);
-                const cp = p.sub(p_c);
-
-                const ab_test = ab.dot(ap);
-                const bd_test = bd.dot(bp);
-                const dc_test = dc.dot(dp);
-                const ca_test = ca.dot(cp);
-
-                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                    const dst = &dst_data_color[dst_data_start + x];
-                    dst.* = color.mix(dst.*);
-                }
-            }
-            dst_data_start += dst_pitch;
-        }
+        dst_data_start += dst_pitch;
     }
 }
