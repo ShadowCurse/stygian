@@ -15,7 +15,10 @@ pub fn build(b: *std.Build) !void {
         "examples/platform.zig";
     const runtime_src_path =
         b.option([]const u8, "runtime_src_path", "Path to the runtime.zig file") orelse
-        "examples/runtime.zig";
+        if (software_render)
+        "examples/runtime_software.zig"
+    else
+        "examples/runtime_vulkan.zig";
 
     if (software_render and vulkan_render) {
         @panic("Only one of renderer backeds can be selected.");
