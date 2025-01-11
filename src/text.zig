@@ -42,7 +42,7 @@ pub fn init(
     };
 }
 
-pub fn to_scren_quads_world_space(
+pub fn to_screen_quads_world_space(
     self: Self,
     camera_controller: *const Camera.CameraController2d,
     screen_quads: *ScreenQuads,
@@ -91,7 +91,7 @@ pub fn to_scren_quads_world_space(
     }
 }
 
-pub fn to_scren_quads(
+pub fn to_screen_quads(
     self: Self,
     screen_quads: *ScreenQuads,
 ) void {

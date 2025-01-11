@@ -348,7 +348,7 @@ const SoftwareRuntime = struct {
             .{},
             .{ .dont_clip = true },
         );
-        text_fps.to_scren_quads(&self.screen_quads);
+        text_fps.to_screen_quads(&self.screen_quads);
 
         const text_world_space = Text.init(
             &self.font,
@@ -370,7 +370,7 @@ const SoftwareRuntime = struct {
             .{},
             .{},
         );
-        text_world_space.to_scren_quads_world_space(&self.camera_controller, &self.screen_quads);
+        text_world_space.to_screen_quads_world_space(&self.camera_controller, &self.screen_quads);
 
         self.soft_renderer.start_rendering();
         self.screen_quads.render(

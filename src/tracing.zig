@@ -182,7 +182,7 @@ pub fn to_screen_quads(
                 .{},
                 .{ .dont_clip = true, .center = false },
             );
-            text.to_scren_quads(screen_quads);
+            text.to_screen_quads(screen_quads);
             y += y_advance;
         }
     }
