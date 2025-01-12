@@ -215,12 +215,12 @@ pub const Vec4 = extern struct {
         };
     }
 
-    pub inline fn mul(self: Vec4, n: f32) Vec4 {
+    pub inline fn mul_f32(self: Vec4, v: f32) Vec4 {
         return .{
-            .x = self.x * n,
-            .y = self.y * n,
-            .z = self.z * n,
-            .w = self.w * n,
+            .x = self.x * v,
+            .y = self.y * v,
+            .z = self.z * v,
+            .w = self.w * v,
         };
     }
 
