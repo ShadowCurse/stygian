@@ -25,6 +25,7 @@ pub const Color = extern struct {
 
     const Self = @This();
 
+    pub const NONE = Self{ .format = .{ .r = 0, .g = 0, .b = 0, .a = 0 } };
     pub const BLACK = Self{ .format = .{ .r = 0, .g = 0, .b = 0, .a = 255 } };
     pub const WHITE = Self{ .format = .{ .r = 255, .g = 255, .b = 255, .a = 255 } };
     pub const GREEN = Self{ .format = .{ .r = 0, .g = 255, .b = 0, .a = 255 } };

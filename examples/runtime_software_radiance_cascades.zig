@@ -232,7 +232,7 @@ const Runtime = struct {
                     .y = @as(f32, @floatFromInt(height)) / 2.0,
                 },
                 .radius = 40.0,
-                .color = Color.BLACK,
+                .color = Color.NONE,
             },
         };
 
