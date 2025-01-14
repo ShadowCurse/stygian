@@ -57,9 +57,11 @@ const Circle = struct {
 const Cascade = struct {
     pub const trace = Tracing.Measurements(struct {
         data_point: Tracing.Counter,
+        data_point_mut: Tracing.Counter,
         avg_in_direction: Tracing.Counter,
         sample: Tracing.Counter,
         merge: Tracing.Counter,
+        draw_to_the_texture: Tracing.Counter,
     });
 
     data: []Color,
@@ -145,6 +147,23 @@ const Cascade = struct {
     }
 
     fn data_point(
+        self: Self,
+        x: usize,
+        y: usize,
+        index: usize,
+    ) *Color {
+        const trace_start = trace.start();
+        defer trace.end(@src(), trace_start);
+
+        // elements are stored contigiously in memory
+        return &self.data[
+            x * self.elements_total +
+                y * self.samples_per_row * self.elements_total +
+                index
+        ];
+    }
+
+    fn data_point_mut(
         self: *Self,
         x: usize,
         y: usize,
@@ -162,7 +181,7 @@ const Cascade = struct {
     }
 
     fn avg_in_direction(
-        self: *Self,
+        self: Self,
         x: usize,
         y: usize,
         index: usize,
@@ -193,7 +212,7 @@ const Cascade = struct {
         return avg;
     }
 
-    fn sample(self: *Self, circles: []Circle) void {
+    fn sample(self: Self, circles: []Circle) void {
         const trace_start = trace.start();
         defer trace.end(@src(), trace_start);
 
@@ -262,7 +281,7 @@ const Cascade = struct {
                 log.assert(@src(), 0 <= prev_y and prev_y < next.samples_per_column, "", .{});
 
                 for (0..current.elements_total) |i| {
-                    const current_p = current.data_point(x, y, i);
+                    const current_p = current.data_point_mut(x, y, i);
 
                     const p_00 = next.avg_in_direction(prev_x, prev_y, i);
                     const p_01 = next.avg_in_direction(prev_x, next_y, i);
@@ -305,6 +324,52 @@ const Cascade = struct {
                         255.0,
                     ));
                 }
+            }
+        }
+    }
+
+    fn draw_to_the_texture(self: Self, texture: *Textures.Texture) void {
+        const trace_start = trace.start();
+        defer trace.end(@src(), trace_start);
+
+        const colors = texture.as_color_slice();
+        for (0..texture.height) |y| {
+            for (0..texture.width) |x| {
+                const rc_x = @min(
+                    @divFloor(x, Self.PIXEL_SIZE * 2),
+                    self.samples_per_row - 1,
+                    // cascades_needed.width / elements_per_row - 1,
+                );
+                const rc_y = @min(
+                    @divFloor(y, Self.PIXEL_SIZE * 2),
+                    self.samples_per_column - 1,
+                    // cascades_needed.height / elements_per_column - 1,
+                );
+                var r: f32 = 0;
+                var g: f32 = 0;
+                var b: f32 = 0;
+                for (0..4) |i| {
+                    const p = self.data_point(
+                        rc_x,
+                        rc_y,
+                        i,
+                    );
+                    r += @floatFromInt(p.format.r);
+                    g += @floatFromInt(p.format.g);
+                    b += @floatFromInt(p.format.b);
+                }
+                r /= 4.0;
+                g /= 4.0;
+                b /= 4.0;
+
+                colors[x + y * texture.width] = .{
+                    .format = .{
+                        .r = @intFromFloat(r),
+                        .g = @intFromFloat(g),
+                        .b = @intFromFloat(b),
+                        .a = 0,
+                    },
+                };
             }
         }
     }
@@ -480,46 +545,7 @@ const Runtime = struct {
         // For each pixel find the sample from cascade_0 it is closest to
         // and use average of values from that sample.
         if (true) {
-            const hh: u32 = @intCast(height);
-            const ww: u32 = @intCast(width);
-            const colors = self.soft_renderer.surface_texture.as_color_slice();
-            for (0..hh) |y| {
-                for (0..ww) |x| {
-                    const rc_x = @min(
-                        @divFloor(x, Cascade.PIXEL_SIZE * 2),
-                        cascades_needed.width / elements_per_row - 1,
-                    );
-                    const rc_y = @min(
-                        @divFloor(y, Cascade.PIXEL_SIZE * 2),
-                        cascades_needed.height / elements_per_column - 1,
-                    );
-                    var r: f32 = 0;
-                    var g: f32 = 0;
-                    var b: f32 = 0;
-                    for (0..4) |i| {
-                        const p = cascades[0].data_point(
-                            rc_x,
-                            rc_y,
-                            i,
-                        );
-                        r += @floatFromInt(p.format.r);
-                        g += @floatFromInt(p.format.g);
-                        b += @floatFromInt(p.format.b);
-                    }
-                    r /= 4.0;
-                    g /= 4.0;
-                    b /= 4.0;
-
-                    colors[x + y * ww] = .{
-                        .format = .{
-                            .r = @intFromFloat(r),
-                            .g = @intFromFloat(g),
-                            .b = @intFromFloat(b),
-                            .a = 0,
-                        },
-                    };
-                }
-            }
+            cascades[0].draw_to_the_texture(&self.soft_renderer.surface_texture);
         }
 
         if (false) {
