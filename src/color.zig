@@ -2,6 +2,7 @@ const builtin = @import("builtin");
 
 const _math = @import("math.zig");
 const Vec3 = _math.Vec3;
+const Vec4 = _math.Vec4;
 
 // On web the surface format is ABGR
 pub const Format = if (builtin.os.tag == .emscripten)
@@ -36,9 +37,18 @@ pub const Color = extern struct {
 
     pub fn to_vec3(self: *const Self) Vec3 {
         return .{
-            .x = @as(f32, @floatFromInt(self.r)) / 255.0,
-            .y = @as(f32, @floatFromInt(self.g)) / 255.0,
-            .z = @as(f32, @floatFromInt(self.b)) / 255.0,
+            .x = @as(f32, @floatFromInt(self.format.r)),
+            .y = @as(f32, @floatFromInt(self.format.g)),
+            .z = @as(f32, @floatFromInt(self.format.b)),
+        };
+    }
+
+    pub fn to_vec4(self: *const Self) Vec4 {
+        return .{
+            .x = @as(f32, @floatFromInt(self.format.r)),
+            .y = @as(f32, @floatFromInt(self.format.g)),
+            .z = @as(f32, @floatFromInt(self.format.b)),
+            .w = @as(f32, @floatFromInt(self.format.a)),
         };
     }
 

@@ -190,7 +190,7 @@ const Cascade = struct {
         defer trace.end(@src(), trace_start);
 
         var avg: Vec4 = .{};
-        var valid: f32 = 0.0;
+        var valid: u8 = 0.0;
         for (index * 4..index * 4 + 4) |i| {
             const p = self.data_point(
                 x,
@@ -198,17 +198,12 @@ const Cascade = struct {
                 i,
             );
             if (p.format.a != 0) {
-                avg = avg.add(.{
-                    .x = @as(f32, @floatFromInt(p.format.r)) / 255.0,
-                    .y = @as(f32, @floatFromInt(p.format.g)) / 255.0,
-                    .z = @as(f32, @floatFromInt(p.format.b)) / 255.0,
-                    .w = @as(f32, @floatFromInt(p.format.a)) / 255.0,
-                });
-                valid += 1.0;
+                avg = avg.add(p.to_vec4());
+                valid += 1;
             }
         }
         if (valid != 0.0)
-            avg = avg.mul_f32(1.0 / valid);
+            avg = avg.mul_f32(1.0 / @as(f32, @floatFromInt(valid)));
         return avg;
     }
 
@@ -259,10 +254,14 @@ const Cascade = struct {
         const trace_start = trace.start();
         defer trace.end(@src(), trace_start);
 
+        const color_normalize: f32 = 1.0 / 255.0;
         const w_1 = @as(i32, @intCast(current.samples_per_row - 1));
         const h_1 = @as(i32, @intCast(current.samples_per_column - 1));
         for (0..current.samples_per_column) |y| {
+            const y_mix: f32 = if (y % 2 == 0) 0.75 else 0.25;
             for (0..current.samples_per_row) |x| {
+                const x_mix: f32 = if (x % 2 == 0) 0.75 else 0.25;
+
                 const x_i32 = @as(i32, @intCast(x));
                 const y_i32 = @as(i32, @intCast(y));
                 const next_x: u32 = @min(
@@ -275,10 +274,6 @@ const Cascade = struct {
                     next.samples_per_column - 1,
                 );
                 const prev_y: u32 = @intCast(@divFloor(@max(y_i32 - 1, 0), 2));
-                log.assert(@src(), 0 <= next_x and next_x < next.samples_per_row, "", .{});
-                log.assert(@src(), 0 <= prev_x and prev_x < next.samples_per_row, "", .{});
-                log.assert(@src(), 0 <= next_y and next_y < next.samples_per_column, "", .{});
-                log.assert(@src(), 0 <= prev_y and prev_y < next.samples_per_column, "", .{});
 
                 for (0..current.elements_total) |i| {
                     const current_p = current.data_point_mut(x, y, i);
@@ -288,41 +283,25 @@ const Cascade = struct {
                     const p_10 = next.avg_in_direction(next_x, prev_y, i);
                     const p_11 = next.avg_in_direction(next_x, next_y, i);
 
-                    const x_mix: f32 = if (x % 2 == 0) 0.75 else 0.25;
-                    const y_mix: f32 = if (y % 2 == 0) 0.75 else 0.25;
-
                     const p_00_10_mix =
                         p_00.mul_f32(x_mix).add(p_10.mul_f32(1.0 - x_mix));
                     const p_01_11_mix =
                         p_01.mul_f32(x_mix).add(p_11.mul_f32(1.0 - x_mix));
-                    const avg =
+                    const avg_mix =
                         p_00_10_mix.mul_f32(y_mix).add(p_01_11_mix.mul_f32(1.0 - y_mix));
 
-                    const curr_r: f32 = @as(f32, @floatFromInt(current_p.format.r)) / 255.0;
-                    const curr_g: f32 = @as(f32, @floatFromInt(current_p.format.g)) / 255.0;
-                    const curr_b: f32 = @as(f32, @floatFromInt(current_p.format.b)) / 255.0;
-                    const curr_a: f32 = @as(f32, @floatFromInt(current_p.format.a)) / 255.0;
+                    const avg = avg_mix.mul_f32(color_normalize);
+                    const curr = current_p.to_vec4().mul_f32(color_normalize);
 
-                    current_p.format.r = @intFromFloat(std.math.clamp(
-                        (avg.x * curr_a + curr_r) * 255.0,
-                        0.0,
-                        255.0,
-                    ));
-                    current_p.format.g = @intFromFloat(std.math.clamp(
-                        (avg.y * curr_a + curr_g) * 255.0,
-                        0.0,
-                        255.0,
-                    ));
-                    current_p.format.b = @intFromFloat(std.math.clamp(
-                        (avg.z * curr_a + curr_b) * 255.0,
-                        0.0,
-                        255.0,
-                    ));
-                    current_p.format.a = @intFromFloat(std.math.clamp(
-                        (curr_a * avg.w) * 255.0,
-                        0.0,
-                        255.0,
-                    ));
+                    const current_color: Color = .{
+                        .format = .{
+                            .r = @intFromFloat(@min((avg.x * curr.w + curr.x) * 255.0, 255.0)),
+                            .g = @intFromFloat(@min((avg.y * curr.w + curr.y) * 255.0, 255.0)),
+                            .b = @intFromFloat(@min((avg.z * curr.w + curr.z) * 255.0, 255.0)),
+                            .a = @intFromFloat(@min(curr.w * avg.w, 255.0)),
+                        },
+                    };
+                    current_p.* = current_color;
                 }
             }
         }
