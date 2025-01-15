@@ -333,25 +333,17 @@ const Cascade = struct {
         defer trace.end(@src(), trace_start);
 
         const colors = texture.as_color_slice();
-        for (0..texture.height) |y| {
-            for (0..texture.width) |x| {
-                const rc_x = @min(
-                    @divFloor(x, Self.PIXEL_SIZE * 2),
-                    self.samples_per_row - 1,
-                    // cascades_needed.width / elements_per_row - 1,
-                );
-                const rc_y = @min(
-                    @divFloor(y, Self.PIXEL_SIZE * 2),
-                    self.samples_per_column - 1,
-                    // cascades_needed.height / elements_per_column - 1,
-                );
+        const px_width = Self.PIXEL_SIZE * self.elements_per_row;
+        const px_heigth = Self.PIXEL_SIZE * self.elements_per_column;
+        for (0..self.samples_per_column) |y| {
+            for (0..self.samples_per_row) |x| {
                 var r: f32 = 0;
                 var g: f32 = 0;
                 var b: f32 = 0;
                 for (0..4) |i| {
                     const p = self.data_point(
-                        rc_x,
-                        rc_y,
+                        x,
+                        y,
                         i,
                     );
                     r += @floatFromInt(p.format.r);
@@ -361,8 +353,7 @@ const Cascade = struct {
                 r /= 4.0;
                 g /= 4.0;
                 b /= 4.0;
-
-                colors[x + y * texture.width] = .{
+                const sample_avg_color: Color = .{
                     .format = .{
                         .r = @intFromFloat(r),
                         .g = @intFromFloat(g),
@@ -370,6 +361,13 @@ const Cascade = struct {
                         .a = 0,
                     },
                 };
+
+                var px_start = x * px_width + y * self.samples_per_row * px_width * px_heigth;
+                for (0..px_heigth) |_| {
+                    const row = colors[px_start .. px_start + px_width];
+                    @memset(row, sample_avg_color);
+                    px_start += self.samples_per_row * px_width;
+                }
             }
         }
     }
