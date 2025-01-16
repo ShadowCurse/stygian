@@ -8,9 +8,19 @@ const Memory = @import("memory.zig");
 
 const Self = @This();
 
-size: f32 = 0,
+size: f32,
 char_info: []stb.stbtt_bakedchar = &.{},
 texture_id: u32 = Textures.Texture.ID_DEBUG,
+
+pub const INVALID_CHAR_INFO: stb.stbtt_bakedchar = .{
+    .x0 = 0,
+    .x1 = Textures.Store.DEBUG_WIDTH,
+    .y0 = 0,
+    .y1 = Textures.Store.DEBUG_HEIGHT,
+    .xoff = 0.0,
+    .yoff = 0.0,
+    .xadvance = Textures.Store.DEBUG_WIDTH,
+};
 
 pub fn init(
     memory: *Memory,
@@ -28,7 +38,9 @@ pub fn init(
                 "Cannot get file memory for a font. Font path: {s} error: {}",
                 .{ path, e },
             );
-            return .{};
+            return .{
+                .size = font_size,
+            };
         };
         defer fm.deinit();
 
@@ -48,7 +60,9 @@ pub fn init(
                 "Cannot allocate memory for a font char info. Font path: {s} error: {}",
                 .{ path, e },
             );
-            return .{};
+            return .{
+                .size = font_size,
+            };
         };
         errdefer game_alloc.free(char_info);
 
@@ -58,7 +72,9 @@ pub fn init(
                 "Cannot allocate memory for a font bitmap. Font path: {s} error: {}",
                 .{ path, e },
             );
-            return .{};
+            return .{
+                .size = font_size,
+            };
         };
         errdefer game_alloc.free(bitmap);
 
@@ -92,7 +108,9 @@ pub fn init(
             "Trying to load font from {s}, but there are no space in the texture store",
             .{path},
         );
-        return .{};
+        return .{
+            .size = font_size,
+        };
     }
 }
 

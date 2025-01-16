@@ -57,7 +57,10 @@ pub fn to_screen_quads_world_space(
 
     const rotation_center = world_position.xy().add(self.rotation_offset);
     for (self.text) |c| {
-        const char_info = self.font.char_info[c];
+        const char_info = if (self.font.char_info.len <= c)
+            &Font.INVALID_CHAR_INFO
+        else
+            &self.font.char_info[c];
         const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
         const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
         const char_origin: Vec3 = world_position.add(.{ .x = x_offset });
@@ -103,7 +106,10 @@ pub fn to_screen_quads(
 
     const rotation_center = self.position.xy().add(self.rotation_offset);
     for (self.text) |c| {
-        const char_info = self.font.char_info[c];
+        const char_info = if (self.font.char_info.len <= c)
+            &Font.INVALID_CHAR_INFO
+        else
+            &self.font.char_info[c];
         const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
         const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
         const char_origin: Vec3 = self.position.add(.{ .x = x_offset });
