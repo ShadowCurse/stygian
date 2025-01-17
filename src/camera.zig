@@ -23,7 +23,7 @@ pub const CameraController2d = struct {
         var self: Self = .{};
         self.position.x -= @floatFromInt(width / 2);
         self.position.y -= @floatFromInt(height / 2);
-        self.position.z = 2.0;
+        self.position.z = 1.0;
         self.screen_size = .{ .x = @floatFromInt(width), .y = @floatFromInt(height) };
         return self;
     }
