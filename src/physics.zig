@@ -44,8 +44,8 @@ pub fn circle_rectangle_collision(circle: Circle, rectangle: Rectangle) ?Collisi
     const angle = rectangle.rotation;
     const rectangle_x_axis = Vec2{ .x = @cos(angle), .y = @sin(angle) };
     const rectangle_y_axis = Vec2{ .x = -@sin(angle), .y = @cos(angle) };
-    const circle_x = circle.position.dot(rectangle_x_axis);
-    const circle_y = circle.position.dot(rectangle_y_axis);
+    const circle_x = circle.position.sub(rectangle.position).dot(rectangle_x_axis);
+    const circle_y = circle.position.sub(rectangle.position).dot(rectangle_y_axis);
 
     const circle_v2: Vec2 = .{ .x = circle_x, .y = circle_y };
     const half_width = rectangle.size.x / 2.0;
@@ -56,8 +56,8 @@ pub fn circle_rectangle_collision(circle: Circle, rectangle: Rectangle) ?Collisi
         .y = @min(@max(circle_y, -half_height), half_height),
     };
 
-    const px_to_circle = circle_v2.sub(px);
-    if (px_to_circle.len_squared() < circle.radius * circle.radius) {
+    const px_to_circle_v2 = circle_v2.sub(px);
+    if (px_to_circle_v2.len_squared() < circle.radius * circle.radius) {
         const collision_position = rectangle.position.add(px);
         const collision_normal = circle.position.sub(collision_position).normalize();
         return .{
@@ -91,28 +91,28 @@ test "test_circle_rectangle_collision" {
     // no collision
     // left
     {
-        const c: Circle = .{ .position = .{ .x = -2 }, .radius = 1.0 };
+        const c: Circle = .{ .position = .{ .x = -2.0 }, .radius = 1.0 };
         const r: Rectangle = .{ .position = .{}, .size = .{ .x = 1.0, .y = 1.0 }, .rotation = 0.0 };
         const collision = circle_rectangle_collision(c, r);
         try expect(collision == null);
     }
     // right
     {
-        const c: Circle = .{ .position = .{ .x = 2 }, .radius = 1.0 };
+        const c: Circle = .{ .position = .{ .x = 2.0 }, .radius = 1.0 };
         const r: Rectangle = .{ .position = .{}, .size = .{ .x = 1.0, .y = 1.0 }, .rotation = 0.0 };
         const collision = circle_rectangle_collision(c, r);
         try expect(collision == null);
     }
     // bottom
     {
-        const c: Circle = .{ .position = .{ .y = -2 }, .radius = 1.0 };
+        const c: Circle = .{ .position = .{ .y = -2.0 }, .radius = 1.0 };
         const r: Rectangle = .{ .position = .{}, .size = .{ .x = 1.0, .y = 1.0 }, .rotation = 0.0 };
         const collision = circle_rectangle_collision(c, r);
         try expect(collision == null);
     }
     // top
     {
-        const c: Circle = .{ .position = .{ .y = 2 }, .radius = 1.0 };
+        const c: Circle = .{ .position = .{ .y = 2.0 }, .radius = 1.0 };
         const r: Rectangle = .{ .position = .{}, .size = .{ .x = 1.0, .y = 1.0 }, .rotation = 0.0 };
         const collision = circle_rectangle_collision(c, r);
         try expect(collision == null);
@@ -120,7 +120,7 @@ test "test_circle_rectangle_collision" {
     // collision
     // left
     {
-        const c: Circle = .{ .position = .{ .x = -2 }, .radius = 1.5 };
+        const c: Circle = .{ .position = .{ .x = -2.0 }, .radius = 1.5 };
         const r: Rectangle = .{ .size = .{ .x = 2.0, .y = 2.0 } };
         const collision = circle_rectangle_collision(c, r).?;
         try expect(collision.position.eq(Vec2{ .x = -1.0, .y = 0.0 }));
@@ -128,7 +128,7 @@ test "test_circle_rectangle_collision" {
     }
     // right
     {
-        const c: Circle = .{ .position = .{ .x = 2 }, .radius = 1.5 };
+        const c: Circle = .{ .position = .{ .x = 2.0 }, .radius = 1.5 };
         const r: Rectangle = .{ .size = .{ .x = 2.0, .y = 2.0 } };
         const collision = circle_rectangle_collision(c, r).?;
         try expect(collision.position.eq(Vec2{ .x = 1.0, .y = 0.0 }));
@@ -136,7 +136,7 @@ test "test_circle_rectangle_collision" {
     }
     // bottom
     {
-        const c: Circle = .{ .position = .{ .y = -2 }, .radius = 1.5 };
+        const c: Circle = .{ .position = .{ .y = -2.0 }, .radius = 1.5 };
         const r: Rectangle = .{ .size = .{ .x = 2.0, .y = 2.0 } };
         const collision = circle_rectangle_collision(c, r).?;
         try expect(collision.position.eq(Vec2{ .x = 0.0, .y = -1.0 }));
@@ -144,10 +144,68 @@ test "test_circle_rectangle_collision" {
     }
     // top
     {
-        const c: Circle = .{ .position = .{ .y = 2 }, .radius = 1.5 };
+        const c: Circle = .{ .position = .{ .y = 2.0 }, .radius = 1.5 };
         const r: Rectangle = .{ .size = .{ .x = 2.0, .y = 2.0 } };
         const collision = circle_rectangle_collision(c, r).?;
         try expect(collision.position.eq(Vec2{ .x = 0.0, .y = 1.0 }));
+        try expect(collision.normal.eq(Vec2{ .x = 0.0, .y = 1.0 }));
+    }
+    // collision rect not in the center
+    // left
+    {
+        const c: Circle = .{ .position = .{ .y = 2.0 }, .radius = 1.5 };
+        const r: Rectangle = .{
+            .position = .{
+                .x = 2.0,
+                .y = 2.0,
+            },
+            .size = .{ .x = 2.0, .y = 2.0 },
+        };
+        const collision = circle_rectangle_collision(c, r).?;
+        std.debug.print("{d}:{d}\n", .{ collision.position.x, collision.position.y });
+        try expect(collision.position.eq(Vec2{ .x = 1.0, .y = 2.0 }));
+        try expect(collision.normal.eq(Vec2{ .x = -1.0, .y = 0.0 }));
+    }
+    // right
+    {
+        const c: Circle = .{ .position = .{ .x = 4.0, .y = 2.0 }, .radius = 1.5 };
+        const r: Rectangle = .{
+            .position = .{
+                .x = 2.0,
+                .y = 2.0,
+            },
+            .size = .{ .x = 2.0, .y = 2.0 },
+        };
+        const collision = circle_rectangle_collision(c, r).?;
+        try expect(collision.position.eq(Vec2{ .x = 3.0, .y = 2.0 }));
+        try expect(collision.normal.eq(Vec2{ .x = 1.0, .y = 0.0 }));
+    }
+    // bottom
+    {
+        const c: Circle = .{ .position = .{ .x = 2.0, .y = 0.0 }, .radius = 1.5 };
+        const r: Rectangle = .{
+            .position = .{
+                .x = 2.0,
+                .y = 2.0,
+            },
+            .size = .{ .x = 2.0, .y = 2.0 },
+        };
+        const collision = circle_rectangle_collision(c, r).?;
+        try expect(collision.position.eq(Vec2{ .x = 2.0, .y = 1.0 }));
+        try expect(collision.normal.eq(Vec2{ .x = 0.0, .y = -1.0 }));
+    }
+    // top
+    {
+        const c: Circle = .{ .position = .{ .x = 2.0, .y = 4.0 }, .radius = 1.5 };
+        const r: Rectangle = .{
+            .position = .{
+                .x = 2.0,
+                .y = 2.0,
+            },
+            .size = .{ .x = 2.0, .y = 2.0 },
+        };
+        const collision = circle_rectangle_collision(c, r).?;
+        try expect(collision.position.eq(Vec2{ .x = 2.0, .y = 3.0 }));
         try expect(collision.normal.eq(Vec2{ .x = 0.0, .y = 1.0 }));
     }
 }
