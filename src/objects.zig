@@ -31,6 +31,7 @@ pub const Object2d = struct {
     type: Object2dType,
     transform: Transform2d,
     size: Vec2 = .{},
+    options: ScreenQuads.ScreenQuadOptions = .{},
 
     const Self = @This();
 
@@ -53,6 +54,7 @@ pub const Object2d = struct {
                     .size = self.size.mul_f32(position.z),
                     .rotation = self.transform.rotation,
                     .rotation_offset = self.transform.rotation_offset,
+                    .options = self.options,
                 });
             },
             .TextureId => |texture_id| {
@@ -68,6 +70,7 @@ pub const Object2d = struct {
                     .rotation = self.transform.rotation,
                     .rotation_offset = self.transform.rotation_offset,
                     .uv_size = texture_size,
+                    .options = self.options,
                 });
             },
         }

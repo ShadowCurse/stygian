@@ -251,7 +251,12 @@ pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
 }
 
 // TODO add an option to skip alpha blend and do a simple memcopy instead.
-pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void {
+pub fn draw_texture(
+    self: *Self,
+    position: Vec2,
+    texture_rect: TextureRect,
+    draw_aabb_outline: bool,
+) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
     if (texture_rect.texture.channels == 4) {
@@ -264,7 +269,7 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
         const src_data: SrcData = .{
             .color = texture_rect.texture.as_color_slice(),
         };
-        self.draw_texture_inner(position, texture_rect, src_data);
+        self.draw_texture_inner(position, texture_rect, draw_aabb_outline, src_data);
     } else if (texture_rect.texture.channels == 1) {
         const SrcData = struct {
             bytes: []const u8,
@@ -276,7 +281,7 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
         const src_data: SrcData = .{
             .bytes = texture_rect.texture.data,
         };
-        self.draw_texture_inner(position, texture_rect, src_data);
+        self.draw_texture_inner(position, texture_rect, draw_aabb_outline, src_data);
     } else {
         log.warn(
             @src(),
@@ -286,7 +291,13 @@ pub fn draw_texture(self: *Self, position: Vec2, texture_rect: TextureRect) void
     }
 }
 
-fn draw_texture_inner(self: *Self, position: Vec2, texture_rect: TextureRect, src_data: anytype) void {
+fn draw_texture_inner(
+    self: *Self,
+    position: Vec2,
+    texture_rect: TextureRect,
+    draw_aabb_outline: bool,
+    src_data: anytype,
+) void {
     const self_rect = self.as_texture_rect();
     const self_aabb = self_rect.to_aabb();
     // Positon is the center of the destination
@@ -305,6 +316,13 @@ fn draw_texture_inner(self: *Self, position: Vec2, texture_rect: TextureRect, sr
     const intersection = self_aabb.intersection(dst_aabb);
     const width: u32 = @intFromFloat(intersection.width());
     const height: u32 = @intFromFloat(intersection.height());
+
+    if (height == 0 or width == 0) {
+        return;
+    }
+
+    if (draw_aabb_outline)
+        self.draw_aabb(intersection, Color.RED);
 
     const dst_pitch = self.surface_texture.width;
     const src_pitch = texture_rect.texture.width;
@@ -337,6 +355,7 @@ pub fn draw_texture_with_size_and_rotation(
     rotation: f32,
     rotation_offset: Vec2,
     texture_rect: TextureRect,
+    draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
@@ -357,6 +376,7 @@ pub fn draw_texture_with_size_and_rotation(
             rotation,
             rotation_offset,
             texture_rect,
+            draw_aabb_outline,
             src_data,
         );
     } else if (texture_rect.texture.channels == 1) {
@@ -379,6 +399,7 @@ pub fn draw_texture_with_size_and_rotation(
                 rotation,
                 rotation_offset,
                 texture_rect,
+                draw_aabb_outline,
                 src_data,
             );
         } else {
@@ -398,6 +419,7 @@ pub fn draw_texture_with_size_and_rotation(
                 rotation,
                 rotation_offset,
                 texture_rect,
+                draw_aabb_outline,
                 src_data,
             );
         }
@@ -417,6 +439,7 @@ fn draw_texture_with_size_and_rotation_inner(
     rotation: f32,
     rotation_offset: Vec2,
     texture_rect: TextureRect,
+    draw_aabb_outline: bool,
     src_data: anytype,
 ) void {
     const c = @cos(-rotation);
@@ -464,6 +487,9 @@ fn draw_texture_with_size_and_rotation_inner(
     if (height == 0 or width == 0) {
         return;
     }
+
+    if (draw_aabb_outline)
+        self.draw_aabb(intersection, Color.RED);
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
     const dst_start_y: u32 = @intFromFloat(@round(intersection.min.y));
@@ -528,6 +554,7 @@ pub fn draw_color_rect(
     position: Vec2,
     size: Vec2,
     color: Color,
+    draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
@@ -566,6 +593,9 @@ pub fn draw_color_rect(
         return;
     }
 
+    if (draw_aabb_outline)
+        self.draw_aabb(intersection, Color.RED);
+
     const dst_pitch = self.surface_texture.width;
 
     const dst_start_x: u32 = @intFromFloat(@round(intersection.min.x));
@@ -598,6 +628,7 @@ pub fn draw_color_rect_with_size_and_rotation(
     rotation: f32,
     rotation_offset: Vec2,
     color: Color,
+    draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
@@ -618,6 +649,7 @@ pub fn draw_color_rect_with_size_and_rotation(
             size,
             rotation,
             rotation_offset,
+            draw_aabb_outline,
             src_data,
         );
     } else {
@@ -635,6 +667,7 @@ pub fn draw_color_rect_with_size_and_rotation(
             size,
             rotation,
             rotation_offset,
+            draw_aabb_outline,
             src_data,
         );
     }
@@ -646,6 +679,7 @@ fn draw_color_rect_with_size_and_rotation_inner(
     size: Vec2,
     rotation: f32,
     rotation_offset: Vec2,
+    draw_aabb_outline: bool,
     src_data: anytype,
 ) void {
     const c = @cos(-rotation);
@@ -689,6 +723,9 @@ fn draw_color_rect_with_size_and_rotation_inner(
     if (height == 0 or width == 0) {
         return;
     }
+
+    if (draw_aabb_outline)
+        self.draw_aabb(intersection, Color.RED);
 
     const dst_pitch = self.surface_texture.width;
 

@@ -216,6 +216,7 @@ const Runtime = struct {
                     .x = 50.0,
                     .y = 50.0,
                 },
+                .options = .{ .draw_aabb = true },
             },
             .{
                 .type = .{ .TextureId = self.texture_color_test_palette },
@@ -230,6 +231,7 @@ const Runtime = struct {
                     .x = 50.0,
                     .y = 50.0,
                 },
+                .options = .{ .draw_aabb = true },
             },
         };
 

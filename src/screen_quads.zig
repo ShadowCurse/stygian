@@ -22,7 +22,8 @@ pub const trace = Tracing.Measurements(struct {
 pub const ScreenQuadOptions = packed struct(u32) {
     clip: bool = true,
     no_scale_rotate: bool = false,
-    _: u30 = 0,
+    draw_aabb: bool = false,
+    _: u29 = 0,
 };
 
 pub const ScreenQuad = extern struct {
@@ -125,6 +126,7 @@ pub fn render(
                         quad.position.xy(),
                         quad.size,
                         quad.color,
+                        quad.options.draw_aabb,
                     );
                 } else {
                     soft_renderer.draw_color_rect_with_size_and_rotation(
@@ -133,6 +135,7 @@ pub fn render(
                         quad.rotation,
                         quad.rotation_offset,
                         quad.color,
+                        quad.options.draw_aabb,
                     );
                 }
             },
@@ -152,6 +155,7 @@ pub fn render(
                             .position = quad.uv_offset,
                             .size = quad.uv_size,
                         },
+                        quad.options.draw_aabb,
                     );
                 } else {
                     soft_renderer.draw_texture_with_size_and_rotation(
@@ -165,6 +169,7 @@ pub fn render(
                             .position = quad.uv_offset,
                             .size = quad.uv_size,
                         },
+                        quad.options.draw_aabb,
                     );
                 }
             },
