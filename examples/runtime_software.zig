@@ -193,7 +193,7 @@ const Runtime = struct {
 
         const objects = [_]Object2d{
             .{
-                .type = .{ .Color = Color.ORAGE },
+                .type = .{ .Color = Color.ORANGE },
                 .transform = .{
                     .position = .{},
                     .rotation = A.a,
@@ -244,7 +244,7 @@ const Runtime = struct {
         const tile_positions = self.tile_map.get_positions(frame_alloc);
         for (tile_positions) |tile_pos| {
             const object = Object2d{
-                .type = .{ .Color = Color.ORAGE },
+                .type = .{ .Color = Color.ORANGE },
                 .transform = .{
                     .position = tile_pos.mul_f32(25.0).extend(0.0),
                 },

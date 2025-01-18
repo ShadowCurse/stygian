@@ -430,7 +430,7 @@ const Runtime = struct {
                     .y = @as(f32, @floatFromInt(height)) / 2.0,
                 },
                 .radius = 25.0,
-                .color = Color.ORAGE,
+                .color = Color.ORAGNE,
             },
             .{
                 .center = .{
