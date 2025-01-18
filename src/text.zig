@@ -88,7 +88,7 @@ pub fn to_screen_quads_world_space(
                 .x = char_width,
                 .y = char_height,
             },
-            .tag = if (self.options.dont_clip) .DontClip else .Clip,
+            .options = .{ .clip = !self.options.dont_clip },
         });
         x_offset += char_info.xadvance * scale;
     }
@@ -137,7 +137,7 @@ pub fn to_screen_quads(
                 .x = char_width,
                 .y = char_height,
             },
-            .tag = if (self.options.dont_clip) .DontClip else .Clip,
+            .options = .{ .clip = !self.options.dont_clip },
         });
         x_offset += char_info.xadvance * scale;
     }

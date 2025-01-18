@@ -19,9 +19,10 @@ pub const trace = Tracing.Measurements(struct {
     render: Tracing.Counter,
 });
 
-pub const ScreenQuadTag = enum(u32) {
-    Clip,
-    DontClip,
+pub const ScreenQuadOptions = packed struct(u32) {
+    clip: bool = true,
+    no_scale_rotate: bool = false,
+    _: u30 = 0,
 };
 
 pub const ScreenQuad = extern struct {
@@ -42,7 +43,7 @@ pub const ScreenQuad = extern struct {
     rotation: f32 = 0.0,
     color: Color = Color.WHITE,
     texture_id: Textures.Texture.Id = Textures.Texture.ID_DEBUG,
-    tag: ScreenQuadTag = .Clip,
+    options: ScreenQuadOptions = .{},
 };
 
 quads: []ScreenQuad,
@@ -112,14 +113,14 @@ pub fn render(
     };
     std.mem.sort(ScreenQuad, quads, {}, Compare.inner);
     for (quads) |quad| {
-        if (quad.tag == .Clip and clip_z < quad.position.z) {
+        if (quad.options.clip and clip_z < quad.position.z) {
             continue;
         }
 
         switch (quad.texture_id) {
             Textures.Texture.ID_VERT_COLOR => {},
             Textures.Texture.ID_SOLID_COLOR => {
-                if (quad.rotation == 0.0) {
+                if (quad.options.no_scale_rotate) {
                     soft_renderer.draw_color_rect(
                         quad.position.xy(),
                         quad.size,
@@ -141,18 +142,31 @@ pub fn render(
                     texture_store.get_palette(pid)
                 else
                     null;
-                soft_renderer.draw_texture_with_size_and_rotation(
-                    quad.position.xy(),
-                    quad.size,
-                    quad.rotation,
-                    quad.rotation_offset,
-                    .{
-                        .texture = texture,
-                        .palette = palette,
-                        .position = quad.uv_offset,
-                        .size = quad.uv_size,
-                    },
-                );
+
+                if (quad.options.no_scale_rotate) {
+                    soft_renderer.draw_texture(
+                        quad.position.xy(),
+                        .{
+                            .texture = texture,
+                            .palette = palette,
+                            .position = quad.uv_offset,
+                            .size = quad.uv_size,
+                        },
+                    );
+                } else {
+                    soft_renderer.draw_texture_with_size_and_rotation(
+                        quad.position.xy(),
+                        quad.size,
+                        quad.rotation,
+                        quad.rotation_offset,
+                        .{
+                            .texture = texture,
+                            .palette = palette,
+                            .position = quad.uv_offset,
+                            .size = quad.uv_size,
+                        },
+                    );
+                }
             },
         }
     }
