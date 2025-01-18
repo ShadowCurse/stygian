@@ -10,6 +10,11 @@ pub const Vec2 = extern struct {
     pub const Y: Vec2 = .{ .x = 0.0, .y = 1.0 };
     pub const NEG_Y: Vec2 = .{ .x = 0.0, .y = -1.0 };
 
+    pub inline fn eq(self: Vec2, other: Vec2) bool {
+        return self.x == other.x and
+            self.y == other.y;
+    }
+
     pub inline fn extend(self: Vec2, z: f32) Vec3 {
         return .{
             .x = self.x,
@@ -36,8 +41,16 @@ pub const Vec2 = extern struct {
         return self.dot(self);
     }
 
+    pub inline fn len(self: Vec2) f32 {
+        return @sqrt(self.dot(self));
+    }
+
     pub inline fn normalize(self: Vec2) Vec2 {
-        return self.div_f32(@sqrt(self.len_squared()));
+        return self.div_f32(self.len());
+    }
+
+    pub inline fn is_valid(self: Vec2) bool {
+        return !std.math.isNan(self.x) and !std.math.isNan(self.y);
     }
 
     pub inline fn neg(self: Vec2) Vec2 {
@@ -127,6 +140,12 @@ pub const Vec3 = extern struct {
     pub const NEG_Y: Vec3 = .{ .y = -1.0 };
     pub const Z: Vec3 = .{ .z = 1.0 };
     pub const NEG_Z: Vec3 = .{ .z = -1.0 };
+
+    pub inline fn eq(self: Vec3, other: Vec3) bool {
+        return self.x == other.x and
+            self.y == other.y and
+            self.z == other.z;
+    }
 
     pub inline fn xy(self: Vec3) Vec2 {
         return .{ .x = self.x, .y = self.y };
