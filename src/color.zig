@@ -36,6 +36,17 @@ pub const Color = extern struct {
     pub const ORANGE = Self{ .format = .{ .r = 237, .g = 91, .b = 18, .a = 255 } };
     pub const BLUE = Self{ .format = .{ .r = 0, .g = 0, .b = 255, .a = 255 } };
 
+    pub fn from_parts(r: u8, g: u8, b: u8, a: u8) Self {
+        return .{
+            .format = .{
+                .r = r,
+                .g = g,
+                .b = b,
+                .a = a,
+            },
+        };
+    }
+
     pub fn to_vec3(self: *const Self) Vec3 {
         return .{
             .x = @as(f32, @floatFromInt(self.format.r)),
