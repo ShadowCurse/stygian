@@ -1,7 +1,6 @@
 const Font = @import("font.zig");
 const Camera = @import("camera.zig");
 const ScreenQuads = @import("screen_quads.zig");
-const ScreenQuadTag = ScreenQuads.ScreenQuadTag;
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;

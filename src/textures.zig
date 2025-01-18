@@ -6,7 +6,6 @@ const stb = @import("bindings/stb.zig");
 const platform = @import("platform/posix.zig");
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
-const ScreenQuad = @import("screen_quads.zig").ScreenQuad;
 
 pub const Texture = struct {
     width: u32 = 0,

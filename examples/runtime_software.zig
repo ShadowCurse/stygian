@@ -306,7 +306,7 @@ const Runtime = struct {
             .x = 0.0,
             .y = 425.0,
         });
-        var flip_book_quad: ScreenQuads.ScreenQuad = .{
+        var flip_book_quad: ScreenQuads.Quad = .{
             .position = alex_pos.xy().extend(0.0),
             .size = .{
                 .x = 128.0 * alex_pos.z,

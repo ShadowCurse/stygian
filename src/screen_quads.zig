@@ -3,7 +3,6 @@ const log = @import("log.zig");
 
 const Tracing = @import("tracing.zig");
 const Textures = @import("textures.zig");
-const Font = @import("font.zig");
 const Memory = @import("memory.zig");
 const Color = @import("color.zig").Color;
 const SoftRenderer = @import("soft_renderer/renderer.zig");
@@ -11,7 +10,6 @@ const SoftRenderer = @import("soft_renderer/renderer.zig");
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
-const Mat4 = _math.Mat4;
 
 pub const trace = Tracing.Measurements(struct {
     add_quad: Tracing.Counter,
@@ -19,14 +17,14 @@ pub const trace = Tracing.Measurements(struct {
     render: Tracing.Counter,
 });
 
-pub const ScreenQuadOptions = packed struct(u32) {
+pub const Options = packed struct(u32) {
     clip: bool = true,
     no_scale_rotate: bool = false,
     draw_aabb: bool = false,
     _: u29 = 0,
 };
 
-pub const ScreenQuad = extern struct {
+pub const Quad = extern struct {
     // position in pixels
     position: Vec3 = .{},
     // padding because Vec3 is treated as Vec4
@@ -44,10 +42,10 @@ pub const ScreenQuad = extern struct {
     rotation: f32 = 0.0,
     color: Color = Color.WHITE,
     texture_id: Textures.Texture.Id = Textures.Texture.ID_DEBUG,
-    options: ScreenQuadOptions = .{},
+    options: Options = .{},
 };
 
-quads: []ScreenQuad,
+quads: []Quad,
 used_quads: u32,
 
 const Self = @This();
@@ -55,7 +53,7 @@ const Self = @This();
 pub fn init(memory: *Memory, num_quads: u32) !Self {
     const game_alloc = memory.game_alloc();
     return .{
-        .quads = try game_alloc.alloc(ScreenQuad, num_quads),
+        .quads = try game_alloc.alloc(Quad, num_quads),
         .used_quads = 0,
     };
 }
@@ -69,7 +67,7 @@ pub fn reset(self: *Self) void {
     self.used_quads = 0;
 }
 
-pub fn slice(self: *Self) []ScreenQuad {
+pub fn slice(self: *Self) []Quad {
     log.assert(
         @src(),
         self.used_quads <= self.quads.len,
@@ -79,7 +77,7 @@ pub fn slice(self: *Self) []ScreenQuad {
     return self.quads[0..self.used_quads];
 }
 
-pub fn add_quad(self: *Self, quad: ScreenQuad) void {
+pub fn add_quad(self: *Self, quad: Quad) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
 
@@ -108,11 +106,11 @@ pub fn render(
 
     const quads = self.slice();
     const Compare = struct {
-        pub fn inner(_: void, a: ScreenQuad, b: ScreenQuad) bool {
+        pub fn inner(_: void, a: Quad, b: Quad) bool {
             return a.position.z < b.position.z;
         }
     };
-    std.mem.sort(ScreenQuad, quads, {}, Compare.inner);
+    std.mem.sort(Quad, quads, {}, Compare.inner);
     for (quads) |quad| {
         if (quad.options.clip and clip_z < quad.position.z) {
             continue;

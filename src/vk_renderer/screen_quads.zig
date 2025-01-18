@@ -8,7 +8,7 @@ const Memory = @import("../memory.zig");
 const GpuBuffer = @import("gpu_buffer.zig");
 const Pipeline = @import("pipeline.zig").Pipeline;
 
-const ScreenQuad = @import("../screen_quads.zig").ScreenQuad;
+const ScreenQuads = @import("../screen_quads.zig");
 
 const _math = @import("../math.zig");
 const Vec2 = _math.Vec2;
@@ -29,7 +29,7 @@ pub const ScreenQuadsGpuInfo = struct {
 
     pub fn init(renderer: *VkRenderer, instances: u32) !Self {
         const instance_info_buffer = try renderer.vk_context.create_buffer(
-            @sizeOf(ScreenQuad) * instances,
+            @sizeOf(ScreenQuads.Quad) * instances,
             vk.VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | vk.VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
             vk.VMA_MEMORY_USAGE_CPU_TO_GPU,
         );
@@ -56,7 +56,7 @@ pub const ScreenQuadsGpuInfo = struct {
         self.push_constants.screen_size = screen_size;
     }
 
-    pub fn set_instance_infos(self: *const ScreenQuadsGpuInfo, infos: []const ScreenQuad) void {
+    pub fn set_instance_infos(self: *const ScreenQuadsGpuInfo, infos: []const ScreenQuads.Quad) void {
         var n = infos.len;
         if (self.num_instances < infos.len) {
             log.warn(
@@ -66,7 +66,7 @@ pub const ScreenQuadsGpuInfo = struct {
             );
             n = @min(self.num_instances, infos.len);
         }
-        var info_slice: []ScreenQuad = undefined;
+        var info_slice: []ScreenQuads.Quad = undefined;
         info_slice.ptr = @alignCast(
             @ptrCast(self.instance_info_buffer.allocation_info.pMappedData),
         );

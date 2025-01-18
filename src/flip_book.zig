@@ -32,7 +32,7 @@ pub fn stop(self: *Self) void {
     self.is_playing = false;
 }
 
-pub fn update(self: *Self, texture_store: *const Textures.Store, screen_quad: *ScreenQuads.ScreenQuad, dt: f32) void {
+pub fn update(self: *Self, texture_store: *const Textures.Store, screen_quad: *ScreenQuads.Quad, dt: f32) void {
     if (!self.is_playing) {
         return;
     }

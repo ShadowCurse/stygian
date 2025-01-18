@@ -31,7 +31,7 @@ pub const Object2d = struct {
     type: Object2dType,
     transform: Transform2d,
     size: Vec2 = .{},
-    options: ScreenQuads.ScreenQuadOptions = .{},
+    options: ScreenQuads.Options = .{},
 
     const Self = @This();
 
