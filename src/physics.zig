@@ -69,6 +69,29 @@ pub fn circle_rectangle_collision(circle: Circle, rectangle: Rectangle) ?Collisi
     }
 }
 
+pub fn circle_rectangle_closest_collision_point(circle: Circle, rectangle: Rectangle) CollisionPoint {
+    const angle = rectangle.rotation;
+    const rectangle_x_axis = Vec2{ .x = @cos(angle), .y = @sin(angle) };
+    const rectangle_y_axis = Vec2{ .x = -@sin(angle), .y = @cos(angle) };
+    const circle_x = circle.position.sub(rectangle.position).dot(rectangle_x_axis);
+    const circle_y = circle.position.sub(rectangle.position).dot(rectangle_y_axis);
+
+    const half_width = rectangle.size.x / 2.0;
+    const half_height = rectangle.size.y / 2.0;
+
+    const px: Vec2 = .{
+        .x = @min(@max(circle_x, -half_width), half_width),
+        .y = @min(@max(circle_y, -half_height), half_height),
+    };
+
+    const collision_position = rectangle.position.add(px);
+    const collision_normal = circle.position.sub(collision_position).normalize();
+    return .{
+        .position = collision_position,
+        .normal = collision_normal,
+    };
+}
+
 const expect = std.testing.expect;
 test "test_circle_circle_collision" {
     {
@@ -118,6 +141,15 @@ test "test_circle_rectangle_collision" {
         try expect(collision == null);
     }
     // collision
+    // inside
+    {
+        const c: Circle = .{ .position = .{ .x = 1.0 }, .radius = 1.0 };
+        const r: Rectangle = .{ .size = .{ .x = 4.0, .y = 4.0 } };
+        const collision = circle_rectangle_collision(c, r).?;
+        std.debug.print("{d}:{d}\n", .{ collision.position.x, collision.position.y });
+        try expect(collision.position.eq(Vec2{ .x = 2.0, .y = 0.0 }));
+        try expect(collision.normal.eq(Vec2{ .x = -1.0, .y = 0.0 }));
+    }
     // left
     {
         const c: Circle = .{ .position = .{ .x = -2.0 }, .radius = 1.5 };
