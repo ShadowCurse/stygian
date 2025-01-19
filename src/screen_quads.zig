@@ -20,8 +20,9 @@ pub const trace = Tracing.Measurements(struct {
 pub const Options = packed struct(u32) {
     clip: bool = true,
     no_scale_rotate: bool = false,
+    no_alpha_blend: bool = false,
     draw_aabb: bool = false,
-    _: u29 = 0,
+    _: u28 = 0,
 };
 
 pub const Quad = extern struct {
@@ -124,6 +125,7 @@ pub fn render(
                         quad.position.xy(),
                         quad.size,
                         quad.color,
+                        quad.options.no_alpha_blend,
                         quad.options.draw_aabb,
                     );
                 } else {
@@ -133,6 +135,7 @@ pub fn render(
                         quad.rotation,
                         quad.rotation_offset,
                         quad.color,
+                        quad.options.no_alpha_blend,
                         quad.options.draw_aabb,
                     );
                 }
@@ -153,6 +156,7 @@ pub fn render(
                             .position = quad.uv_offset,
                             .size = quad.uv_size,
                         },
+                        quad.options.no_alpha_blend,
                         quad.options.draw_aabb,
                     );
                 } else {
@@ -167,6 +171,7 @@ pub fn render(
                             .position = quad.uv_offset,
                             .size = quad.uv_size,
                         },
+                        quad.options.no_alpha_blend,
                         quad.options.draw_aabb,
                     );
                 }

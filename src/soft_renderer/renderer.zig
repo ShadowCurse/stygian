@@ -255,6 +255,7 @@ pub fn draw_texture(
     self: *Self,
     position: Vec2,
     texture_rect: TextureRect,
+    no_alpha_blend: bool,
     draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
@@ -269,7 +270,13 @@ pub fn draw_texture(
         const src_data: SrcData = .{
             .color = texture_rect.texture.as_color_slice(),
         };
-        self.draw_texture_inner(position, texture_rect, draw_aabb_outline, src_data);
+        self.draw_texture_inner(
+            position,
+            texture_rect,
+            no_alpha_blend,
+            draw_aabb_outline,
+            src_data,
+        );
     } else if (texture_rect.texture.channels == 1) {
         const SrcData = struct {
             bytes: []const u8,
@@ -281,7 +288,13 @@ pub fn draw_texture(
         const src_data: SrcData = .{
             .bytes = texture_rect.texture.data,
         };
-        self.draw_texture_inner(position, texture_rect, draw_aabb_outline, src_data);
+        self.draw_texture_inner(
+            position,
+            texture_rect,
+            no_alpha_blend,
+            draw_aabb_outline,
+            src_data,
+        );
     } else {
         log.warn(
             @src(),
@@ -295,6 +308,7 @@ fn draw_texture_inner(
     self: *Self,
     position: Vec2,
     texture_rect: TextureRect,
+    no_alpha_blend: bool,
     draw_aabb_outline: bool,
     src_data: anytype,
 ) void {
@@ -336,14 +350,26 @@ fn draw_texture_inner(
     var src_data_start = src_start_x + src_start_y * src_pitch;
 
     const dst_data_color = self.surface_texture.as_color_slice();
-    for (0..height) |_| {
-        for (0..width) |x| {
-            const src = src_data.get_src(src_data_start + @as(u32, @intCast(x)));
-            const dst = &dst_data_color[dst_data_start + x];
-            dst.* = src.mix(dst.*);
+    if (no_alpha_blend) {
+        for (0..height) |_| {
+            for (0..width) |x| {
+                const src = src_data.get_src(src_data_start + @as(u32, @intCast(x)));
+                const dst = &dst_data_color[dst_data_start + x];
+                dst.* = src;
+            }
+            dst_data_start += dst_pitch;
+            src_data_start += src_pitch;
         }
-        dst_data_start += dst_pitch;
-        src_data_start += src_pitch;
+    } else {
+        for (0..height) |_| {
+            for (0..width) |x| {
+                const src = src_data.get_src(src_data_start + @as(u32, @intCast(x)));
+                const dst = &dst_data_color[dst_data_start + x];
+                dst.* = src.mix(dst.*);
+            }
+            dst_data_start += dst_pitch;
+            src_data_start += src_pitch;
+        }
     }
 }
 
@@ -355,6 +381,7 @@ pub fn draw_texture_with_size_and_rotation(
     rotation: f32,
     rotation_offset: Vec2,
     texture_rect: TextureRect,
+    no_alpha_blend: bool,
     draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
@@ -376,6 +403,7 @@ pub fn draw_texture_with_size_and_rotation(
             rotation,
             rotation_offset,
             texture_rect,
+            no_alpha_blend,
             draw_aabb_outline,
             src_data,
         );
@@ -399,6 +427,7 @@ pub fn draw_texture_with_size_and_rotation(
                 rotation,
                 rotation_offset,
                 texture_rect,
+                no_alpha_blend,
                 draw_aabb_outline,
                 src_data,
             );
@@ -419,6 +448,7 @@ pub fn draw_texture_with_size_and_rotation(
                 rotation,
                 rotation_offset,
                 texture_rect,
+                no_alpha_blend,
                 draw_aabb_outline,
                 src_data,
             );
@@ -439,6 +469,7 @@ fn draw_texture_with_size_and_rotation_inner(
     rotation: f32,
     rotation_offset: Vec2,
     texture_rect: TextureRect,
+    no_alpha_blend: bool,
     draw_aabb_outline: bool,
     src_data: anytype,
 ) void {
@@ -512,40 +543,78 @@ fn draw_texture_with_size_and_rotation_inner(
 
     const dst_data_u32 = self.surface_texture.as_color_slice();
 
-    for (0..height) |y| {
-        for (0..width) |x| {
-            const p: Vec2 = .{
-                .x = intersection.min.x + @as(f32, @floatFromInt(x)),
-                .y = intersection.min.y + @as(f32, @floatFromInt(y)),
-            };
-            const ap = p.sub(p_a);
-            const bp = p.sub(p_b);
-            const dp = p.sub(p_d);
-            const cp = p.sub(p_c);
+    if (no_alpha_blend) {
+        for (0..height) |y| {
+            for (0..width) |x| {
+                const p: Vec2 = .{
+                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+                };
+                const ap = p.sub(p_a);
+                const bp = p.sub(p_b);
+                const dp = p.sub(p_d);
+                const cp = p.sub(p_c);
 
-            const ab_test = ab.dot(ap);
-            const bd_test = bd.dot(bp);
-            const dc_test = dc.dot(dp);
-            const ca_test = ca.dot(cp);
+                const ab_test = ab.dot(ap);
+                const bd_test = bd.dot(bp);
+                const dc_test = dc.dot(dp);
+                const ca_test = ca.dot(cp);
 
-            if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
-                var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
-                var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
-                u_i32 = @min(@max(0, u_i32), texture_width - 1);
-                v_i32 = @min(@max(0, v_i32), texture_height - 1);
+                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
+                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
+                    u_i32 = @min(@max(0, u_i32), texture_width - 1);
+                    v_i32 = @min(@max(0, v_i32), texture_height - 1);
 
-                const u: u32 = @intCast(u_i32);
-                const v: u32 = @as(u32, @intCast(texture_height - 1)) -
-                    @as(u32, @intCast(v_i32));
+                    const u: u32 = @intCast(u_i32);
+                    const v: u32 = @as(u32, @intCast(texture_height - 1)) -
+                        @as(u32, @intCast(v_i32));
 
-                const src = src_data.get_src(src_data_start +
-                    u +
-                    v * src_pitch);
-                const dst = &dst_data_u32[dst_data_start + x];
-                dst.* = src.mix(dst.*);
+                    const src = src_data.get_src(src_data_start +
+                        u +
+                        v * src_pitch);
+                    const dst = &dst_data_u32[dst_data_start + x];
+                    dst.* = src;
+                }
             }
+            dst_data_start += dst_pitch;
         }
-        dst_data_start += dst_pitch;
+    } else {
+        for (0..height) |y| {
+            for (0..width) |x| {
+                const p: Vec2 = .{
+                    .x = intersection.min.x + @as(f32, @floatFromInt(x)),
+                    .y = intersection.min.y + @as(f32, @floatFromInt(y)),
+                };
+                const ap = p.sub(p_a);
+                const bp = p.sub(p_b);
+                const dp = p.sub(p_d);
+                const cp = p.sub(p_c);
+
+                const ab_test = ab.dot(ap);
+                const bd_test = bd.dot(bp);
+                const dc_test = dc.dot(dp);
+                const ca_test = ca.dot(cp);
+
+                if (ab_test < 0.0 and bd_test < 0.0 and dc_test < 0.0 and ca_test < 0.0) {
+                    var u_i32: i32 = @intFromFloat(@floor(ap.dot(x_axis)) * scale.x);
+                    var v_i32: i32 = @intFromFloat(@floor(ap.dot(y_axis)) * scale.y);
+                    u_i32 = @min(@max(0, u_i32), texture_width - 1);
+                    v_i32 = @min(@max(0, v_i32), texture_height - 1);
+
+                    const u: u32 = @intCast(u_i32);
+                    const v: u32 = @as(u32, @intCast(texture_height - 1)) -
+                        @as(u32, @intCast(v_i32));
+
+                    const src = src_data.get_src(src_data_start +
+                        u +
+                        v * src_pitch);
+                    const dst = &dst_data_u32[dst_data_start + x];
+                    dst.* = src.mix(dst.*);
+                }
+            }
+            dst_data_start += dst_pitch;
+        }
     }
 }
 
@@ -554,6 +623,7 @@ pub fn draw_color_rect(
     position: Vec2,
     size: Vec2,
     color: Color,
+    no_alpha_blend: bool,
     draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
@@ -604,7 +674,7 @@ pub fn draw_color_rect(
     var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
 
     const dst_data_color = self.surface_texture.as_color_slice();
-    if (color.format.a == 255) {
+    if (color.format.a == 255 or no_alpha_blend) {
         for (0..height) |_| {
             const data_slice = dst_data_color[dst_data_start .. dst_data_start + width];
             @memset(data_slice, color);
@@ -628,12 +698,13 @@ pub fn draw_color_rect_with_size_and_rotation(
     rotation: f32,
     rotation_offset: Vec2,
     color: Color,
+    no_alpha_blend: bool,
     draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
 
-    if (color.format.a == 255) {
+    if (color.format.a == 255 or no_alpha_blend) {
         const SrcData = struct {
             color: Color,
             pub fn get_src(this: @This(), dst: Color) Color {
