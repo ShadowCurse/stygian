@@ -119,7 +119,7 @@ pub fn get(events: []Event) []Event {
                     .Mouse = .{
                         .Button = .{
                             .type = .Pressed,
-                            .key = sdl_event.button.button,
+                            .key = @enumFromInt(sdl_event.button.button),
                         },
                     },
                 };
@@ -135,7 +135,7 @@ pub fn get(events: []Event) []Event {
                     .Mouse = .{
                         .Button = .{
                             .type = .Released,
-                            .key = sdl_event.button.button,
+                            .key = @enumFromInt(sdl_event.button.button),
                         },
                     },
                 };
@@ -202,7 +202,7 @@ pub const MouseMotion = struct {
 };
 pub const MouseButton = struct {
     type: KeyEventType,
-    key: u8,
+    key: MouseKey,
 };
 pub const MouseWheel = struct {
     // Amount scrolled
@@ -212,6 +212,15 @@ pub const MouseWheel = struct {
 pub const KeybordEvent = struct {
     type: KeyEventType,
     key: KeybordKeyScancode,
+};
+
+pub const MouseKey = enum(u8) {
+    LMB = 1,
+    WHEEL = 2,
+    RMB = 3,
+    SIDE_BACK = 4,
+    SIDE_FORWARD = 5,
+    _,
 };
 
 // Based on SDL2 key scancodes
