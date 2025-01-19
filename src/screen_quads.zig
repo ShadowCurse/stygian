@@ -19,10 +19,11 @@ pub const trace = Tracing.Measurements(struct {
 
 pub const Options = packed struct(u32) {
     clip: bool = true,
+    with_tint: bool = false,
     no_scale_rotate: bool = false,
     no_alpha_blend: bool = false,
     draw_aabb: bool = false,
-    _: u28 = 0,
+    _: u27 = 0,
 };
 
 pub const Quad = extern struct {
@@ -148,32 +149,65 @@ pub fn render(
                     null;
 
                 if (quad.options.no_scale_rotate) {
-                    soft_renderer.draw_texture(
-                        quad.position.xy(),
-                        .{
-                            .texture = texture,
-                            .palette = palette,
-                            .position = quad.uv_offset,
-                            .size = quad.uv_size,
-                        },
-                        quad.options.no_alpha_blend,
-                        quad.options.draw_aabb,
-                    );
+                    if (quad.options.with_tint)
+                        soft_renderer.draw_texture(
+                            quad.position.xy(),
+                            .{
+                                .texture = texture,
+                                .palette = palette,
+                                .position = quad.uv_offset,
+                                .size = quad.uv_size,
+                            },
+                            quad.color,
+                            quad.options.no_alpha_blend,
+                            quad.options.draw_aabb,
+                        )
+                    else
+                        soft_renderer.draw_texture(
+                            quad.position.xy(),
+                            .{
+                                .texture = texture,
+                                .palette = palette,
+                                .position = quad.uv_offset,
+                                .size = quad.uv_size,
+                            },
+                            null,
+                            quad.options.no_alpha_blend,
+                            quad.options.draw_aabb,
+                        );
                 } else {
-                    soft_renderer.draw_texture_with_size_and_rotation(
-                        quad.position.xy(),
-                        quad.size,
-                        quad.rotation,
-                        quad.rotation_offset,
-                        .{
-                            .texture = texture,
-                            .palette = palette,
-                            .position = quad.uv_offset,
-                            .size = quad.uv_size,
-                        },
-                        quad.options.no_alpha_blend,
-                        quad.options.draw_aabb,
-                    );
+                    if (quad.options.with_tint)
+                        soft_renderer.draw_texture_with_size_and_rotation(
+                            quad.position.xy(),
+                            quad.size,
+                            quad.rotation,
+                            quad.rotation_offset,
+                            .{
+                                .texture = texture,
+                                .palette = palette,
+                                .position = quad.uv_offset,
+                                .size = quad.uv_size,
+                            },
+                            quad.color,
+                            quad.options.no_alpha_blend,
+                            quad.options.draw_aabb,
+                        )
+                    else
+                        soft_renderer.draw_texture_with_size_and_rotation(
+                            quad.position.xy(),
+                            quad.size,
+                            quad.rotation,
+                            quad.rotation_offset,
+                            .{
+                                .texture = texture,
+                                .palette = palette,
+                                .position = quad.uv_offset,
+                                .size = quad.uv_size,
+                            },
+                            null,
+                            quad.options.no_alpha_blend,
+                            quad.options.draw_aabb,
+                        );
                 }
             },
         }

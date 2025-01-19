@@ -29,6 +29,7 @@ pub const Object2dType = union(enum) {
 
 pub const Object2d = struct {
     type: Object2dType,
+    tint: Color = Color.WHITE,
     transform: Transform2d,
     size: Vec2 = .{},
     options: ScreenQuads.Options = .{},
@@ -64,6 +65,7 @@ pub const Object2d = struct {
                     .y = @as(f32, @floatFromInt(texture.height)),
                 };
                 screen_quads.add_quad(.{
+                    .color = self.tint,
                     .texture_id = texture_id,
                     .position = position.xy().extend(self.transform.position.z),
                     .size = self.size.mul_f32(position.z),

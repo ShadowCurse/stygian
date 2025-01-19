@@ -250,51 +250,97 @@ pub fn draw_aabb(self: *Self, aabb: AABB, color: Color) void {
     }
 }
 
-// TODO add an option to skip alpha blend and do a simple memcopy instead.
 pub fn draw_texture(
     self: *Self,
     position: Vec2,
     texture_rect: TextureRect,
+    tint: ?Color,
     no_alpha_blend: bool,
     draw_aabb_outline: bool,
 ) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
     if (texture_rect.texture.channels == 4) {
-        const SrcData = struct {
-            color: []const Color,
-            pub fn get_src(this: @This(), offset: u32) Color {
-                return this.color[offset];
-            }
-        };
-        const src_data: SrcData = .{
-            .color = texture_rect.texture.as_color_slice(),
-        };
-        self.draw_texture_inner(
-            position,
-            texture_rect,
-            no_alpha_blend,
-            draw_aabb_outline,
-            src_data,
-        );
+        if (tint) |t| {
+            const SrcData = struct {
+                color: []const Color,
+                tint: Color,
+                pub fn get_src(this: @This(), offset: u32) Color {
+                    return this.tint.mix(this.color[offset], .mul);
+                }
+            };
+            const src_data: SrcData = .{
+                .color = texture_rect.texture.as_color_slice(),
+                .tint = t,
+            };
+            self.draw_texture_inner(
+                position,
+                texture_rect,
+                no_alpha_blend,
+                draw_aabb_outline,
+                src_data,
+            );
+        } else {
+            const SrcData = struct {
+                color: []const Color,
+                pub fn get_src(this: @This(), offset: u32) Color {
+                    return this.color[offset];
+                }
+            };
+            const src_data: SrcData = .{
+                .color = texture_rect.texture.as_color_slice(),
+            };
+            self.draw_texture_inner(
+                position,
+                texture_rect,
+                no_alpha_blend,
+                draw_aabb_outline,
+                src_data,
+            );
+        }
     } else if (texture_rect.texture.channels == 1) {
-        const SrcData = struct {
-            bytes: []const u8,
-            pub fn get_src(this: @This(), offset: u32) Color {
-                const b = this.bytes[offset];
-                return .{ .format = .{ .r = b, .g = b, .b = b, .a = b } };
-            }
-        };
-        const src_data: SrcData = .{
-            .bytes = texture_rect.texture.data,
-        };
-        self.draw_texture_inner(
-            position,
-            texture_rect,
-            no_alpha_blend,
-            draw_aabb_outline,
-            src_data,
-        );
+        if (tint) |t| {
+            const SrcData = struct {
+                bytes: []const u8,
+                tint: Color,
+                pub fn get_src(this: @This(), offset: u32) Color {
+                    const b = this.bytes[offset];
+                    return this.tint.mix(
+                        .{ .format = .{ .r = b, .g = b, .b = b, .a = b } },
+                        .mul,
+                    );
+                }
+            };
+            const src_data: SrcData = .{
+                .bytes = texture_rect.texture.data,
+                .tint = t,
+            };
+            self.draw_texture_inner(
+                position,
+                texture_rect,
+                no_alpha_blend,
+                draw_aabb_outline,
+                src_data,
+            );
+        } else {
+            const SrcData = struct {
+                bytes: []const u8,
+                pub fn get_src(this: @This(), offset: u32) Color {
+                    const b = this.bytes[offset];
+                    return .{ .format = .{ .r = b, .g = b, .b = b, .a = b } };
+                }
+            };
+            const src_data: SrcData = .{
+                .bytes = texture_rect.texture.data,
+            };
+            self.draw_texture_inner(
+                position,
+                texture_rect,
+                no_alpha_blend,
+                draw_aabb_outline,
+                src_data,
+            );
+        }
     } else {
         log.warn(
             @src(),
@@ -365,7 +411,7 @@ fn draw_texture_inner(
             for (0..width) |x| {
                 const src = src_data.get_src(src_data_start + @as(u32, @intCast(x)));
                 const dst = &dst_data_color[dst_data_start + x];
-                dst.* = src.mix(dst.*);
+                dst.* = src.mix(dst.*, .dst);
             }
             dst_data_start += dst_pitch;
             src_data_start += src_pitch;
@@ -381,6 +427,7 @@ pub fn draw_texture_with_size_and_rotation(
     rotation: f32,
     rotation_offset: Vec2,
     texture_rect: TextureRect,
+    tint: ?Color,
     no_alpha_blend: bool,
     draw_aabb_outline: bool,
 ) void {
@@ -388,38 +435,17 @@ pub fn draw_texture_with_size_and_rotation(
     defer trace.end(@src(), trace_start);
 
     if (texture_rect.texture.channels == 4) {
-        const SrcData = struct {
-            color: []const Color,
-            pub fn get_src(this: @This(), offset: u32) Color {
-                return this.color[offset];
-            }
-        };
-        const src_data: SrcData = .{
-            .color = texture_rect.texture.as_color_slice(),
-        };
-        self.draw_texture_with_size_and_rotation_inner(
-            position,
-            size,
-            rotation,
-            rotation_offset,
-            texture_rect,
-            no_alpha_blend,
-            draw_aabb_outline,
-            src_data,
-        );
-    } else if (texture_rect.texture.channels == 1) {
-        if (texture_rect.palette) |palette| {
+        if (tint) |t| {
             const SrcData = struct {
-                bytes: []const u8,
-                palette: []const Color,
+                color: []const Color,
+                tint: Color,
                 pub fn get_src(this: @This(), offset: u32) Color {
-                    const index = this.bytes[offset];
-                    return this.palette[index];
+                    return this.tint.mix(this.color[offset], .mul);
                 }
             };
             const src_data: SrcData = .{
-                .bytes = texture_rect.texture.data,
-                .palette = palette.as_color_slice(),
+                .color = texture_rect.texture.as_color_slice(),
+                .tint = t,
             };
             self.draw_texture_with_size_and_rotation_inner(
                 position,
@@ -433,14 +459,13 @@ pub fn draw_texture_with_size_and_rotation(
             );
         } else {
             const SrcData = struct {
-                bytes: []const u8,
+                color: []const Color,
                 pub fn get_src(this: @This(), offset: u32) Color {
-                    const b = this.bytes[offset];
-                    return .{ .format = .{ .r = b, .g = b, .b = b, .a = b } };
+                    return this.color[offset];
                 }
             };
             const src_data: SrcData = .{
-                .bytes = texture_rect.texture.data,
+                .color = texture_rect.texture.as_color_slice(),
             };
             self.draw_texture_with_size_and_rotation_inner(
                 position,
@@ -452,6 +477,107 @@ pub fn draw_texture_with_size_and_rotation(
                 draw_aabb_outline,
                 src_data,
             );
+        }
+    } else if (texture_rect.texture.channels == 1) {
+        if (texture_rect.palette) |palette| {
+            if (tint) |t| {
+                const SrcData = struct {
+                    bytes: []const u8,
+                    palette: []const Color,
+                    tint: Color,
+                    pub fn get_src(this: @This(), offset: u32) Color {
+                        const index = this.bytes[offset];
+                        return this.tint.mix(this.palette[index], .mul);
+                    }
+                };
+                const src_data: SrcData = .{
+                    .bytes = texture_rect.texture.data,
+                    .palette = palette.as_color_slice(),
+                    .tint = t,
+                };
+                self.draw_texture_with_size_and_rotation_inner(
+                    position,
+                    size,
+                    rotation,
+                    rotation_offset,
+                    texture_rect,
+                    no_alpha_blend,
+                    draw_aabb_outline,
+                    src_data,
+                );
+            } else {
+                const SrcData = struct {
+                    bytes: []const u8,
+                    palette: []const Color,
+                    pub fn get_src(this: @This(), offset: u32) Color {
+                        const index = this.bytes[offset];
+                        return this.palette[index];
+                    }
+                };
+                const src_data: SrcData = .{
+                    .bytes = texture_rect.texture.data,
+                    .palette = palette.as_color_slice(),
+                };
+                self.draw_texture_with_size_and_rotation_inner(
+                    position,
+                    size,
+                    rotation,
+                    rotation_offset,
+                    texture_rect,
+                    no_alpha_blend,
+                    draw_aabb_outline,
+                    src_data,
+                );
+            }
+        } else {
+            if (tint) |t| {
+                const SrcData = struct {
+                    bytes: []const u8,
+                    tint: Color,
+                    pub fn get_src(this: @This(), offset: u32) Color {
+                        const b = this.bytes[offset];
+                        return this.tint.mix(
+                            .{ .format = .{ .r = b, .g = b, .b = b, .a = b } },
+                            .mul,
+                        );
+                    }
+                };
+                const src_data: SrcData = .{
+                    .bytes = texture_rect.texture.data,
+                    .tint = t,
+                };
+                self.draw_texture_with_size_and_rotation_inner(
+                    position,
+                    size,
+                    rotation,
+                    rotation_offset,
+                    texture_rect,
+                    no_alpha_blend,
+                    draw_aabb_outline,
+                    src_data,
+                );
+            } else {
+                const SrcData = struct {
+                    bytes: []const u8,
+                    pub fn get_src(this: @This(), offset: u32) Color {
+                        const b = this.bytes[offset];
+                        return .{ .format = .{ .r = b, .g = b, .b = b, .a = b } };
+                    }
+                };
+                const src_data: SrcData = .{
+                    .bytes = texture_rect.texture.data,
+                };
+                self.draw_texture_with_size_and_rotation_inner(
+                    position,
+                    size,
+                    rotation,
+                    rotation_offset,
+                    texture_rect,
+                    no_alpha_blend,
+                    draw_aabb_outline,
+                    src_data,
+                );
+            }
         }
     } else {
         log.warn(
@@ -610,7 +736,7 @@ fn draw_texture_with_size_and_rotation_inner(
                         u +
                         v * src_pitch);
                     const dst = &dst_data_u32[dst_data_start + x];
-                    dst.* = src.mix(dst.*);
+                    dst.* = src.mix(dst.*, .dst);
                 }
             }
             dst_data_start += dst_pitch;
@@ -684,7 +810,7 @@ pub fn draw_color_rect(
         for (0..height) |_| {
             for (0..width) |x| {
                 const dst = &dst_data_color[dst_data_start + x];
-                dst.* = color.mix(dst.*);
+                dst.* = color.mix(dst.*, .dst);
             }
             dst_data_start += dst_pitch;
         }
@@ -727,7 +853,7 @@ pub fn draw_color_rect_with_size_and_rotation(
         const SrcData = struct {
             color: Color,
             pub fn get_src(this: @This(), dst: Color) Color {
-                return this.color.mix(dst);
+                return this.color.mix(dst, .dst);
             }
         };
         const src_data: SrcData = .{

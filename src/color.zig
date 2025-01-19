@@ -65,7 +65,15 @@ pub const Color = extern struct {
     }
 
     // Mix colors based on the alpha channel. Assumes the RGBA.
-    pub fn mix(src: Self, dst: Self) Self {
+    pub fn mix(
+        src: Self,
+        dst: Self,
+        comptime returned_alpha: enum {
+            src,
+            dst,
+            mul,
+        },
+    ) Self {
         const src_a_f32 = @as(f32, @floatFromInt(src.format.a)) / 255.0;
         const c1 = src_a_f32;
         const c2 = 1.0 - src_a_f32;
@@ -86,13 +94,39 @@ pub const Color = extern struct {
         const g_u8 = @as(u8, @intFromFloat(g));
         const b_u8 = @as(u8, @intFromFloat(b));
 
-        return .{
-            .format = .{
-                .r = r_u8,
-                .g = g_u8,
-                .b = b_u8,
-                .a = dst.format.a,
+        switch (returned_alpha) {
+            .src => {
+                return .{
+                    .format = .{
+                        .r = r_u8,
+                        .g = g_u8,
+                        .b = b_u8,
+                        .a = src.format.a,
+                    },
+                };
             },
-        };
+            .dst => {
+                return .{
+                    .format = .{
+                        .r = r_u8,
+                        .g = g_u8,
+                        .b = b_u8,
+                        .a = dst.format.a,
+                    },
+                };
+            },
+            .mul => {
+                const dst_a_f32 = @as(f32, @floatFromInt(dst.format.a)) / 255.0;
+                const mul_alpha: u8 = @intFromFloat(src_a_f32 * dst_a_f32 * 255.0);
+                return .{
+                    .format = .{
+                        .r = r_u8,
+                        .g = g_u8,
+                        .b = b_u8,
+                        .a = mul_alpha,
+                    },
+                };
+            },
+        }
     }
 };
