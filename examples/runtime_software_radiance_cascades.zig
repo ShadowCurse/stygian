@@ -410,7 +410,7 @@ const Runtime = struct {
             .{},
             .{ .dont_clip = true },
         );
-        text_fps.to_screen_quads(&self.screen_quads);
+        text_fps.to_screen_quads(frame_alloc, &self.screen_quads);
 
         const cascades_needed = Cascade.cascades_needed(@intCast(width), @intCast(height));
         var cascades: []Cascade = frame_alloc.alloc(Cascade, cascades_needed.n) catch unreachable;
@@ -430,7 +430,7 @@ const Runtime = struct {
                     .y = @as(f32, @floatFromInt(height)) / 2.0,
                 },
                 .radius = 25.0,
-                .color = Color.ORAGNE,
+                .color = Color.ORANGE,
             },
             .{
                 .center = .{

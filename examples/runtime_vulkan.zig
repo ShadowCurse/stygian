@@ -221,7 +221,7 @@ const Runtime = struct {
             .{},
             .{},
         );
-        text_fps.to_screen_quads(&self.screen_quads);
+        text_fps.to_screen_quads(frame_alloc, &self.screen_quads);
 
         const frame_memory_text = Text.init(
             &self.font,
@@ -239,7 +239,7 @@ const Runtime = struct {
             .{},
             .{},
         );
-        frame_memory_text.to_screen_quads(&self.screen_quads);
+        frame_memory_text.to_screen_quads(frame_alloc, &self.screen_quads);
 
         self.screen_quads.add_quad(.{
             .texture_id = Textures.Texture.ID_VERT_COLOR,

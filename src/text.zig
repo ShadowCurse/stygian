@@ -1,3 +1,6 @@
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+
 const Font = @import("font.zig");
 const Camera = @import("camera.zig");
 const ScreenQuads = @import("screen_quads.zig");
@@ -43,19 +46,17 @@ pub fn init(
 
 pub fn to_screen_quads_world_space(
     self: Self,
+    allocator: Allocator,
     camera_controller: *const Camera.CameraController2d,
     screen_quads: *ScreenQuads,
 ) void {
     const world_position = camera_controller.transform(self.position);
 
     const scale = self.size / self.font.size * world_position.z;
-    var x_offset: f32 = if (self.options.center)
-        -self.font.size * scale * @as(f32, @floatFromInt(self.text.len / 2))
-    else
-        0.0;
-
+    var x_offset: f32 = 0.0;
     const rotation_center = world_position.xy().add(self.rotation_offset);
-    for (self.text) |c| {
+    const quads = allocator.alloc(ScreenQuads.Quad, self.text.len) catch unreachable;
+    for (quads, self.text) |*quad, c| {
         const char_info = if (self.font.char_info.len <= c)
             &Font.INVALID_CHAR_INFO
         else
@@ -69,7 +70,7 @@ pub fn to_screen_quads_world_space(
             .z = 0.0,
         };
         const char_position = char_origin.add(char_offset.mul_f32(scale));
-        screen_quads.add_quad(.{
+        quad.* = .{
             .color = .{},
             .texture_id = self.font.texture_id,
             .position = char_position,
@@ -88,23 +89,33 @@ pub fn to_screen_quads_world_space(
                 .y = char_height,
             },
             .options = .{ .clip = !self.options.dont_clip },
-        });
+        };
         x_offset += char_info.xadvance * scale;
+    }
+
+    if (self.options.center) {
+        const text_half_len = x_offset / 2.0;
+        for (quads) |*quad| {
+            quad.position.x -= text_half_len;
+            screen_quads.add_quad(quad.*);
+        }
+    } else {
+        for (quads) |quad| {
+            screen_quads.add_quad(quad);
+        }
     }
 }
 
 pub fn to_screen_quads(
     self: Self,
+    allocator: Allocator,
     screen_quads: *ScreenQuads,
 ) void {
     const scale = self.size / self.font.size;
-    var x_offset: f32 = if (self.options.center)
-        -self.font.size * scale * @as(f32, @floatFromInt(self.text.len / 2))
-    else
-        0.0;
-
+    var x_offset: f32 = 0.0;
     const rotation_center = self.position.xy().add(self.rotation_offset);
-    for (self.text) |c| {
+    const quads = allocator.alloc(ScreenQuads.Quad, self.text.len) catch unreachable;
+    for (quads, self.text) |*quad, c| {
         const char_info = if (self.font.char_info.len <= c)
             &Font.INVALID_CHAR_INFO
         else
@@ -118,7 +129,7 @@ pub fn to_screen_quads(
             .z = 0.0,
         };
         const char_position = char_origin.add(char_offset.mul_f32(scale));
-        screen_quads.add_quad(.{
+        quad.* = .{
             .color = .{},
             .texture_id = self.font.texture_id,
             .position = char_position,
@@ -137,7 +148,18 @@ pub fn to_screen_quads(
                 .y = char_height,
             },
             .options = .{ .clip = !self.options.dont_clip },
-        });
+        };
         x_offset += char_info.xadvance * scale;
+    }
+    if (self.options.center) {
+        const text_half_len = x_offset / 2.0;
+        for (quads) |*quad| {
+            quad.position.x -= text_half_len;
+            screen_quads.add_quad(quad.*);
+        }
+    } else {
+        for (quads) |quad| {
+            screen_quads.add_quad(quad);
+        }
     }
 }
