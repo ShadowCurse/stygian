@@ -1,6 +1,17 @@
 const std = @import("std");
+
+const Tracing = @import("tracing.zig");
+
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
+
+pub const trace = Tracing.Measurements(struct {
+    point_circle_intersect: Tracing.Counter,
+    point_rectangle_intersect: Tracing.Counter,
+    circle_circle_collision: Tracing.Counter,
+    circle_rectangle_collision: Tracing.Counter,
+    circle_rectangle_closest_collision_point: Tracing.Counter,
+});
 
 pub const Circle = struct {
     position: Vec2 = .{},
@@ -19,12 +30,18 @@ pub const CollisionPoint = struct {
 };
 
 pub fn point_circle_intersect(point: Vec2, circle: Circle) bool {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
     return circle.position.sub(point).len_squared() < circle.radius * circle.radius;
 }
 
 // This one ignores the rectangle rotation
 // TODO maybe split rectangle into 2 version: one with rotation and another without
 pub fn point_rectangle_intersect(point: Vec2, rectangle: Rectangle) bool {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
     const half_width = rectangle.size.x / 2.0;
     const half_heigth = rectangle.size.y / 2.0;
     const left = rectangle.position.x - half_width;
@@ -37,6 +54,9 @@ pub fn point_rectangle_intersect(point: Vec2, rectangle: Rectangle) bool {
 // Assuming that it is the circle_1 who is trying to collide with circle_2. If they collide
 // the collision point will be on the circle_2 surface.
 pub fn circle_circle_collision(circle_1: Circle, circle_2: Circle) ?CollisionPoint {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
     const to_circle_2 = circle_2.position.sub(circle_1.position);
     const to_circle_2_len = to_circle_2.len();
     if (to_circle_2_len < circle_1.radius + circle_2.radius) {
@@ -57,6 +77,9 @@ pub fn circle_circle_collision(circle_1: Circle, circle_2: Circle) ?CollisionPoi
 // Assuming that it is the circle who is tryign to collide with rectangle. If they collide
 // the collision point will be on the rectangle surface.
 pub fn circle_rectangle_collision(circle: Circle, rectangle: Rectangle) ?CollisionPoint {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
     const angle = rectangle.rotation;
     const rectangle_x_axis = Vec2{ .x = @cos(angle), .y = @sin(angle) };
     const rectangle_y_axis = Vec2{ .x = -@sin(angle), .y = @cos(angle) };
@@ -85,7 +108,12 @@ pub fn circle_rectangle_collision(circle: Circle, rectangle: Rectangle) ?Collisi
     }
 }
 
-pub fn circle_rectangle_closest_collision_point(circle: Circle, rectangle: Rectangle) CollisionPoint {
+pub fn circle_rectangle_closest_collision_point(
+    circle: Circle,
+    rectangle: Rectangle,
+) CollisionPoint {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
     const angle = rectangle.rotation;
     const rectangle_x_axis = Vec2{ .x = @cos(angle), .y = @sin(angle) };
     const rectangle_y_axis = Vec2{ .x = -@sin(angle), .y = @cos(angle) };
