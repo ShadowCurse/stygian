@@ -163,3 +163,63 @@ pub fn to_screen_quads(
         }
     }
 }
+
+pub const RawTextQuads = struct {
+    quads: []ScreenQuads.Quad,
+    total_width: f32,
+};
+pub fn to_screen_quads_raw(
+    self: Self,
+    allocator: Allocator,
+) RawTextQuads {
+    const scale = self.size / self.font.size;
+    var x_offset: f32 = 0.0;
+    const rotation_center = self.position.xy().add(self.rotation_offset);
+    const quads = allocator.alloc(ScreenQuads.Quad, self.text.len) catch unreachable;
+    for (quads, self.text) |*quad, c| {
+        const char_info = if (self.font.char_info.len <= c)
+            &Font.INVALID_CHAR_INFO
+        else
+            &self.font.char_info[c];
+        const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
+        const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
+        const char_origin: Vec3 = self.position.add(.{ .x = x_offset });
+        const char_offset = Vec3{
+            .x = char_info.xoff,
+            .y = char_info.yoff + char_height * 0.5,
+            .z = 0.0,
+        };
+        const char_position = char_origin.add(char_offset.mul_f32(scale));
+        quad.* = .{
+            .color = .{},
+            .texture_id = self.font.texture_id,
+            .position = char_position,
+            .size = .{
+                .x = char_width * scale,
+                .y = char_height * scale,
+            },
+            .rotation = self.rotation,
+            .rotation_offset = rotation_center.sub(char_origin.xy()),
+            .uv_offset = .{
+                .x = @as(f32, @floatFromInt(char_info.x0)),
+                .y = @as(f32, @floatFromInt(char_info.y0)),
+            },
+            .uv_size = .{
+                .x = char_width,
+                .y = char_height,
+            },
+            .options = .{ .clip = !self.options.dont_clip },
+        };
+        x_offset += char_info.xadvance * scale;
+    }
+    if (self.options.center) {
+        const text_half_len = x_offset / 2.0;
+        for (quads) |*quad| {
+            quad.position.x -= text_half_len;
+        }
+    }
+    return .{
+        .quads = quads,
+        .total_width = x_offset,
+    };
+}
