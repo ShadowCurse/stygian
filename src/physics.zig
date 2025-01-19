@@ -18,6 +18,22 @@ pub const CollisionPoint = struct {
     normal: Vec2,
 };
 
+pub fn point_circle_intersect(point: Vec2, circle: Circle) bool {
+    return circle.position.sub(point).len_squared() < circle.radius * circle.radius;
+}
+
+// This one ignores the rectangle rotation
+// TODO maybe split rectangle into 2 version: one with rotation and another without
+pub fn point_rectangle_intersect(point: Vec2, rectangle: Rectangle) bool {
+    const half_width = rectangle.size.x / 2.0;
+    const half_heigth = rectangle.size.y / 2.0;
+    const left = rectangle.position.x - half_width;
+    const right = rectangle.position.x + half_width;
+    const bot = rectangle.position.y - half_heigth;
+    const top = rectangle.position.y + half_heigth;
+    return left < point.x and point.x < right and bot < point.y and point.y < top;
+}
+
 // Assuming that it is the circle_1 who is trying to collide with circle_2. If they collide
 // the collision point will be on the circle_2 surface.
 pub fn circle_circle_collision(circle_1: Circle, circle_2: Circle) ?CollisionPoint {
