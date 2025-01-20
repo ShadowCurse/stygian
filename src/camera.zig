@@ -28,6 +28,10 @@ pub const CameraController2d = struct {
         return self;
     }
 
+    pub fn world_position(self: Self) Vec3 {
+        return self.position.add(self.screen_size.mul_f32(0.5).extend(0.0));
+    }
+
     pub fn process_input(self: *Self, event: Events.Event, dt: f32) void {
         switch (event) {
             .Keyboard => |key| {
