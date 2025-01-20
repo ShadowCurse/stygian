@@ -98,6 +98,10 @@ pub const Vec2 = extern struct {
             .y = self.x,
         };
     }
+
+    pub inline fn lerp(start: Vec2, end: Vec2, t: f32) Vec2 {
+        return start.add(end.sub(start).mul_f32(t));
+    }
 };
 
 // Calculate lines a-b and c-d intersection if any
@@ -201,6 +205,10 @@ pub const Vec3 = extern struct {
             .y = self.z * other.x - self.x * other.z,
             .z = self.x * other.y - self.y * other.x,
         };
+    }
+
+    pub inline fn lerp(start: Vec3, end: Vec3, t: f32) Vec3 {
+        return start.add(end.sub(start).mul_f32(t));
     }
 };
 
