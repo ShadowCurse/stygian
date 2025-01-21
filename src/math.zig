@@ -92,6 +92,10 @@ pub const Vec2 = extern struct {
         return self.x * other.x + self.y * other.y;
     }
 
+    pub inline fn cross(self: Vec2, other: Vec2) f32 {
+        return self.x * other.y - self.y * other.x;
+    }
+
     pub inline fn perp(self: Vec2) Vec2 {
         return .{
             .x = -self.y,
