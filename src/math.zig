@@ -103,6 +103,15 @@ pub const Vec2 = extern struct {
         };
     }
 
+    pub inline fn rotate(self: Vec2, angle: f32) Vec2 {
+        const c = @cos(angle);
+        const s = @sin(angle);
+        return .{
+            .x = self.x * c - self.y * s,
+            .y = self.x * s + self.y * c,
+        };
+    }
+
     pub inline fn lerp(start: Vec2, end: Vec2, t: f32) Vec2 {
         return start.add(end.sub(start).mul_f32(t));
     }
