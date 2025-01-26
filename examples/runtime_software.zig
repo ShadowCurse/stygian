@@ -359,8 +359,9 @@ const Runtime = struct {
         self.soft_renderer.start_rendering();
         self.screen_quads.render(
             &self.soft_renderer,
-            self.camera_controller.position.z,
             &self.texture_store,
+            self.camera_controller.position.z,
+            true,
         );
         self.soft_renderer.end_rendering();
     }

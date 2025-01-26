@@ -603,8 +603,9 @@ const Runtime = struct {
 
         self.screen_quads.render(
             &self.soft_renderer,
-            0.0,
             &self.texture_store,
+            0.0,
+            false,
         );
         self.soft_renderer.end_rendering();
     }

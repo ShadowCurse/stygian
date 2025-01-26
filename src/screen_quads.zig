@@ -100,19 +100,22 @@ pub fn add_quad(self: *Self, quad: Quad) void {
 pub fn render(
     self: *Self,
     soft_renderer: *SoftRenderer,
-    clip_z: f32,
     texture_store: *const Textures.Store,
+    clip_z: f32,
+    sort: bool,
 ) void {
     const trace_start = trace.start();
     defer trace.end(@src(), trace_start);
 
     const quads = self.slice();
-    const Compare = struct {
-        pub fn inner(_: void, a: Quad, b: Quad) bool {
-            return a.position.z < b.position.z;
-        }
-    };
-    std.mem.sort(Quad, quads, {}, Compare.inner);
+    if (sort) {
+        const Compare = struct {
+            pub fn inner(_: void, a: Quad, b: Quad) bool {
+                return a.position.z < b.position.z;
+            }
+        };
+        std.mem.sort(Quad, quads, {}, Compare.inner);
+    }
     for (quads) |quad| {
         if (quad.options.clip and clip_z < quad.position.z) {
             continue;
