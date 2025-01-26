@@ -320,7 +320,7 @@ const Runtime = struct {
             &self.font,
             std.fmt.allocPrint(
                 frame_alloc,
-                "FPS: {d:.1} FT: {d:.3}s",
+                "FPS: {d:.1}\nFT: {d:.3}s",
                 .{ 1.0 / dt, dt },
             ) catch unreachable,
             32.0,
@@ -338,7 +338,7 @@ const Runtime = struct {
             &self.font,
             std.fmt.allocPrint(
                 frame_alloc,
-                "Camera positon: x: {d:.1} y: {d:.1} z: {d:.1}",
+                "Camera positon:\nx: {d:.1}\ny: {d:.1}\nz: {d:.1}\n",
                 .{
                     self.camera_controller.position.x,
                     self.camera_controller.position.y,
@@ -352,7 +352,7 @@ const Runtime = struct {
             },
             0.0,
             .{},
-            .{},
+            .{ .center = false },
         );
         text_world_space.to_screen_quads_world_space(frame_alloc, &self.camera_controller, &self.screen_quads);
 
