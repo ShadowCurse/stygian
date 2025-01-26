@@ -18,6 +18,7 @@ pub const trace = Tracing.Measurements(struct {
 pub const Body = struct {
     position: Vec2 = .{},
     velocity: Vec2 = .{},
+    acceleration: Vec2 = .{},
     restitution: f32 = 1.0,
     friction: f32 = 0.0,
     inv_mass: f32 = 0.0,
