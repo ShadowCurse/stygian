@@ -255,6 +255,15 @@ pub const Vec4 = extern struct {
         };
     }
 
+    pub inline fn sub(self: Vec4, other: Vec4) Vec4 {
+        return .{
+            .x = self.x - other.x,
+            .y = self.y - other.y,
+            .z = self.z - other.z,
+            .w = self.w - other.w,
+        };
+    }
+
     pub inline fn mul_f32(self: Vec4, v: f32) Vec4 {
         return .{
             .x = self.x * v,
@@ -266,6 +275,10 @@ pub const Vec4 = extern struct {
 
     pub inline fn dot(self: Vec4, other: Vec4) f32 {
         return self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w;
+    }
+
+    pub inline fn lerp(start: Vec4, end: Vec4, t: f32) Vec4 {
+        return start.add(end.sub(start).mul_f32(t));
     }
 
     pub inline fn mul_mat4(self: Vec4, m: Mat4) Vec4 {
