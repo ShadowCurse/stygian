@@ -38,7 +38,7 @@ pub const Texture = struct {
 pub const Palette = struct {
     data: []align(4) u8,
 
-    pub const Id = u32;
+    pub const Id = u16;
     pub const ID_DEBUG = 0;
 
     const Self = @This();
@@ -69,8 +69,8 @@ pub const Store = struct {
     pub const DEBUG_HEIGHT = 16;
     pub const DEBUG_CHANNELS = 4;
 
-    pub const MAX_TEXTURES = 8;
-    pub const MAX_PALETTS = 8;
+    pub const MAX_TEXTURES = 32;
+    pub const MAX_PALETTS = 32;
 
     const Self = @This();
 
@@ -116,6 +116,61 @@ pub const Store = struct {
         } else {
             return null;
         }
+    }
+
+    pub fn copy_texture_id(self: *Store, texture_id: Texture.Id) Texture.Id {
+        if (self.textures_num == self.textures.len) {
+            log.err(
+                @src(),
+                "Trying to copy texture id, but hit the max capacity: MAX_TEXTURES: {}, texture id: {d}",
+                .{ @as(u32, MAX_TEXTURES), texture_id },
+            );
+            return Texture.ID_DEBUG;
+        }
+
+        const new_id = self.textures_num;
+        self.textures[new_id] = self.textures[texture_id];
+        self.textures_num += 1;
+        log.info(
+            @src(),
+            "Copied texture id: {d}. New id: {d}",
+            .{ texture_id, new_id },
+        );
+        return new_id;
+    }
+
+    pub fn clone_palette(self: *Store, memory: *Memory, palette_id: Palette.Id) Palette.Id {
+        const game_alloc = memory.game_alloc();
+
+        if (self.paletts_num == self.paletts.len) {
+            log.err(
+                @src(),
+                "Trying to copy palette, but hit the max capacity: MAX_PALETTS: {}, palette id: {d}",
+                .{ @as(u32, MAX_PALETTS), palette_id },
+            );
+            return Palette.ID_DEBUG;
+        }
+
+        const palette = &self.paletts[palette_id];
+
+        const new_id = self.paletts_num;
+        const palette_bytes = game_alloc.alignedAlloc(u8, 4, palette.data.len) catch |e| {
+            log.err(
+                @src(),
+                "Cannot allocate memory for a palette. Palette id: {d} error: {}",
+                .{ palette_id, e },
+            );
+            return Texture.ID_DEBUG;
+        };
+        self.paletts[new_id].data = palette_bytes;
+        @memcpy(palette_bytes, palette.data);
+        self.paletts_num += 1;
+        log.info(
+            @src(),
+            "Copied palette with id: {d}. New id: {d}",
+            .{ palette_id, new_id },
+        );
+        return new_id;
     }
 
     pub fn load(self: *Store, memory: *Memory, path: [:0]const u8) Texture.Id {
@@ -316,7 +371,7 @@ pub const Store = struct {
         const palette_bytes = game_alloc.alignedAlloc(u8, 4, colors_used * 4) catch |e| {
             log.err(
                 @src(),
-                "Cannot allocate memory for a texture. Texture path: {s} error: {}",
+                "Cannot allocate memory for a palette. Texture path: {s} error: {}",
                 .{ path, e },
             );
             return Texture.ID_DEBUG;
