@@ -1,3 +1,4 @@
+const std = @import("std");
 const builtin = @import("builtin");
 
 const _math = @import("math.zig");
@@ -47,6 +48,17 @@ pub const Color = extern struct {
         };
     }
 
+    pub fn from_vec4_norm(vec4: Vec4) Self {
+        return .{
+            .format = .{
+                .r = @intFromFloat(std.math.clamp(vec4.x * 255.0, 0.0, 255.0)),
+                .g = @intFromFloat(std.math.clamp(vec4.y * 255.0, 0.0, 255.0)),
+                .b = @intFromFloat(std.math.clamp(vec4.z * 255.0, 0.0, 255.0)),
+                .a = @intFromFloat(std.math.clamp(vec4.w * 255.0, 0.0, 255.0)),
+            },
+        };
+    }
+
     pub fn to_vec3(self: *const Self) Vec3 {
         return .{
             .x = @as(f32, @floatFromInt(self.format.r)),
@@ -61,6 +73,15 @@ pub const Color = extern struct {
             .y = @as(f32, @floatFromInt(self.format.g)),
             .z = @as(f32, @floatFromInt(self.format.b)),
             .w = @as(f32, @floatFromInt(self.format.a)),
+        };
+    }
+
+    pub fn to_vec4_norm(self: *const Self) Vec4 {
+        return .{
+            .x = @as(f32, @floatFromInt(self.format.r)) / 255.0,
+            .y = @as(f32, @floatFromInt(self.format.g)) / 255.0,
+            .z = @as(f32, @floatFromInt(self.format.b)) / 255.0,
+            .w = @as(f32, @floatFromInt(self.format.a)) / 255.0,
         };
     }
 
