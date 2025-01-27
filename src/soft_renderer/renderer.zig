@@ -266,7 +266,7 @@ pub fn draw_texture(
                 color: []const Color,
                 tint: Color,
                 pub fn get_src(this: @This(), offset: u32) Color {
-                    return this.tint.mix(this.color[offset], .mul);
+                    return this.tint.mix(this.color[offset], .dst);
                 }
             };
             const src_data: SrcData = .{
@@ -307,7 +307,7 @@ pub fn draw_texture(
                     const b = this.bytes[offset];
                     return this.tint.mix(
                         .{ .format = .{ .r = b, .g = b, .b = b, .a = b } },
-                        .mul,
+                        .dst,
                     );
                 }
             };
@@ -440,7 +440,7 @@ pub fn draw_texture_with_size_and_rotation(
                 color: []const Color,
                 tint: Color,
                 pub fn get_src(this: @This(), offset: u32) Color {
-                    return this.tint.mix(this.color[offset], .mul);
+                    return this.tint.mix(this.color[offset], .dst);
                 }
             };
             const src_data: SrcData = .{
@@ -487,7 +487,7 @@ pub fn draw_texture_with_size_and_rotation(
                     tint: Color,
                     pub fn get_src(this: @This(), offset: u32) Color {
                         const index = this.bytes[offset];
-                        return this.tint.mix(this.palette[index], .mul);
+                        return this.tint.mix(this.palette[index], .dst);
                     }
                 };
                 const src_data: SrcData = .{
@@ -538,7 +538,7 @@ pub fn draw_texture_with_size_and_rotation(
                         const b = this.bytes[offset];
                         return this.tint.mix(
                             .{ .format = .{ .r = b, .g = b, .b = b, .a = b } },
-                            .mul,
+                            .dst,
                         );
                     }
                 };
