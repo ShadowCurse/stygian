@@ -48,6 +48,28 @@ pub const Color = extern struct {
         };
     }
 
+    pub fn from_vec4_unchecked(vec4: Vec4) Self {
+        return .{
+            .format = .{
+                .r = @intFromFloat(vec4.x),
+                .g = @intFromFloat(vec4.y),
+                .b = @intFromFloat(vec4.z),
+                .a = @intFromFloat(vec4.w),
+            },
+        };
+    }
+
+    pub fn from_vec4(vec4: Vec4) Self {
+        return .{
+            .format = .{
+                .r = @intFromFloat(std.math.clamp(vec4.x, 0.0, 255.0)),
+                .g = @intFromFloat(std.math.clamp(vec4.y, 0.0, 255.0)),
+                .b = @intFromFloat(std.math.clamp(vec4.z, 0.0, 255.0)),
+                .a = @intFromFloat(std.math.clamp(vec4.w, 0.0, 255.0)),
+            },
+        };
+    }
+
     pub fn from_vec4_norm(vec4: Vec4) Self {
         return .{
             .format = .{
