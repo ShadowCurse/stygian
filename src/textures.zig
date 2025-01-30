@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const build_options = @import("build_options");
 const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 
@@ -69,8 +70,8 @@ pub const Store = struct {
     pub const DEBUG_HEIGHT = 16;
     pub const DEBUG_CHANNELS = 4;
 
-    pub const MAX_TEXTURES = 32;
-    pub const MAX_PALETTS = 32;
+    pub const MAX_TEXTURES = build_options.max_textures;
+    pub const MAX_PALETTS = build_options.max_textures;
 
     const Self = @This();
 

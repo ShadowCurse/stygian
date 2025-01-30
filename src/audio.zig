@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_options = @import("build_options");
 const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
@@ -40,7 +41,7 @@ pub const Audio = struct {
     callback_buffer: []align(64) u8,
 
     pub const DEBUG_SOUNDRACK_ID = 0;
-    const MAX_SOUNDTRACKS = 64;
+    const MAX_SOUNDTRACKS = build_options.max_audio_tracks;
     const Self = @This();
 
     pub fn callback(self: *Self, stream_ptr: [*]u8, stream_len: i32) callconv(.C) void {

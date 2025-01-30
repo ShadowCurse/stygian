@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const build_options = @import("build_options");
 
 const Allocator = std.mem.Allocator;
 const GeneralPurposeAllocator = std.heap.GeneralPurposeAllocator(.{
@@ -10,9 +11,9 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 
 const HOST_PAGE_SIZE = std.mem.page_size;
 
-const GAME_MEMORY_SIZE = 1024 * 1024 * 32;
-const FRAME_MEMORY_SIZE = 1024 * 1024;
-const SCRATCH_MEMORY_SIZE = HOST_PAGE_SIZE * 1024;
+const GAME_MEMORY_SIZE = 1024 * 1024 * build_options.game_memory_mb;
+const FRAME_MEMORY_SIZE = 1024 * 1024 * build_options.frame_memory_mb;
+const SCRATCH_MEMORY_SIZE = HOST_PAGE_SIZE * build_options.scratch_memory_pages;
 
 game_allocator: GeneralPurposeAllocator,
 
@@ -32,7 +33,10 @@ pub fn init() !Self {
         .TYPE = .PRIVATE,
         .ANONYMOUS = true,
     };
-    const frame_buffer = try std.posix.mmap(null, FRAME_MEMORY_SIZE, prot, flags, 0, 0);
+    const frame_buffer = if (FRAME_MEMORY_SIZE != 0)
+        try std.posix.mmap(null, FRAME_MEMORY_SIZE, prot, flags, 0, 0)
+    else
+        &.{};
     const frame_allocator = std.heap.FixedBufferAllocator.init(frame_buffer);
 
     const scratch_allocator = try ScratchAllocator.init(SCRATCH_MEMORY_SIZE);

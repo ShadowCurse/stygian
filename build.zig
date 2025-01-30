@@ -7,6 +7,16 @@ pub fn build(b: *std.Build) !void {
     const software_render = b.option(bool, "software_render", "Use software renderer") orelse false;
     const vulkan_render = b.option(bool, "vulkan_render", "Use Vulkan renderer") orelse false;
     const unibuild = b.option(bool, "unibuild", "Compile as a single binary") orelse false;
+
+    const game_memory_mb = b.option(u32, "game_memory_mb", "Game memory size limit") orelse 32;
+    const frame_memory_mb = b.option(u32, "frame_memory_mb", "Frame memory size limit") orelse 1;
+    const scratch_memory_pages =
+        b.option(u32, "scratch_memory_pages", "Scratch memory pages limit") orelse 4096;
+    const max_textures =
+        b.option(u32, "max_textures", "Maximum number of loaded textures.") orelse 32;
+    const max_audio_tracks =
+        b.option(u32, "max_audio_tracks", "Maximum number of loaded audio tracks.") orelse 32;
+
     const lib_path = b.option([]const u8, "lib_path", "Compile as a single binary") orelse
         "./zig-out/lib/libruntime.so";
 
@@ -34,6 +44,11 @@ pub fn build(b: *std.Build) !void {
     options.addOption(bool, "software_render", software_render);
     options.addOption(bool, "vulkan_render", vulkan_render);
     options.addOption(bool, "unibuild", unibuild);
+    options.addOption(u32, "game_memory_mb", game_memory_mb);
+    options.addOption(u32, "frame_memory_mb", frame_memory_mb);
+    options.addOption(u32, "scratch_memory_pages", scratch_memory_pages);
+    options.addOption(u32, "max_textures", max_textures);
+    options.addOption(u32, "max_audio_tracks", max_audio_tracks);
     options.addOption([]const u8, "lib_path", lib_path);
 
     if (b.option(bool, "compile_shaders", "Compile shaders")) |_| {
