@@ -1,3 +1,4 @@
+const std = @import("std");
 const log = @import("log.zig");
 const sdl = @import("bindings/sdl.zig");
 
@@ -39,7 +40,7 @@ pub const Audio = struct {
     callback_buffer: []align(64) u8,
 
     pub const DEBUG_SOUNDRACK_ID = 0;
-    const MAX_SOUNDTRACKS = 4;
+    const MAX_SOUNDTRACKS = 64;
     const Self = @This();
 
     pub fn callback(self: *Self, stream_ptr: [*]u8, stream_len: i32) callconv(.C) void {
@@ -57,6 +58,8 @@ pub const Audio = struct {
         buffer_8_i16.len = self.callback_buffer.len / 16;
         @memset(buffer_8_i16, @splat(0.0));
 
+        const min_i16_f32: @Vector(4, f32) = @splat(std.math.minInt(i16));
+        const max_i16_f32: @Vector(4, f32) = @splat(std.math.maxInt(i16));
         for (&self.playing_soundtracks) |*playing_soundtrack| {
             if (playing_soundtrack.is_finised)
                 continue;
@@ -234,10 +237,35 @@ pub const Audio = struct {
                 left_channel_f32 *= left_volume_f32 * master_volume;
                 right_channel_f32 *= right_volume_f32 * master_volume;
 
+                // Add original to the left/right channels and clamp
+                const dst_data = buffer_8_i16[i];
+                const dst_left_channel_i16: @Vector(4, i16) =
+                    @shuffle(i16, dst_data, undefined, left_mask);
+                const dst_right_channel_i16: @Vector(4, i16) =
+                    @shuffle(i16, dst_data, undefined, right_mask);
+                const dst_left_channel_f32: @Vector(4, f32) = .{
+                    @floatFromInt(dst_left_channel_i16[0]),
+                    @floatFromInt(dst_left_channel_i16[1]),
+                    @floatFromInt(dst_left_channel_i16[2]),
+                    @floatFromInt(dst_left_channel_i16[3]),
+                };
+                const dst_right_channel_f32: @Vector(4, f32) = .{
+                    @floatFromInt(dst_right_channel_i16[0]),
+                    @floatFromInt(dst_right_channel_i16[1]),
+                    @floatFromInt(dst_right_channel_i16[2]),
+                    @floatFromInt(dst_right_channel_i16[3]),
+                };
+                left_channel_f32 += dst_left_channel_f32;
+                right_channel_f32 += dst_right_channel_f32;
+
+                left_channel_f32 = std.math.clamp(left_channel_f32, min_i16_f32, max_i16_f32);
+                right_channel_f32 = std.math.clamp(right_channel_f32, min_i16_f32, max_i16_f32);
+
                 const final_data_mask = @Vector(8, i32){ 0, -1, 1, -2, 2, -3, 3, -4 };
                 const final_data_f32: @Vector(8, f32) =
                     @shuffle(f32, left_channel_f32, right_channel_f32, final_data_mask);
-                buffer_8_i16[i] += .{
+
+                buffer_8_i16[i] = .{
                     @intFromFloat(final_data_f32[0]),
                     @intFromFloat(final_data_f32[1]),
                     @intFromFloat(final_data_f32[2]),
