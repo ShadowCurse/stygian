@@ -9,6 +9,10 @@ const Vec2 = _math.Vec2;
 pub const trace = Tracing.Measurements(struct {
     apply_collision_impulse: Tracing.Counter,
     point_circle_intersect: Tracing.Counter,
+    line_circle_intersect: Tracing.Counter,
+    ray_circle_intersect: Tracing.Counter,
+    ray_ray_intersection: Tracing.Counter,
+    ray_rectangle_intersection: Tracing.Counter,
     point_rectangle_intersect: Tracing.Counter,
     point_rectangle_closest_collision_point: Tracing.Counter,
     circle_circle_collision: Tracing.Counter,
@@ -121,6 +125,131 @@ pub fn point_circle_intersect(point: Vec2, circle: Circle, circle_position: Vec2
     defer trace.end(@src(), trace_start);
 
     return circle_position.sub(point).len_squared() < circle.radius * circle.radius;
+}
+
+pub fn line_circle_intersect(
+    line_p1: Vec2,
+    line_p2: Vec2,
+    circle: Circle,
+    circle_position: Vec2,
+) bool {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
+    // Move circle at the center of coord
+    const line_p1_c = line_p1.sub(circle_position);
+    const line_p2_c = line_p2.sub(circle_position);
+    const dir = line_p2_c.sub(line_p1_c);
+    const dir_len = dir.len();
+    const p1_p2_cross = line_p1_c.cross(line_p2_c);
+    const d = dir_len * dir_len * circle.radius * circle.radius - p1_p2_cross * p1_p2_cross;
+    return 0.0 < d;
+}
+
+pub fn ray_circle_intersect(
+    ray_origin: Vec2,
+    ray_direction: Vec2,
+    circle: Circle,
+    circle_position: Vec2,
+) bool {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
+    const to_circle = circle_position.sub(ray_origin);
+    const to_circle_proj_on_dir = to_circle.dot(ray_direction);
+    if (to_circle_proj_on_dir < 0.0)
+        return false;
+
+    const closest_point_on_ray = ray_origin.add(ray_direction.mul_f32(to_circle_proj_on_dir));
+    const circle_to_point = closest_point_on_ray.sub(circle_position);
+    const ctp_len = circle_to_point.len();
+    return ctp_len < circle.radius;
+}
+
+pub fn ray_ray_intersection(
+    ray_1_origin: Vec2,
+    ray_1_direction: Vec2,
+    ray_2_origin: Vec2,
+    ray_2_direction: Vec2,
+) ?Vec2 {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
+    const c = ray_1_direction.cross(ray_2_direction);
+    if (c == 0)
+        return null;
+    const t = ray_2_origin.sub(ray_1_origin).cross(ray_2_direction.mul_f32(1.0 / c));
+    if (t < 0)
+        return null;
+    return ray_1_origin.add(ray_1_direction.mul_f32(t));
+}
+
+pub fn ray_line_intersection(
+    ray_origin: Vec2,
+    ray_direction: Vec2,
+    line_p1: Vec2,
+    line_p2: Vec2,
+) ?Vec2 {
+    const ray_to_p1 = ray_origin.sub(line_p1);
+    const p2_to_p1 = line_p2.sub(line_p1);
+    const perp_dir = ray_direction.perp();
+
+    const d = p2_to_p1.dot(perp_dir);
+    if (d == 0)
+        return null;
+    const ray_t = p2_to_p1.cross(ray_to_p1) / d;
+    const line_t = ray_to_p1.dot(perp_dir) / d;
+    if (0.0 <= ray_t and (0.0 <= line_t and line_t <= 1.0))
+        return ray_origin.add(ray_direction.mul_f32(ray_t));
+    return null;
+}
+
+pub fn ray_rectangle_intersection(
+    ray_origin: Vec2,
+    ray_direction: Vec2,
+    rectangle: Rectangle,
+    rectangle_position: Vec2,
+) ?Vec2 {
+    const trace_start = trace.start();
+    defer trace.end(@src(), trace_start);
+
+    const half_width = rectangle.size.x / 2.0;
+    const half_heigth = rectangle.size.y / 2.0;
+    const left = rectangle_position.x - half_width;
+    const right = rectangle_position.x + half_width;
+    const bot = rectangle_position.y - half_heigth;
+    const top = rectangle_position.y + half_heigth;
+
+    if (ray_line_intersection(
+        ray_origin,
+        ray_direction,
+        .{ .x = left, .y = top },
+        .{ .x = right, .y = top },
+    )) |i|
+        return i;
+    if (ray_line_intersection(
+        ray_origin,
+        ray_direction,
+        .{ .x = right, .y = top },
+        .{ .x = right, .y = bot },
+    )) |i|
+        return i;
+    if (ray_line_intersection(
+        ray_origin,
+        ray_direction,
+        .{ .x = right, .y = bot },
+        .{ .x = left, .y = bot },
+    )) |i|
+        return i;
+    if (ray_line_intersection(
+        ray_origin,
+        ray_direction,
+        .{ .x = left, .y = bot },
+        .{ .x = left, .y = top },
+    )) |i|
+        return i;
+
+    return null;
 }
 
 // This one ignores the rectangle rotation
