@@ -8,6 +8,10 @@ pub fn build(b: *std.Build) !void {
     const vulkan_render = b.option(bool, "vulkan_render", "Use Vulkan renderer") orelse false;
     const unibuild = b.option(bool, "unibuild", "Compile as a single binary") orelse false;
 
+    const limit_fps = b.option(u32, "limit_fps", "Upper limit of FPS") orelse 60;
+    const window_width = b.option(u32, "window_width", "Default window width") orelse 1280;
+    const window_height = b.option(u32, "window_height", "Default window height") orelse 720;
+
     const game_memory_mb = b.option(u32, "game_memory_mb", "Game memory size limit") orelse 32;
     const frame_memory_mb = b.option(u32, "frame_memory_mb", "Frame memory size limit") orelse 1;
     const scratch_memory_pages =
@@ -44,6 +48,9 @@ pub fn build(b: *std.Build) !void {
     options.addOption(bool, "software_render", software_render);
     options.addOption(bool, "vulkan_render", vulkan_render);
     options.addOption(bool, "unibuild", unibuild);
+    options.addOption(u32, "limit_fps", limit_fps);
+    options.addOption(u32, "window_width", window_width);
+    options.addOption(u32, "window_height", window_height);
     options.addOption(u32, "game_memory_mb", game_memory_mb);
     options.addOption(u32, "frame_memory_mb", frame_memory_mb);
     options.addOption(u32, "scratch_memory_pages", scratch_memory_pages);

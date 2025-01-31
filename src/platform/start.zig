@@ -37,10 +37,10 @@ pub const log_options = log.Options{
     .level = .Info,
 };
 
-pub const WINDOW_WIDTH = 1280;
-pub const WINDOW_HEIGHT = 720;
-pub const FPS = 60.0;
-pub const FRAME_TIME = 1.0 / FPS;
+pub const WINDOW_WIDTH = build_options.window_width;
+pub const WINDOW_HEIGHT = build_options.window_height;
+pub const FPS = build_options.limit_fps;
+pub const FRAME_TIME = 1.0 / @as(f32, FPS);
 
 const RuntimeLoad = struct {
     runtime_dl_handle: ?*anyopaque = null,
