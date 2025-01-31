@@ -146,16 +146,30 @@ pub fn to_screen_quads_raw_impl(
         const line_end: u32 = line_start + @as(u32, @intCast(quad_line.len));
         defer line_start = line_end + 1;
 
-        for (quad_line, self.text[line_start..line_end]) |*quad, c| {
+        for (quad_line, self.text[line_start..line_end], 0..) |*quad, c, i| {
+            if (c == ' ') {
+                quad.* = .{
+                    .texture_id = self.font.texture_id,
+                };
+                offset.x += scale * 4.0;
+            }
             const char_info = if (self.font.char_info.len <= c)
                 &Font.INVALID_CHAR_INFO
             else
                 &self.font.char_info[c];
+            const char_kern_i32 = if (0 < i) blk: {
+                const prev_char = self.text[line_start + i - 1];
+                break :blk self.font.get_kerning(c, prev_char);
+            } else blk: {
+                break :blk 0;
+            };
+            const char_kern = @as(f32, @floatFromInt(char_kern_i32)) * self.font.scale;
+
             const char_width = @as(f32, @floatFromInt(char_info.x1 - char_info.x0));
             const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
             const char_origin: Vec3 = position.add(offset);
             const char_offset = Vec3{
-                .x = char_info.xoff,
+                .x = char_info.xoff + char_kern,
                 .y = char_info.yoff + char_height * 0.5,
                 .z = 0.0,
             };
@@ -180,7 +194,7 @@ pub fn to_screen_quads_raw_impl(
                 },
                 .options = .{ .clip = !self.options.dont_clip },
             };
-            offset.x += char_info.xadvance * scale;
+            offset.x += (char_info.xadvance + char_kern) * scale;
         }
 
         if (self.options.center) {

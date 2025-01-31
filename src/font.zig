@@ -9,8 +9,20 @@ const Memory = @import("memory.zig");
 const Self = @This();
 
 size: f32,
+scale: f32 = 0.0,
 char_info: []stb.stbtt_bakedchar = &.{},
+kerning_table: []KerningInfo = &.{},
 texture_id: u32 = Textures.Texture.ID_DEBUG,
+
+pub const FIRST_CHAR = ' ';
+pub const ALL_CHARS =
+    " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~";
+
+pub const KerningInfo = struct {
+    char_1: u8 = 0,
+    char_2: u8 = 0,
+    kerning: i32 = 0,
+};
 
 pub const INVALID_CHAR_INFO: stb.stbtt_bakedchar = .{
     .x0 = 0,
@@ -90,6 +102,32 @@ pub fn init(
             char_info.ptr,
         );
 
+        const scale = stb.stbtt_ScaleForPixelHeight(&stb_font, font_size);
+        const kerning_table = game_alloc.alloc(KerningInfo, ALL_CHARS.len * ALL_CHARS.len) catch |e| {
+            log.err(
+                @src(),
+                "Cannot allocate memory for a font kerning table. Font path: {s} error: {}",
+                .{ path, e },
+            );
+            return .{
+                .size = font_size,
+            };
+        };
+        errdefer game_alloc.free(kerning_table);
+
+        var kerning_table_index: u32 = 0;
+        for (ALL_CHARS) |c1| {
+            for (ALL_CHARS) |c2| {
+                const kerning = stb.stbtt_GetCodepointKernAdvance(&stb_font, c1, c2);
+                kerning_table[kerning_table_index] = .{
+                    .char_1 = c1,
+                    .char_2 = c2,
+                    .kerning = kerning,
+                };
+                kerning_table_index += 1;
+            }
+        }
+
         texture.* = .{
             .data = bitmap,
             .width = 512,
@@ -99,7 +137,9 @@ pub fn init(
 
         return .{
             .size = font_size,
+            .scale = scale,
             .char_info = char_info,
+            .kerning_table = kerning_table,
             .texture_id = texture_id,
         };
     } else {
@@ -117,4 +157,17 @@ pub fn init(
 pub fn deinit(self: *const Self, memory: *Memory) void {
     const game_alloc = memory.game_alloc();
     game_alloc.free(self.char_info);
+}
+
+pub fn get_kerning(self: *const Self, char_1: u8, char_2: u8) i32 {
+    const index = char_1 - FIRST_CHAR;
+    const offset = char_2 - FIRST_CHAR;
+    const info = self.kerning_table[index * ALL_CHARS.len + offset];
+    log.assert(
+        @src(),
+        info.char_1 == char_1 and info.char_2 == char_2,
+        "Tryingt to get a kerninig info for pair {c}/{c} but got one for pair {c}/{c}",
+        .{ char_1, char_2, info.char_1, info.char_2 },
+    );
+    return info.kerning;
 }
