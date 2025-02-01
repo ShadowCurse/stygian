@@ -9,7 +9,9 @@ const Memory = @import("memory.zig");
 const Self = @This();
 
 size: f32,
-scale: f32 = 0.0,
+ascent: i32 = 0,
+decent: i32 = 0,
+line_gap: i32 = 0,
 char_info: []stb.stbtt_bakedchar = &.{},
 kerning_table: []KerningInfo = &.{},
 texture_id: u32 = Textures.Texture.ID_DEBUG,
@@ -102,7 +104,11 @@ pub fn init(
             char_info.ptr,
         );
 
-        const scale = stb.stbtt_ScaleForPixelHeight(&stb_font, font_size);
+        var ascent: i32 = undefined;
+        var decent: i32 = undefined;
+        var line_gap: i32 = undefined;
+        stb.stbtt_GetFontVMetrics(&stb_font, &ascent, &decent, &line_gap);
+
         const kerning_table = game_alloc.alloc(KerningInfo, ALL_CHARS.len * ALL_CHARS.len) catch |e| {
             log.err(
                 @src(),
@@ -137,7 +143,9 @@ pub fn init(
 
         return .{
             .size = font_size,
-            .scale = scale,
+            .ascent = ascent,
+            .decent = decent,
+            .line_gap = line_gap,
             .char_info = char_info,
             .kerning_table = kerning_table,
             .texture_id = texture_id,
@@ -157,6 +165,10 @@ pub fn init(
 pub fn deinit(self: *const Self, memory: *Memory) void {
     const game_alloc = memory.game_alloc();
     game_alloc.free(self.char_info);
+}
+
+pub fn scale(self: *const Self) f32 {
+    return self.size / @as(f32, @floatFromInt(self.ascent));
 }
 
 pub fn get_kerning(self: *const Self, char_1: u8, char_2: u8) i32 {
