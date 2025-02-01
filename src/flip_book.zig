@@ -42,7 +42,7 @@ pub fn update(self: *Self, texture_store: *const Textures.Store, screen_quad: *S
         self.current_frame += 1;
         self.current_time -= self.seconds_per_frame;
     }
-    if (self.current_frame == self.frames - 1) {
+    if (self.frames - 1 <= self.current_frame) {
         if (self.is_looping) {
             self.current_frame = 0;
         } else {
