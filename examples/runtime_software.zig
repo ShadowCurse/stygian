@@ -338,7 +338,7 @@ const Runtime = struct {
             &self.font,
             std.fmt.allocPrint(
                 frame_alloc,
-                "Camera positon:\nx: {d:.1}\ny: {d:.1}\nz: {d:.1}\n",
+                "Camera position:\nx: {d:.1}\ny: {d:.1}\nz: {d:.1}\n",
                 .{
                     self.camera_controller.position.x,
                     self.camera_controller.position.y,
