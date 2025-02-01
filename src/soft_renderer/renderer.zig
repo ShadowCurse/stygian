@@ -389,8 +389,10 @@ fn draw_texture_inner(
 
     const dst_start_x: u32 = @intFromFloat(intersection.min.x);
     const dst_start_y: u32 = @intFromFloat(intersection.min.y);
-    const src_start_x: u32 = @intFromFloat(texture_rect.position.x);
-    const src_start_y: u32 = @intFromFloat(texture_rect.position.y);
+    const src_start_x: u32 =
+        @intFromFloat(texture_rect.position.x + intersection.min.x - dst_aabb.min.x);
+    const src_start_y: u32 =
+        @intFromFloat(texture_rect.position.y + intersection.min.y - dst_aabb.min.y);
 
     var dst_data_start = dst_start_x + dst_start_y * dst_pitch;
     var src_data_start = src_start_x + src_start_y * src_pitch;
