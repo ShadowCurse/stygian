@@ -107,6 +107,10 @@ pub const Color = extern struct {
         };
     }
 
+    pub fn abgr_to_argb(self: *Self) void {
+        std.mem.swap(u8, &self.format.r, &self.format.b);
+    }
+
     // Mix colors based on the alpha channel. Assumes the RGBA.
     pub fn mix(
         src: Self,

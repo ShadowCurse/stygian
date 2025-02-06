@@ -210,23 +210,14 @@ pub const Store = struct {
 
             // Convert ABGR -> ARGB
             if (builtin.os.tag != .emscripten and channels == 4) {
-                var bytes_u32: []u32 = undefined;
-                bytes_u32.ptr = @alignCast(@ptrCast(bytes));
-                bytes_u32.len = width * height;
-
-                var data_u32: []u32 = undefined;
-                data_u32.ptr = @alignCast(@ptrCast(image));
-                data_u32.len = width * height;
-                for (0..width * height) |i| {
-                    const color: u32 = @intCast(data_u32[i]);
-                    const blue = (color & 0x00FF0000) >> 16;
-                    const red = color & 0x000000FF;
-                    const new_color = (color & 0xFF00FF00) | (red << 16) | blue;
-                    bytes_u32[i] = new_color;
+                var colors: []Color = undefined;
+                colors.ptr = @alignCast(@ptrCast(image));
+                colors.len = width * height;
+                for (colors) |*color| {
+                    color.abgr_to_argb();
                 }
-            } else {
-                @memcpy(bytes, data);
             }
+            @memcpy(bytes, data);
 
             const id = self.textures_num;
             self.textures[id] = .{
