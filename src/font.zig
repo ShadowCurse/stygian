@@ -1,7 +1,7 @@
 const std = @import("std");
 const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
-const platform = @import("platform/posix.zig");
+const platform = @import("platform/root.zig");
 
 const Textures = @import("textures.zig");
 const Memory = @import("memory.zig");

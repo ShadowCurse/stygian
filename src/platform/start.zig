@@ -7,7 +7,6 @@ const sdl = @import("../bindings/sdl.zig");
 
 const Memory = @import("../memory.zig");
 const Events = @import("event.zig");
-const RuntimeWatch = @import("posix.zig").RuntimeWatch;
 const RuntimeFn = *fn (
     *sdl.SDL_Window,
     [*]const Events.Event,

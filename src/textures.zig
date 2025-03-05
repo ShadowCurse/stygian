@@ -4,7 +4,7 @@ const build_options = @import("build_options");
 const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 
-const platform = @import("platform/posix.zig");
+const platform = @import("platform/root.zig");
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 

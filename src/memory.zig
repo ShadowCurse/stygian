@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const platform = @import("platform/root.zig");
 const build_options = @import("build_options");
 
 const Allocator = std.mem.Allocator;
@@ -7,19 +8,14 @@ const GeneralPurposeAllocator = std.heap.GeneralPurposeAllocator(.{
     .enable_memory_limit = true,
 });
 const FixedBufferAllocator = std.heap.FixedBufferAllocator;
-const ArenaAllocator = std.heap.ArenaAllocator;
-
-const HOST_PAGE_SIZE = std.mem.page_size;
 
 const GAME_MEMORY_SIZE = 1024 * 1024 * build_options.game_memory_mb;
 const FRAME_MEMORY_SIZE = 1024 * 1024 * build_options.frame_memory_mb;
-const SCRATCH_MEMORY_SIZE = HOST_PAGE_SIZE * build_options.scratch_memory_pages;
+const SCRATCH_MEMORY_SIZE = platform.PAGE_SIZE * build_options.scratch_memory_pages;
 
 game_allocator: GeneralPurposeAllocator,
-
 frame_buffer: []u8,
 frame_allocator: FixedBufferAllocator,
-
 scratch_allocator: ScratchAllocator,
 
 const Self = @This();
@@ -28,13 +24,8 @@ pub fn init() !Self {
     var game_allocator = GeneralPurposeAllocator{};
     game_allocator.setRequestedMemoryLimit(GAME_MEMORY_SIZE);
 
-    const prot = std.posix.PROT.READ | std.posix.PROT.WRITE;
-    const flags = std.posix.MAP{
-        .TYPE = .PRIVATE,
-        .ANONYMOUS = true,
-    };
     const frame_buffer = if (FRAME_MEMORY_SIZE != 0)
-        try std.posix.mmap(null, FRAME_MEMORY_SIZE, prot, flags, 0, 0)
+        try platform.mmap(FRAME_MEMORY_SIZE)
     else
         &.{};
     const frame_allocator = std.heap.FixedBufferAllocator.init(frame_buffer);
@@ -70,23 +61,13 @@ pub fn scratch_alloc(self: *Self) Allocator {
 }
 
 const ScratchAllocator = struct {
-    mem: []align(HOST_PAGE_SIZE) u8,
+    mem: []align(platform.PAGE_SIZE) u8,
     end: u32,
     total_allocated: u32,
 
     pub fn init(size: u64) !ScratchAllocator {
-        try std.testing.expect(size % HOST_PAGE_SIZE == 0);
-        const mem = try std.posix.mmap(
-            null,
-            @as(usize, @intCast(size)),
-            std.posix.PROT.READ | std.posix.PROT.WRITE,
-            std.posix.MAP{
-                .TYPE = .PRIVATE,
-                .ANONYMOUS = true,
-            },
-            -1,
-            0,
-        );
+        try std.testing.expect(size % platform.PAGE_SIZE == 0);
+        const mem = try platform.mmap(size);
         return .{
             .mem = mem,
             .end = 0,

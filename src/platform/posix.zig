@@ -1,4 +1,5 @@
 const std = @import("std");
+const root = @import("root.zig");
 
 const IN_ACCESS = 0x00000001;
 const IN_MODIFY = 0x00000002;
@@ -104,3 +105,12 @@ pub const FileMem = struct {
         std.posix.munmap(self.mem);
     }
 };
+
+pub fn mmap(size: u64) ![]align(root.PAGE_SIZE) u8 {
+    const prot = std.posix.PROT.READ | std.posix.PROT.WRITE;
+    const flags = std.posix.MAP{
+        .TYPE = .PRIVATE,
+        .ANONYMOUS = true,
+    };
+    return try std.posix.mmap(null, size, prot, flags, 0, 0);
+}
