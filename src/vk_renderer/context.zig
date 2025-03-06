@@ -31,20 +31,24 @@ pub fn init(
     memory: *Memory,
     window: *sdl.SDL_Window,
 ) !Self {
-    const instance = try Instance.init(memory, window);
+    const instance = try Instance.init(memory);
     const debug_messanger = try DebugMessanger.init(instance.instance);
 
-    // Casts are needed because SDL and vulkan imports same type,
-    // but compiler sees them as different types.
     var surface: vk.VkSurfaceKHR = undefined;
-    if (sdl.SDL_Vulkan_CreateSurface(
-        window,
-        @ptrCast(instance.instance),
+    const create_info = vk.VkWaylandSurfaceCreateInfoKHR{
+        .sType = vk.VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+        .display = @ptrCast(window.driverdata.data.display),
+        .surface = @ptrCast(window.driverdata.surface),
+        .flags = 0,
+        .pNext = null,
+    };
+
+    try vk.check_result(vk.vkCreateWaylandSurfaceKHR(
+        instance.instance,
+        &create_info,
+        null,
         @ptrCast(&surface),
-    ) != 1) {
-        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-        return error.SDLCreateSurface;
-    }
+    ));
 
     const physical_device = try PhysicalDevice.init(memory, instance.instance, surface);
     const logical_device = try LogicalDevice.init(memory, &physical_device);
@@ -256,22 +260,8 @@ pub fn create_render_command(self: *Self) !RenderCommand {
 const Instance = struct {
     instance: vk.VkInstance,
 
-    pub fn init(memory: *Memory, window: *sdl.SDL_Window) !Instance {
+    pub fn init(memory: *Memory) !Instance {
         const scratch_alloc = memory.scratch_alloc();
-
-        var sdl_extension_count: u32 = undefined;
-        if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, null) != 1) {
-            log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-            return error.SDLGetExtensions;
-        }
-        const sdl_extensions = try scratch_alloc.alloc([*c]const u8, sdl_extension_count);
-        if (sdl.SDL_Vulkan_GetInstanceExtensions(window, &sdl_extension_count, sdl_extensions.ptr) != 1) {
-            log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-            return error.SDLGetExtensions;
-        }
-        for (sdl_extensions) |e| {
-            log.debug(@src(), "Required SDL extension: {s}", .{e});
-        }
 
         var extensions_count: u32 = 0;
         try vk.check_result(vk.vkEnumerateInstanceExtensionProperties(
@@ -290,7 +280,7 @@ const Instance = struct {
         var found_additional_extensions: u32 = 0;
         for (extensions) |e| {
             var required = "--------";
-            for (sdl_extensions) |se| {
+            for (vk.PLATFORM_EXTENSIONS) |se| {
                 const sdl_name_span = std.mem.span(se);
                 const extension_name_span = std.mem.span(@as(
                     [*c]const u8,
@@ -317,7 +307,7 @@ const Instance = struct {
                 e.specVersion,
             });
         }
-        if (found_sdl_extensions != sdl_extensions.len) {
+        if (found_sdl_extensions != vk.PLATFORM_EXTENSIONS.len) {
             return error.SDLExtensionsNotFound;
         }
         if (found_additional_extensions != VK_ADDITIONAL_EXTENSIONS_NAMES.len) {
@@ -326,9 +316,9 @@ const Instance = struct {
 
         var total_extensions = try std.ArrayListUnmanaged([*c]const u8).initCapacity(
             scratch_alloc,
-            sdl_extensions.len + VK_ADDITIONAL_EXTENSIONS_NAMES.len,
+            vk.PLATFORM_EXTENSIONS.len + VK_ADDITIONAL_EXTENSIONS_NAMES.len,
         );
-        for (sdl_extensions) |e| {
+        for (vk.PLATFORM_EXTENSIONS) |e| {
             try total_extensions.append(scratch_alloc, e);
         }
         for (VK_ADDITIONAL_EXTENSIONS_NAMES) |e| {
@@ -395,16 +385,10 @@ const Instance = struct {
 };
 
 pub fn get_vk_func(comptime Fn: type, instance: vk.VkInstance, name: [*c]const u8) !Fn {
-    if (sdl.SDL_Vulkan_GetVkGetInstanceProcAddr()) |f| {
-        const get_proc_addr = @as(vk.PFN_vkGetInstanceProcAddr, @ptrCast(f)).?;
-        if (get_proc_addr(instance, name)) |func| {
-            return @ptrCast(func);
-        } else {
-            return error.VKGetInstanceProcAddr;
-        }
+    if (vk.vkGetInstanceProcAddr(instance, name)) |func| {
+        return @ptrCast(func);
     } else {
-        log.err(@src(), "{s}", .{sdl.SDL_GetError()});
-        return error.SDLGetInstanceProcAddr;
+        return error.VKGetInstanceProcAddr;
     }
 }
 

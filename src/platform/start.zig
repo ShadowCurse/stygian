@@ -16,13 +16,7 @@ const RuntimeFn = *fn (
     ?*anyopaque,
 ) *anyopaque;
 
-const RUNTIME_LIB_PATH: [:0]const u8 = std.fmt.comptimePrint("{s}", .{build_options.lib_path}); // "./zig-out/lib/libruntime.so";
-const SDL_CREATE_WINDOW_FLAGS = if (build_options.software_render)
-    0
-else if (build_options.vulkan_render)
-    sdl.SDL_WINDOW_VULKAN
-else
-    @panic("No renderer type selected");
+const RUNTIME_LIB_PATH: [:0]const u8 = std.fmt.comptimePrint("{s}", .{build_options.lib_path});
 
 // TODO mention that this is needed in the actual main in the platform
 // It has no effect here.
@@ -234,7 +228,7 @@ pub fn platform_start() !void {
         sdl.SDL_WINDOWPOS_UNDEFINED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_CREATE_WINDOW_FLAGS,
+        0,
     ) orelse {
         log.err(@src(), "Cannot create a window: {s}", .{sdl.SDL_GetError()});
         return error.SDLCreateWindow;

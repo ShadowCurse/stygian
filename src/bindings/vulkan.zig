@@ -3,10 +3,16 @@ const log = @import("../log.zig");
 
 const vk = @cImport({
     @cInclude("vulkan/vulkan.h");
+    @cInclude("vulkan/vulkan_wayland.h");
     @cInclude("vk_mem_alloc.h");
 });
 
 pub usingnamespace vk;
+
+pub const PLATFORM_EXTENSIONS = [_][*c]const u8{
+    vk.VK_KHR_SURFACE_EXTENSION_NAME,
+    vk.VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
+};
 
 pub fn check_result(result: vk.VkResult) !void {
     switch (result) {
