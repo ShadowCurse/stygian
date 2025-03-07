@@ -218,7 +218,7 @@ const DynamicPlatform = struct {
 };
 
 pub fn platform_start() !void {
-    if (!sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO)) {
+    if (!sdl.SDL_Init(sdl.SDL_INIT_AUDIO)) {
         log.err(@src(), "Cannot init SDL: {s}", .{sdl.SDL_GetError()});
         return error.SDLInit;
     }
