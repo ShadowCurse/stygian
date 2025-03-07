@@ -21,16 +21,16 @@ pub fn get(events: []Event) []Event {
         break :blk sdl_events[0..n];
     } else blk: {
         sdl.SDL_FlushEvents(
-            sdl.SDL_FIRSTEVENT,
-            sdl.SDL_LASTEVENT,
+            sdl.SDL_EVENT_FIRST,
+            sdl.SDL_EVENT_LAST,
         );
         sdl.SDL_PumpEvents();
         const num_events = sdl.SDL_PeepEvents(
             &sdl_events,
             @intCast(sdl_events.len),
             sdl.SDL_PEEKEVENT,
-            sdl.SDL_FIRSTEVENT,
-            sdl.SDL_LASTEVENT,
+            sdl.SDL_EVENT_FIRST,
+            sdl.SDL_EVENT_LAST,
         );
 
         break :blk if (num_events < 0) e: {
@@ -41,16 +41,16 @@ pub fn get(events: []Event) []Event {
     var filled_events_num: u32 = 0;
     for (filled_sdl_events) |*sdl_event| {
         switch (sdl_event.type) {
-            sdl.SDL_QUIT => {
+            sdl.SDL_EVENT_QUIT => {
                 log.debug(@src(), "Got QUIT", .{});
                 events[filled_events_num] = .Quit;
                 filled_events_num += 1;
             },
             // Skip this as it is triggered on key presses
-            sdl.SDL_TEXTINPUT => {},
-            sdl.SDL_KEYDOWN => {
+            sdl.SDL_EVENT_TEXT_INPUT => {},
+            sdl.SDL_EVENT_KEY_DOWN => {
                 if (builtin.os.tag == .emscripten) {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.keysym.sym);
+                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
                     log.debug(@src(), "Got KEYDOWN event for key: {}", .{key});
                     events[filled_events_num] = .{
                         .Keyboard = .{
@@ -60,7 +60,7 @@ pub fn get(events: []Event) []Event {
                     };
                     filled_events_num += 1;
                 } else {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.keysym.scancode);
+                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
                     log.debug(@src(), "Got KEYDOWN event for key: {}", .{key});
                     events[filled_events_num] = .{
                         .Keyboard = .{
@@ -71,7 +71,7 @@ pub fn get(events: []Event) []Event {
                     filled_events_num += 1;
                 }
             },
-            sdl.SDL_KEYUP => {
+            sdl.SDL_EVENT_KEY_UP => {
                 if (builtin.os.tag == .emscripten) {
                     const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.keysym.sym);
                     log.debug(@src(), "Got KEYUP event for key: {}", .{key});
@@ -82,7 +82,7 @@ pub fn get(events: []Event) []Event {
                         },
                     };
                 } else {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.keysym.scancode);
+                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
                     log.debug(@src(), "Got KEYUP event for key: {}", .{key});
                     events[filled_events_num] = .{
                         .Keyboard = .{
@@ -93,7 +93,7 @@ pub fn get(events: []Event) []Event {
                 }
                 filled_events_num += 1;
             },
-            sdl.SDL_MOUSEMOTION => {
+            sdl.SDL_EVENT_MOUSE_MOTION => {
                 log.debug(
                     @src(),
                     "Got MOUSEMOTION event with x: {}, y: {}",
@@ -109,7 +109,7 @@ pub fn get(events: []Event) []Event {
                 };
                 filled_events_num += 1;
             },
-            sdl.SDL_MOUSEBUTTONDOWN => {
+            sdl.SDL_EVENT_MOUSE_BUTTON_DOWN => {
                 log.debug(
                     @src(),
                     "Got MOUSEBUTTONDOWN event for key: {}",
@@ -125,7 +125,7 @@ pub fn get(events: []Event) []Event {
                 };
                 filled_events_num += 1;
             },
-            sdl.SDL_MOUSEBUTTONUP => {
+            sdl.SDL_EVENT_MOUSE_BUTTON_UP => {
                 log.debug(
                     @src(),
                     "Got MOUSEBUTTONUP event for key: {}",
@@ -141,7 +141,7 @@ pub fn get(events: []Event) []Event {
                 };
                 filled_events_num += 1;
             },
-            sdl.SDL_MOUSEWHEEL => {
+            sdl.SDL_EVENT_MOUSE_WHEEL => {
                 if (builtin.os.tag == .emscripten) {
                     log.debug(
                         @src(),
@@ -159,12 +159,12 @@ pub fn get(events: []Event) []Event {
                     log.debug(
                         @src(),
                         "Got MOUSEWHEEL event with value: {}",
-                        .{sdl_event.wheel.preciseY},
+                        .{sdl_event.wheel.y},
                     );
                     events[filled_events_num] = .{
                         .Mouse = .{
                             .Wheel = .{
-                                .amount = sdl_event.wheel.preciseY,
+                                .amount = sdl_event.wheel.y,
                             },
                         },
                     };
@@ -197,8 +197,8 @@ pub const MouseEvent = union(enum) {
 };
 
 pub const MouseMotion = struct {
-    x: i32,
-    y: i32,
+    x: f32,
+    y: f32,
 };
 pub const MouseButton = struct {
     type: KeyEventType,

@@ -71,8 +71,8 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    stygian_platform.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
-    stygian_platform.linkSystemLibrary("SDL2", .{});
+    stygian_platform.addIncludePath(.{ .cwd_relative = env_map.get("SDL3_INCLUDE_PATH").? });
+    stygian_platform.linkSystemLibrary("SDL3", .{});
     stygian_platform.addOptions("build_options", options);
     stygian_platform.link_libc = true;
 
@@ -96,10 +96,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    stygian_runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL2_INCLUDE_PATH").? });
+    stygian_runtime.addIncludePath(.{ .cwd_relative = env_map.get("SDL3_INCLUDE_PATH").? });
     stygian_runtime.addIncludePath(b.path("thirdparty/stb"));
     stygian_runtime.addCSourceFile(.{ .file = b.path("thirdparty/stb/stb_image.c") });
-    stygian_runtime.linkSystemLibrary("SDL2", .{});
+    stygian_runtime.linkSystemLibrary("SDL3", .{});
     stygian_runtime.addOptions("build_options", options);
 
     if (target.result.os.tag == .emscripten) {

@@ -628,7 +628,7 @@ pub export fn runtime_main(
 
     var width: i32 = undefined;
     var height: i32 = undefined;
-    sdl.SDL_GetWindowSize(window, &width, &height);
+    _ = sdl.SDL_GetWindowSize(window, &width, &height);
 
     if (runtime_ptr == null) {
         log.info(@src(), "First time runtime init", .{});

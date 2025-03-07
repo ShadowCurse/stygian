@@ -37,8 +37,8 @@ pub fn init(
     var surface: vk.VkSurfaceKHR = undefined;
     const create_info = vk.VkWaylandSurfaceCreateInfoKHR{
         .sType = vk.VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
-        .display = @ptrCast(window.driverdata.data.display),
-        .surface = @ptrCast(window.driverdata.surface),
+        .display = @ptrCast(window.internal.data.display),
+        .surface = @ptrCast(window.internal.surface),
         .flags = 0,
         .pNext = null,
     };
@@ -767,7 +767,7 @@ const Swapchain = struct {
         if (swap_chain_extent.width == std.math.maxInt(u32)) {
             var w: i32 = 0;
             var h: i32 = 0;
-            sdl.SDL_GetWindowSize(window, &w, &h);
+            _ = sdl.SDL_GetWindowSize(window, &w, &h);
             const window_w: u32 = @intCast(w);
             const window_h: u32 = @intCast(h);
             swap_chain_extent.width = @min(

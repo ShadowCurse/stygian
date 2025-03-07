@@ -94,11 +94,7 @@ pub fn init(
 ) Self {
     const game_alloc = memory.game_alloc();
 
-    const sdl_renderer = sdl.SDL_CreateRenderer(
-        window,
-        -1,
-        sdl.SDL_RENDERER_ACCELERATED | sdl.SDL_RENDERER_PRESENTVSYNC,
-    );
+    const sdl_renderer = sdl.SDL_CreateRenderer(window, null);
     const texture_data = game_alloc.alignedAlloc(u8, 4, width * height * 4) catch {
         @panic("Cannot allocate memory for software renderer surface texture");
     };
@@ -118,7 +114,7 @@ pub fn init(
         370546692;
 
     const sdl_texture = sdl.SDL_CreateTexture(
-        sdl_renderer,
+        sdl_renderer.?,
         format,
         sdl.SDL_TEXTUREACCESS_STREAMING,
         @intCast(width),
@@ -150,8 +146,8 @@ pub fn end_rendering(self: *const Self) void {
         self.surface_texture.data.ptr,
         @intCast(self.surface_texture.width * self.surface_texture.channels),
     );
-    _ = sdl.SDL_RenderCopy(self.sdl_renderer, self.sdl_texture, null, null);
-    sdl.SDL_RenderPresent(self.sdl_renderer);
+    _ = sdl.SDL_RenderTexture(self.sdl_renderer, self.sdl_texture, null, null);
+    _ = sdl.SDL_RenderPresent(self.sdl_renderer);
 }
 
 pub fn as_texture_rect(self: *const Self) TextureRect {

@@ -7,7 +7,7 @@ pkgs.mkShell {
   XORGPROTO_INCLUDE_PATH = "${pkgs.lib.makeIncludePath [
     pkgs.xorg.xorgproto
   ]}";
-  SDL2_INCLUDE_PATH = "${pkgs.lib.makeIncludePath [pkgs.SDL2]}";
+  SDL3_INCLUDE_PATH = "${pkgs.lib.makeIncludePath [pkgs.sdl3]}";
   VULKAN_INCLUDE_PATH = "${pkgs.lib.makeIncludePath [pkgs.vulkan-headers]}";
   VULKAN_SDK = "${pkgs.vulkan-headers}";
   VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
@@ -15,7 +15,7 @@ pkgs.mkShell {
   EM_CACHE="/home/antaraz/.emscripten_cache";
 
   buildInputs = with pkgs; [
-    SDL2
+    sdl3
     vulkan-tools
     vulkan-loader
     vulkan-headers

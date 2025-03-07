@@ -30,7 +30,7 @@ pub const Soundtrack = struct {
 
 // This type assumes it will never be moved after init.
 pub const Audio = struct {
-    audio_device_id: sdl.SDL_AudioDeviceID,
+    audio_device: *sdl.SDL_AudioStream,
     volume: f32,
 
     soundtracks: [MAX_SOUNDTRACKS]Soundtrack,
@@ -44,19 +44,21 @@ pub const Audio = struct {
     const MAX_SOUNDTRACKS = build_options.max_audio_tracks;
     const Self = @This();
 
-    pub fn callback(self: *Self, stream_ptr: [*]u8, stream_len: i32) callconv(.C) void {
+    pub fn callback(
+        self: *Self,
+        stream: *sdl.SDL_AudioStream,
+        needed_len: i32,
+        total_len: i32,
+    ) callconv(.C) void {
         const trace_start = trace.start();
         defer trace.end(@src(), trace_start);
 
-        const stream_len_u32 = @as(u32, @intCast(stream_len));
-
-        var stream_8_i16: []@Vector(8, i16) = undefined;
-        stream_8_i16.ptr = @alignCast(@ptrCast(stream_ptr));
-        stream_8_i16.len = stream_len_u32 / 16;
+        _ = needed_len;
+        const max_len = @as(u32, @intCast(total_len));
 
         var buffer_8_i16: []@Vector(8, i16) = undefined;
         buffer_8_i16.ptr = @alignCast(@ptrCast(self.callback_buffer.ptr));
-        buffer_8_i16.len = self.callback_buffer.len / 16;
+        buffer_8_i16.len = @min(self.callback_buffer.len / 16, max_len / 16);
         @memset(buffer_8_i16, @splat(0.0));
 
         const min_i16_f32: @Vector(4, f32) = @splat(std.math.minInt(i16));
@@ -67,7 +69,7 @@ pub const Audio = struct {
             const soundtrack = &self.soundtracks[playing_soundtrack.soundtrack_id];
 
             const remain_bytes = soundtrack.data.len - playing_soundtrack.progress_bytes;
-            const copy_bytes = @min(remain_bytes, stream_len_u32);
+            const copy_bytes = @min(remain_bytes, max_len);
 
             var data_8_i16: []@Vector(8, i16) = undefined;
             data_8_i16.ptr = @alignCast(@ptrCast(soundtrack.data.ptr));
@@ -330,22 +332,29 @@ pub const Audio = struct {
             }
         }
 
-        @memcpy(stream_8_i16, buffer_8_i16);
+        _ = sdl.SDL_PutAudioStreamData(stream, buffer_8_i16.ptr, total_len);
     }
 
     pub fn init(self: *Self, memory: *Memory, volume: f32) !void {
         const game_alloc = memory.game_alloc();
 
         var wanted = sdl.SDL_AudioSpec{
-            .freq = 44100,
-            .format = sdl.AUDIO_S16,
+            .format = sdl.SDL_AUDIO_S16,
             .channels = 2,
-            .samples = 4096,
-            .callback = @ptrCast(&Self.callback),
-            .userdata = self,
+            .freq = 44100,
         };
 
-        self.audio_device_id = sdl.SDL_OpenAudioDevice(null, 0, &wanted, null, 0);
+        if (sdl.SDL_OpenAudioDeviceStream(
+            sdl.SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+            &wanted,
+            @ptrCast(&Self.callback),
+            @ptrCast(self),
+        )) |device| {
+            self.audio_device = device;
+        } else {
+            log.err(@src(), "Cannot open audio device", .{});
+            return error.SDLAudioDevice;
+        }
         self.volume = volume;
         self.soundtracks[DEBUG_SOUNDRACK_ID] = .{};
         self.soundtracks_num = 1;
@@ -356,16 +365,16 @@ pub const Audio = struct {
         self.callback_buffer = try game_alloc.alignedAlloc(
             u8,
             64,
-            @sizeOf(i16) * wanted.channels * wanted.samples,
+            @sizeOf(i16) * @as(usize, @intCast(wanted.channels)) * 4096,
         );
     }
 
     pub fn pause(self: Self) void {
-        sdl.SDL_PauseAudioDevice(self.audio_device_id, 1);
+        _ = sdl.SDL_PauseAudioStreamDevice(self.audio_device);
     }
 
     pub fn unpause(self: Self) void {
-        sdl.SDL_PauseAudioDevice(self.audio_device_id, 0);
+        _ = sdl.SDL_ResumeAudioStreamDevice(self.audio_device);
     }
 
     pub fn is_playing(self: Self, soundtrack_id: SoundtrackId) bool {
@@ -483,13 +492,12 @@ pub const Audio = struct {
 
         var buff_ptr: [*]u8 = undefined;
         var buff_len: u32 = undefined;
-        const r = sdl.SDL_LoadWAV(
+        if (!sdl.SDL_LoadWAV(
             path,
             &soundtrack.spec,
             @as([*c][*c]u8, @ptrCast(&buff_ptr)),
             &buff_len,
-        );
-        if (r == null) {
+        )) {
             log.err(
                 @src(),
                 "Cannot load WAV file. Path: {s} error: {s}",
@@ -497,7 +505,7 @@ pub const Audio = struct {
             );
             return DEBUG_SOUNDRACK_ID;
         }
-        defer sdl.SDL_FreeWAV(buff_ptr);
+        defer sdl.SDL_free(buff_ptr);
 
         soundtrack.data = game_alloc.alignedAlloc(u8, 64, buff_len) catch |e| {
             log.err(

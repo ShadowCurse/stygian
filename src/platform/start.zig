@@ -218,14 +218,12 @@ const DynamicPlatform = struct {
 };
 
 pub fn platform_start() !void {
-    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO) != 0) {
+    if (!sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO)) {
         log.err(@src(), "Cannot init SDL: {s}", .{sdl.SDL_GetError()});
         return error.SDLInit;
     }
     const window = sdl.SDL_CreateWindow(
         "stygian",
-        sdl.SDL_WINDOWPOS_UNDEFINED,
-        sdl.SDL_WINDOWPOS_UNDEFINED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
         0,
@@ -233,7 +231,10 @@ pub fn platform_start() !void {
         log.err(@src(), "Cannot create a window: {s}", .{sdl.SDL_GetError()});
         return error.SDLCreateWindow;
     };
-    sdl.SDL_ShowWindow(window);
+    if (!sdl.SDL_ShowWindow(window)) {
+        log.err(@src(), "Cannot show a window: {s}", .{sdl.SDL_GetError()});
+        return error.SDLShowWindow;
+    }
 
     if (builtin.os.tag == .emscripten) {
         try EmscriptenPlatform.run(window);

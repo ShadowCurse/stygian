@@ -53,10 +53,8 @@ pub const CameraController2d = struct {
                     },
                     .Motion => |motion| {
                         if (self.active) {
-                            self.position.x -= @as(f32, @floatFromInt(motion.x)) *
-                                self.sensitivity * dt;
-                            self.position.y -= @as(f32, @floatFromInt(motion.y)) *
-                                self.sensitivity * dt;
+                            self.position.x -= motion.x * self.sensitivity * dt;
+                            self.position.y -= motion.y * self.sensitivity * dt;
                         }
                     },
                     .Wheel => |wheel| {
@@ -129,8 +127,8 @@ pub const CameraController3d = struct {
                     },
                     .Motion => |motion| {
                         if (self.active) {
-                            self.yaw -= @as(f32, @floatFromInt(motion.x)) * self.sensitivity * dt;
-                            self.pitch -= @as(f32, @floatFromInt(motion.y)) * self.sensitivity * dt;
+                            self.yaw -= motion.x * self.sensitivity * dt;
+                            self.pitch -= motion.y * self.sensitivity * dt;
                             if (std.math.pi / 2.0 < self.pitch) {
                                 self.pitch = std.math.pi / 2.0;
                             }
