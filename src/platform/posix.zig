@@ -112,5 +112,5 @@ pub fn mmap(size: u64) ![]align(root.PAGE_SIZE) u8 {
         .TYPE = .PRIVATE,
         .ANONYMOUS = true,
     };
-    return try std.posix.mmap(null, size, prot, flags, 0, 0);
+    return try std.posix.mmap(null, @intCast(size), prot, flags, 0, 0);
 }

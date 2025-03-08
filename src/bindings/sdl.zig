@@ -130,6 +130,7 @@ pub extern fn SDL_PeepEvents(
     minType: u32,
     maxType: u32,
 ) i32;
+pub extern fn SDL_PollEvent(event: *SDL_Event) bool;
 
 pub extern fn SDL_CreateRenderer(window: *SDL_Window, name: [*c]const u8) ?*SDL_Renderer;
 

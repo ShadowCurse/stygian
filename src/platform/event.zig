@@ -15,7 +15,7 @@ pub fn get(events: []Event) []Event {
     var sdl_events: [MAX_EVENTS]sdl.SDL_Event = undefined;
     const filled_sdl_events = if (builtin.os.tag == .emscripten) blk: {
         var n: u32 = 0;
-        while (sdl.SDL_PollEvent(&sdl_events[n]) != 0 and
+        while (sdl.SDL_PollEvent(&sdl_events[n]) and
             n < sdl_events.len) : (n += 1)
         {}
         break :blk sdl_events[0..n];
@@ -73,12 +73,12 @@ pub fn get(events: []Event) []Event {
             },
             sdl.SDL_EVENT_KEY_UP => {
                 if (builtin.os.tag == .emscripten) {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.keysym.sym);
+                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
                     log.debug(@src(), "Got KEYUP event for key: {}", .{key});
                     events[filled_events_num] = .{
                         .Keyboard = .{
                             .type = .Released,
-                            .key = @enumFromInt(sdl_event.key.keysym.sym),
+                            .key = @enumFromInt(sdl_event.key.scancode),
                         },
                     };
                 } else {
@@ -151,7 +151,7 @@ pub fn get(events: []Event) []Event {
                     events[filled_events_num] = .{
                         .Mouse = .{
                             .Wheel = .{
-                                .amount = @floatFromInt(sdl_event.wheel.y),
+                                .amount = sdl_event.wheel.y,
                             },
                         },
                     };

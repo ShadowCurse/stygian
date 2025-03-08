@@ -4,7 +4,7 @@ cp -r assets wasm
 cd wasm
 
 emcc \
-  -sUSE_SDL=2 \
+  -sUSE_SDL=3 \
   -sASSERTIONS=1 \
   -sMALLOC='dlmalloc' \
   -sFORCE_FILESYSTEM=1 \
