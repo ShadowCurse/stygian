@@ -9,26 +9,32 @@ else
         @cInclude("SDL3/SDL.h");
     });
 
-pub const SDL_VideoData = extern struct {
+const SDL_VideoData = extern struct {
     _: u32,
     display: *anyopaque,
 };
-
-pub const SDL_WindowData = extern struct {
+const SDL_WindowData = extern struct {
     window: *anyopaque,
     data: *SDL_VideoData,
     surface: *anyopaque,
 };
 
-pub const SDL_Rect = extern struct { x: u32, y: u32, w: u32, h: u32 };
-pub const SDL_DisplayMode = extern struct {
+const SDL_Rect = extern struct { x: u32, y: u32, w: u32, h: u32 };
+const SDL_DisplayMode = extern struct {
     format: u32,
     w: u32,
     h: u32,
     refresh_rate: u32,
     driverdata: *anyopaque,
 };
+const SDL_HDROutputProperties = extern struct {
+    SDR_white_level: f32,
+    HDR_headroom: f32,
+};
 
+const SDL_WindowFlags = u64;
+const SDL_DisplayID = u32;
+const SDL_PropertiesID = u32;
 pub const SDL_Window = extern struct {
     id: u32,
     title: *anyopaque,
@@ -45,15 +51,15 @@ pub const SDL_Window = extern struct {
     max_aspect: f32,
     last_pixel_w: u32,
     last_pixel_h: u32,
-    flags: u32,
-    pending_flags: u32,
+    flags: SDL_WindowFlags,
+    pending_flags: SDL_WindowFlags,
     display_scale: f32,
 
     external_graphics_context: u32,
     fullscreen_exclusive: u32,
 
-    last_fullscreen_exclusive_display: u32,
-    last_displayID: u32,
+    last_fullscreen_exclusive_display: SDL_DisplayID,
+    last_displayID: SDL_DisplayID,
 
     windowed: SDL_Rect,
     floating: SDL_Rect,
@@ -65,7 +71,7 @@ pub const SDL_Window = extern struct {
 
     requested_fullscreen_mode: SDL_DisplayMode,
     current_fullscreen_mode: SDL_DisplayMode,
-    HDR: struct {},
+    HDR: SDL_HDROutputProperties,
 
     opacity: f32,
     surface: *anyopaque,
@@ -84,7 +90,7 @@ pub const SDL_Window = extern struct {
     safe_inset_bottom: u32,
     safe_rect: SDL_Rect,
 
-    text_input_props: u64,
+    text_input_props: SDL_PropertiesID,
     text_input_active: u32,
     text_input_rect: SDL_Rect,
     text_input_cursor: u32,
@@ -94,19 +100,20 @@ pub const SDL_Window = extern struct {
     hit_test: *anyopaque,
     hit_test_data: *anyopaque,
 
-    props: u64,
+    props: SDL_PropertiesID,
 
     num_renderers: u32,
     renderers: *anyopaque,
 
+    // TODO figure out where missing 8 bytes are
+    __shoult_not_be_here: u64,
     internal: *SDL_WindowData,
 };
 
 pub const SDL_InitFlags = u32;
 pub extern fn SDL_Init(flags: SDL_InitFlags) bool;
-pub extern fn SDL_GetWindowSize(window: *SDL_Window, w: [*c]c_int, h: [*c]c_int) bool;
+pub extern fn SDL_GetWindowSize(window: *SDL_Window, w: *i32, h: *i32) bool;
 pub extern fn SDL_GetError() [*c]const u8;
-pub const SDL_WindowFlags = u64;
 pub extern fn SDL_CreateWindow(
     title: [*c]const u8,
     w: c_int,
@@ -117,7 +124,7 @@ pub extern fn SDL_ShowWindow(window: *SDL_Window) bool;
 pub extern fn SDL_FlushEvents(minType: u32, maxType: u32) void;
 pub extern fn SDL_PumpEvents() void;
 pub extern fn SDL_PeepEvents(
-    events: [*c]SDL_Event,
+    events: [*]SDL_Event,
     numevents: c_int,
     action: u32,
     minType: u32,
