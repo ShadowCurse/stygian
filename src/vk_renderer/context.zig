@@ -1,7 +1,9 @@
 const std = @import("std");
 const log = @import("../log.zig");
-const sdl = @import("../bindings/sdl.zig");
 const vk = @import("../bindings/vulkan.zig");
+
+const platform = @import("../platform/root.zig");
+const Window = platform.Window;
 
 const Memory = @import("../memory.zig");
 const GpuBuffer = @import("gpu_buffer.zig");
@@ -15,7 +17,6 @@ const VK_ADDITIONAL_EXTENSIONS_NAMES = [_][]const u8{"VK_EXT_debug_utils"};
 const VK_PHYSICAL_DEVICE_EXTENSION_NAMES = [_][]const u8{"VK_KHR_swapchain"};
 
 const Self = @This();
-window: *sdl.SDL_Window,
 surface: vk.VkSurfaceKHR,
 vma_allocator: vk.VmaAllocator,
 instance: Instance,
@@ -29,26 +30,14 @@ immediate_commands: CommandPool,
 
 pub fn init(
     memory: *Memory,
-    window: *sdl.SDL_Window,
+    window: *Window,
 ) !Self {
     const instance = try Instance.init(memory);
     const debug_messanger = try DebugMessanger.init(instance.instance);
 
     var surface: vk.VkSurfaceKHR = undefined;
-    const create_info = vk.VkWaylandSurfaceCreateInfoKHR{
-        .sType = vk.VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
-        .display = @ptrCast(window.internal.data.display),
-        .surface = @ptrCast(window.internal.surface),
-        .flags = 0,
-        .pNext = null,
-    };
-
-    try vk.check_result(vk.vkCreateWaylandSurfaceKHR(
-        instance.instance,
-        &create_info,
-        null,
-        @ptrCast(&surface),
-    ));
+    if (!platform.vulkan.create_surface(window, instance.instance, &surface))
+        return error.CreateSurface;
 
     const physical_device = try PhysicalDevice.init(memory, instance.instance, surface);
     const logical_device = try LogicalDevice.init(memory, &physical_device);
@@ -95,7 +84,6 @@ pub fn init(
     );
 
     return .{
-        .window = window,
         .surface = surface,
         .vma_allocator = vma_allocator,
         .instance = instance,
@@ -121,7 +109,6 @@ pub fn deinit(self: *Self, memory: *Memory) void {
         log.err(@src(), "Could not destroy debug messanger", .{});
     };
     self.instance.deinit();
-    sdl.SDL_DestroyWindow(self.window);
 }
 
 pub fn wait_idle(self: *const Self) void {
@@ -276,18 +263,19 @@ const Instance = struct {
             extensions.ptr,
         ));
 
-        var found_sdl_extensions: u32 = 0;
+        const platform_extensions = platform.vulkan.platform_extensions();
+        var found_platform_extensions: u32 = 0;
         var found_additional_extensions: u32 = 0;
         for (extensions) |e| {
             var required = "--------";
-            for (vk.PLATFORM_EXTENSIONS) |se| {
-                const sdl_name_span = std.mem.span(se);
+            for (platform_extensions) |se| {
+                const platform_ext_name_span = std.mem.span(se);
                 const extension_name_span = std.mem.span(@as(
                     [*c]const u8,
                     @ptrCast(&e.extensionName),
                 ));
-                if (std.mem.eql(u8, extension_name_span, sdl_name_span)) {
-                    found_sdl_extensions += 1;
+                if (std.mem.eql(u8, extension_name_span, platform_ext_name_span)) {
+                    found_platform_extensions += 1;
                     required = "required";
                 }
             }
@@ -307,8 +295,8 @@ const Instance = struct {
                 e.specVersion,
             });
         }
-        if (found_sdl_extensions != vk.PLATFORM_EXTENSIONS.len) {
-            return error.SDLExtensionsNotFound;
+        if (found_platform_extensions != platform_extensions.len) {
+            return error.PlatforExtensionsNotFound;
         }
         if (found_additional_extensions != VK_ADDITIONAL_EXTENSIONS_NAMES.len) {
             return error.AdditionalExtensionsNotFound;
@@ -316,9 +304,9 @@ const Instance = struct {
 
         var total_extensions = try std.ArrayListUnmanaged([*c]const u8).initCapacity(
             scratch_alloc,
-            vk.PLATFORM_EXTENSIONS.len + VK_ADDITIONAL_EXTENSIONS_NAMES.len,
+            platform_extensions.len + VK_ADDITIONAL_EXTENSIONS_NAMES.len,
         );
-        for (vk.PLATFORM_EXTENSIONS) |e| {
+        for (platform_extensions) |e| {
             try total_extensions.append(scratch_alloc, e);
         }
         for (VK_ADDITIONAL_EXTENSIONS_NAMES) |e| {
@@ -720,7 +708,7 @@ const Swapchain = struct {
         logical_device: *const LogicalDevice,
         physical_device: *const PhysicalDevice,
         surface: vk.VkSurfaceKHR,
-        window: *sdl.SDL_Window,
+        window: *Window,
     ) !Swapchain {
         const game_alloc = memory.game_alloc();
         const scratch_alloc = memory.scratch_alloc();
@@ -765,17 +753,12 @@ const Swapchain = struct {
 
         var swap_chain_extent: vk.VkExtent2D = surface_capabilities.currentExtent;
         if (swap_chain_extent.width == std.math.maxInt(u32)) {
-            var w: i32 = 0;
-            var h: i32 = 0;
-            _ = sdl.SDL_GetWindowSize(window, &w, &h);
-            const window_w: u32 = @intCast(w);
-            const window_h: u32 = @intCast(h);
             swap_chain_extent.width = @min(
-                @max(window_w, surface_capabilities.minImageExtent.width),
+                @max(window.width, surface_capabilities.minImageExtent.width),
                 surface_capabilities.maxImageExtent.width,
             );
             swap_chain_extent.height = @min(
-                @max(window_h, surface_capabilities.minImageExtent.height),
+                @max(window.height, surface_capabilities.minImageExtent.height),
                 surface_capabilities.maxImageExtent.height,
             );
         }

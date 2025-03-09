@@ -5,10 +5,11 @@ const build_options = @import("build_options");
 const log = @import("../log.zig");
 const sdl = @import("../bindings/sdl.zig");
 
+const Window = @import("window.zig");
 const Memory = @import("../memory.zig");
 const Events = @import("event.zig");
 const RuntimeFn = *fn (
-    *sdl.SDL_Window,
+    *Window,
     [*]const Events.Event,
     usize,
     *Memory,
@@ -17,6 +18,12 @@ const RuntimeFn = *fn (
 ) *anyopaque;
 
 const RUNTIME_LIB_PATH: [:0]const u8 = std.fmt.comptimePrint("{s}", .{build_options.lib_path});
+const SDL_CREATE_WINDOW_FLAGS = if (build_options.software_render)
+    0
+else if (build_options.vulkan_render)
+    sdl.SDL_WINDOW_VULKAN
+else
+    @panic("No renderer type selected");
 
 // TODO mention that this is needed in the actual main in the platform
 // It has no effect here.
@@ -64,7 +71,7 @@ const RuntimeLoad = struct {
 
 const EmscriptenPlatform = struct {
     extern fn runtime_main(
-        *sdl.SDL_Window,
+        *Window,
         [*]const Events.Event,
         usize,
         *Memory,
@@ -72,10 +79,10 @@ const EmscriptenPlatform = struct {
         ?*anyopaque,
     ) *anyopaque;
 
-    pub fn run(window: *sdl.SDL_Window) !void {
+    pub fn run(window: *Window) !void {
         const EmscriptenGlobals = struct {
             var memory: Memory = undefined;
-            var w: *sdl.SDL_Window = undefined;
+            var w: *Window = undefined;
             var stop = false;
             var t: i128 = undefined;
             var runtime_data: ?*anyopaque = null;
@@ -122,7 +129,7 @@ const EmscriptenPlatform = struct {
 
 const UnibuildPlatform = struct {
     extern fn runtime_main(
-        *sdl.SDL_Window,
+        *Window,
         [*]const Events.Event,
         usize,
         *Memory,
@@ -130,7 +137,7 @@ const UnibuildPlatform = struct {
         ?*anyopaque,
     ) *anyopaque;
 
-    pub fn run(window: *sdl.SDL_Window) !void {
+    pub fn run(window: *Window) !void {
         var memory = try Memory.init();
         var events: [Events.MAX_EVENTS]Events.Event = undefined;
         var stop = false;
@@ -168,7 +175,7 @@ const UnibuildPlatform = struct {
 };
 
 const DynamicPlatform = struct {
-    pub fn run(window: *sdl.SDL_Window) !void {
+    pub fn run(window: *Window) !void {
         var memory = try Memory.init();
         var events: [Events.MAX_EVENTS]Events.Event = undefined;
         var stop = false;
@@ -222,25 +229,31 @@ pub fn platform_start() !void {
         log.err(@src(), "Cannot init SDL: {s}", .{sdl.SDL_GetError()});
         return error.SDLInit;
     }
-    const window = sdl.SDL_CreateWindow(
+    const sdl_window = sdl.SDL_CreateWindow(
         "stygian",
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        0,
+        SDL_CREATE_WINDOW_FLAGS,
     ) orelse {
         log.err(@src(), "Cannot create a window: {s}", .{sdl.SDL_GetError()});
         return error.SDLCreateWindow;
     };
-    if (!sdl.SDL_ShowWindow(window)) {
+    if (!sdl.SDL_ShowWindow(sdl_window)) {
         log.err(@src(), "Cannot show a window: {s}", .{sdl.SDL_GetError()});
         return error.SDLShowWindow;
     }
 
+    var window = Window{
+        .width = WINDOW_WIDTH,
+        .height = WINDOW_HEIGHT,
+        .sdl_window = sdl_window,
+    };
+
     if (builtin.os.tag == .emscripten) {
-        try EmscriptenPlatform.run(window);
+        try EmscriptenPlatform.run(&window);
     } else if (build_options.unibuild) {
-        try UnibuildPlatform.run(window);
+        try UnibuildPlatform.run(&window);
     } else {
-        try DynamicPlatform.run(window);
+        try DynamicPlatform.run(&window);
     }
 }

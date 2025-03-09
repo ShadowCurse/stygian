@@ -14,7 +14,8 @@ pub const tracing_options = Tracing.Options{
     .enabled = true,
 };
 
-const sdl = stygian.bindings.sdl;
+const platform = stygian.platform;
+const Window = platform.Window;
 
 const Textures = stygian.textures;
 const GpuTexture = stygian.vk_renderer.gpu_texture;
@@ -73,10 +74,8 @@ const Runtime = struct {
 
     fn init(
         self: *Self,
-        window: *sdl.SDL_Window,
+        window: *Window,
         memory: *Memory,
-        width: u32,
-        height: u32,
     ) !void {
         self.camera_controller = CameraController3d.init();
 
@@ -96,7 +95,7 @@ const Runtime = struct {
             }
         }
 
-        self.vk_renderer = try VkRenderer.init(memory, window, width, height);
+        self.vk_renderer = try VkRenderer.init(memory, window);
 
         const debug_texture = self.texture_store.get_texture(Textures.Texture.ID_DEBUG);
         self.gpu_debug_texture = try self.vk_renderer.create_texture(
@@ -159,11 +158,10 @@ const Runtime = struct {
 
     fn run(
         self: *Self,
+        window: *Window,
         memory: *Memory,
         dt: f32,
         events: []const Events.Event,
-        width: i32,
-        height: i32,
     ) void {
         const frame_alloc = memory.frame_alloc();
         self.screen_quads.reset();
@@ -177,13 +175,13 @@ const Runtime = struct {
         const camera_transform = self.camera_controller.transform();
         const projection = Mat4.perspective(
             std.math.degreesToRadians(70.0),
-            @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(height)),
+            @as(f32, @floatFromInt(window.width)) / @as(f32, @floatFromInt(window.height)),
             0.1,
             10000.0,
         );
         self.cube_meshes.push_constants.view_proj = projection.mul(camera_transform.inverse());
         self.screen_quads_gpu_info.set_screen_size(
-            .{ .x = @floatFromInt(width), .y = @floatFromInt(height) },
+            .{ .x = @floatFromInt(window.width), .y = @floatFromInt(window.height) },
         );
 
         const A = struct {
@@ -214,8 +212,8 @@ const Runtime = struct {
             ) catch unreachable,
             32.0,
             .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
-                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
+                .x = @as(f32, @floatFromInt(window.width)) / 2.0 - 100.0,
+                .y = @as(f32, @floatFromInt(window.height)) / 2.0 + 300.0,
             },
             0.0,
             .{},
@@ -232,8 +230,8 @@ const Runtime = struct {
             ) catch unreachable,
             16.0,
             .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0 - 100.0,
-                .y = @as(f32, @floatFromInt(height)) / 2.0 + 250.0,
+                .x = @as(f32, @floatFromInt(window.width)) / 2.0 - 100.0,
+                .y = @as(f32, @floatFromInt(window.height)) / 2.0 + 250.0,
             },
             @sin(A.a) * 0.25,
             .{},
@@ -306,7 +304,7 @@ const Runtime = struct {
 };
 
 pub export fn runtime_main(
-    window: *sdl.SDL_Window,
+    window: *Window,
     events_ptr: [*]const Events.Event,
     events_len: usize,
     memory: *Memory,
@@ -320,18 +318,14 @@ pub export fn runtime_main(
     events.len = events_len;
     var runtime_ptr: ?*Runtime = @alignCast(@ptrCast(data));
 
-    var width: i32 = undefined;
-    var height: i32 = undefined;
-    _ = sdl.SDL_GetWindowSize(window, &width, &height);
-
     if (runtime_ptr == null) {
         log.info(@src(), "First time runtime init", .{});
         const game_alloc = memory.game_alloc();
         runtime_ptr = &(game_alloc.alloc(Runtime, 1) catch unreachable)[0];
-        runtime_ptr.?.init(window, memory, @intCast(width), @intCast(height)) catch unreachable;
+        runtime_ptr.?.init(window, memory) catch unreachable;
     } else {
         var runtime = runtime_ptr.?;
-        runtime.run(memory, dt, events, width, height);
+        runtime.run(window, memory, dt, events);
     }
     return @ptrCast(runtime_ptr);
 }

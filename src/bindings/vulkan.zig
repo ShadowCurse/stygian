@@ -9,11 +9,6 @@ const vk = @cImport({
 
 pub usingnamespace vk;
 
-pub const PLATFORM_EXTENSIONS = [_][*c]const u8{
-    vk.VK_KHR_SURFACE_EXTENSION_NAME,
-    vk.VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME,
-};
-
 pub fn check_result(result: vk.VkResult) !void {
     switch (result) {
         vk.VK_SUCCESS => return,

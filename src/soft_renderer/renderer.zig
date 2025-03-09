@@ -2,6 +2,9 @@ const buildin = @import("builtin");
 const sdl = @import("../bindings/sdl.zig");
 const log = @import("../log.zig");
 
+const platform = @import("../platform/root.zig");
+const Window = platform.Window;
+
 const Tracing = @import("../tracing.zig");
 const Textures = @import("../textures.zig");
 const Color = @import("../color.zig").Color;
@@ -79,7 +82,6 @@ pub const AABB = struct {
     }
 };
 
-window: *sdl.SDL_Window,
 sdl_renderer: *sdl.SDL_Renderer,
 sdl_texture: *sdl.SDL_Texture,
 surface_texture: Textures.Texture,
@@ -88,20 +90,18 @@ const Self = @This();
 
 pub fn init(
     memory: *Memory,
-    window: *sdl.SDL_Window,
-    width: u32,
-    height: u32,
+    window: *Window,
 ) Self {
     const game_alloc = memory.game_alloc();
 
-    const sdl_renderer = sdl.SDL_CreateRenderer(window, null);
-    const texture_data = game_alloc.alignedAlloc(u8, 4, width * height * 4) catch {
+    const sdl_renderer = sdl.SDL_CreateRenderer(window.sdl_window, null);
+    const texture_data = game_alloc.alignedAlloc(u8, 4, window.width * window.height * 4) catch {
         @panic("Cannot allocate memory for software renderer surface texture");
     };
 
     const surface_texture: Textures.Texture = .{
-        .width = width,
-        .height = height,
+        .width = window.width,
+        .height = window.height,
         .channels = 4,
         .data = texture_data,
     };
@@ -117,12 +117,11 @@ pub fn init(
         sdl_renderer.?,
         format,
         sdl.SDL_TEXTUREACCESS_STREAMING,
-        @intCast(width),
-        @intCast(height),
+        @intCast(window.width),
+        @intCast(window.height),
     );
 
     return .{
-        .window = window,
         .sdl_renderer = sdl_renderer.?,
         .sdl_texture = sdl_texture.?,
         .surface_texture = surface_texture,

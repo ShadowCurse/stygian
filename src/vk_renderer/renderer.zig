@@ -1,8 +1,10 @@
 const std = @import("std");
 const vk = @import("../bindings/vulkan.zig");
 const log = @import("../log.zig");
-const sdl = @import("../bindings/sdl.zig");
 const stb = @import("../bindings/stb.zig");
+
+const platform = @import("../platform/root.zig");
+const Window = platform.Window;
 
 const Memory = @import("../memory.zig");
 const Textures = @import("../textures.zig");
@@ -17,8 +19,6 @@ const GpuTexture = @import("gpu_texture.zig");
 const FRAMES = 2;
 
 const Self = @This();
-window_width: u32,
-window_height: u32,
 
 vk_context: VkContext,
 depth_texture: GpuTexture,
@@ -31,9 +31,7 @@ debug_sampler: vk.VkSampler,
 
 pub fn init(
     memory: *Memory,
-    window: *sdl.SDL_Window,
-    width: u32,
-    height: u32,
+    window: *Window,
 ) !Self {
     var vk_context = try VkContext.init(memory, window);
 
@@ -57,8 +55,6 @@ pub fn init(
     );
 
     return .{
-        .window_width = width,
-        .window_height = height,
         .vk_context = vk_context,
         .depth_texture = depth_texture,
         .current_framme_idx = 0,

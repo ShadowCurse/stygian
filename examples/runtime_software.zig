@@ -14,7 +14,8 @@ pub const tracing_options = Tracing.Options{
     .enabled = true,
 };
 
-const sdl = stygian.bindings.sdl;
+const platform = stygian.platform;
+const Window = platform.Window;
 
 const _audio = stygian.audio;
 const Audio = _audio.Audio;
@@ -71,12 +72,10 @@ const Runtime = struct {
 
     fn init(
         self: *Self,
-        window: *sdl.SDL_Window,
+        window: *Window,
         memory: *Memory,
-        width: u32,
-        height: u32,
     ) !void {
-        self.camera_controller = CameraController2d.init(width, height);
+        self.camera_controller = CameraController2d.init(window.width, window.height);
 
         try self.texture_store.init(memory);
         self.texture_color_test = self.texture_store.load(memory, "assets/color_test.png");
@@ -116,16 +115,15 @@ const Runtime = struct {
         try self.audio.init(memory, 1.0);
         self.background_sound_id = self.audio.load_wav(memory, "assets/background.wav");
         self.attack_sound_id = self.audio.load_wav(memory, "assets/alex_attack.wav");
-        self.soft_renderer = SoftRenderer.init(memory, window, width, height);
+        self.soft_renderer = SoftRenderer.init(memory, window);
     }
 
     fn run(
         self: *Self,
+        window: *Window,
         memory: *Memory,
         dt: f32,
         events: []const Events.Event,
-        width: i32,
-        height: i32,
     ) void {
         self.screen_quads.reset();
         const frame_alloc = memory.frame_alloc();
@@ -325,8 +323,8 @@ const Runtime = struct {
             ) catch unreachable,
             32.0,
             .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0,
-                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
+                .x = @as(f32, @floatFromInt(window.width)) / 2.0,
+                .y = @as(f32, @floatFromInt(window.height)) / 2.0 + 300.0,
             },
             0.0,
             .{},
@@ -368,7 +366,7 @@ const Runtime = struct {
 };
 
 pub export fn runtime_main(
-    window: *sdl.SDL_Window,
+    window: *Window,
     events_ptr: [*]const Events.Event,
     events_len: usize,
     memory: *Memory,
@@ -382,18 +380,14 @@ pub export fn runtime_main(
     events.len = events_len;
     var runtime_ptr: ?*Runtime = @alignCast(@ptrCast(data));
 
-    var width: i32 = undefined;
-    var height: i32 = undefined;
-    _ = sdl.SDL_GetWindowSize(window, &width, &height);
-
     if (runtime_ptr == null) {
         log.info(@src(), "First time runtime init", .{});
         const game_alloc = memory.game_alloc();
         runtime_ptr = &(game_alloc.alloc(Runtime, 1) catch unreachable)[0];
-        runtime_ptr.?.init(window, memory, @intCast(width), @intCast(height)) catch unreachable;
+        runtime_ptr.?.init(window, memory) catch unreachable;
     } else {
         var runtime = runtime_ptr.?;
-        runtime.run(memory, dt, events, width, height);
+        runtime.run(window, memory, dt, events);
     }
     return @ptrCast(runtime_ptr);
 }
