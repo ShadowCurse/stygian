@@ -38,7 +38,8 @@ pub const Audio = struct {
 
     playing_soundtracks: [MAX_SOUNDTRACKS]PlayingSoundtrack,
 
-    callback_buffer: []align(64) u8,
+    callback_mix_buffer: []align(64) u8,
+    callback_track_buffer: []align(64) u8,
 
     pub const DEBUG_SOUNDRACK_ID = 0;
     const MAX_SOUNDTRACKS = build_options.max_audio_tracks;
@@ -54,12 +55,16 @@ pub const Audio = struct {
         defer trace.end(@src(), trace_start);
 
         _ = needed_len;
-        const max_len = @as(u32, @intCast(total_len));
 
+        const stream_bytes = @as(u32, @intCast(total_len));
+        @memset(self.callback_mix_buffer[0..stream_bytes], 0);
+
+        const stream_8 = stream_bytes / 16;
         var buffer_8_i16: []@Vector(8, i16) = undefined;
-        buffer_8_i16.ptr = @alignCast(@ptrCast(self.callback_buffer.ptr));
-        buffer_8_i16.len = @min(self.callback_buffer.len / 16, max_len / 16);
-        @memset(buffer_8_i16, @splat(0.0));
+        buffer_8_i16.ptr = @alignCast(@ptrCast(self.callback_mix_buffer.ptr));
+        // TODO: this is with assumption mix_buffer is always bigger than requested bytes. Fix this
+        // by giving an audio device a separate scatch alloc.
+        buffer_8_i16.len = stream_8;
 
         const min_i16_f32: @Vector(4, f32) = @splat(std.math.minInt(i16));
         const max_i16_f32: @Vector(4, f32) = @splat(std.math.maxInt(i16));
@@ -67,15 +72,31 @@ pub const Audio = struct {
             if (playing_soundtrack.is_finised)
                 continue;
             const soundtrack = &self.soundtracks[playing_soundtrack.soundtrack_id];
-
             const remain_bytes = soundtrack.data.len - playing_soundtrack.progress_bytes;
-            const copy_bytes = @min(remain_bytes, max_len);
+            const copy_bytes = @min(remain_bytes, stream_bytes);
+
+            // Copy to tmp buffer in order to have track data be simd aligned.
+            @memcpy(
+                self.callback_track_buffer[0..copy_bytes],
+                soundtrack.data[playing_soundtrack.progress_bytes..][0..copy_bytes],
+            );
+
+            const copy_8 = copy_bytes / 16;
+            const copy_8_bytes = copy_8 * 16;
+            const copy_rem_bytes = copy_bytes - copy_8_bytes;
 
             var data_8_i16: []@Vector(8, i16) = undefined;
-            data_8_i16.ptr = @alignCast(@ptrCast(soundtrack.data.ptr));
-            data_8_i16.len = soundtrack.data.len / 16;
-            const data_8_start = playing_soundtrack.progress_bytes / 16;
-            const copy_8 = copy_bytes / 16;
+            data_8_i16.ptr = @alignCast(@ptrCast(self.callback_track_buffer.ptr));
+            data_8_i16.len = copy_8;
+
+            const rem_i16 = copy_rem_bytes / 2;
+            var rem_data: []i16 = undefined;
+            rem_data.ptr = @alignCast(@ptrCast(self.callback_track_buffer[copy_8_bytes..].ptr));
+            rem_data.len = rem_i16;
+
+            var rem_buffer: []i16 = undefined;
+            rem_buffer.ptr = @alignCast(@ptrCast(self.callback_mix_buffer[copy_8_bytes..].ptr));
+            rem_buffer.len = rem_i16;
 
             const samples_to_reach_target_volume_left: u32 =
                 if (playing_soundtrack.left_volume_delta_per_sample == 0.0)
@@ -128,7 +149,7 @@ pub const Audio = struct {
             const master_volume: @Vector(4, f32) = @splat(self.volume);
 
             for (0..copy_8) |i| {
-                const orig_data = data_8_i16[data_8_start + i];
+                const orig_data = data_8_i16[i];
                 const left_mask = @Vector(4, i32){ 0, 2, 4, 6 };
                 const left_channel_i16: @Vector(4, i16) =
                     @shuffle(i16, orig_data, undefined, left_mask);
@@ -279,52 +300,27 @@ pub const Audio = struct {
                     @intFromFloat(final_data_f32[7]),
                 };
             }
+            // TODO: use @Vector(2, i16) maybe
+            var i: u32 = 0;
+            while (i < rem_i16) : (i += 2) {
+                const d_l = rem_data[i];
+                var d_l_f32: f32 = @floatFromInt(d_l);
+                d_l_f32 *= playing_soundtrack.left_current_volume * self.volume;
+                const b_l = rem_buffer[i];
+                var b_l_f32: f32 = @floatFromInt(b_l);
+                b_l_f32 += d_l_f32;
+                b_l_f32 = std.math.clamp(b_l_f32, std.math.minInt(i16), std.math.maxInt(i16));
+                rem_buffer[i] = @intFromFloat(b_l_f32);
 
-            // var stream_i16: []i16 = undefined;
-            // stream_i16.ptr = @alignCast(@ptrCast(stream_ptr));
-            // stream_i16.len = stream_len_u32 / 2;
-            // @memset(stream_i16, 0);
-            // var data_i16: []i16 = undefined;
-            // data_i16.ptr = @alignCast(@ptrCast(soundtrack.data.ptr));
-            // data_i16.len = soundtrack.data.len / 2;
-            // const data_start = playing_soundtrack.progress_bytes / 2;
-            // const copy = copy_bytes / 2;
-            // const left_volume = &playing_soundtrack.left_current_volume;
-            // const right_volume = &playing_soundtrack.right_current_volume;
-            // var i: u32 = 0;
-            // while (i < copy - 1) : (i += 2) {
-            //     const s_l = &stream_i16[i];
-            //     const s_r = &stream_i16[i + 1];
-            //     const l = data_i16[data_start + i];
-            //     const r = data_i16[data_start + i + 1];
-            //
-            //     const new_l = @as(f32, @floatFromInt(l)) * left_volume.*;
-            //     s_l.* += @intFromFloat(new_l);
-            //     const new_r = @as(f32, @floatFromInt(r)) * right_volume.*;
-            //     s_r.* += @intFromFloat(new_r);
-            //
-            //     left_volume.* += playing_soundtrack.left_volume_delta_per_sample;
-            //     right_volume.* += playing_soundtrack.right_volume_delta_per_sample;
-            //
-            //     if (0.0 < playing_soundtrack.left_volume_delta_per_sample) {
-            //         if (playing_soundtrack.left_target_volume <= left_volume.*) {
-            //             left_volume.* = playing_soundtrack.left_target_volume;
-            //         }
-            //     } else {
-            //         if (left_volume.* <= playing_soundtrack.left_target_volume) {
-            //             left_volume.* = playing_soundtrack.left_target_volume;
-            //         }
-            //     }
-            //     if (0.0 < playing_soundtrack.right_volume_delta_per_sample) {
-            //         if (playing_soundtrack.right_target_volume <= right_volume.*) {
-            //             right_volume.* = playing_soundtrack.right_target_volume;
-            //         }
-            //     } else {
-            //         if (right_volume.* <= playing_soundtrack.right_target_volume) {
-            //             right_volume.* = playing_soundtrack.right_target_volume;
-            //         }
-            //     }
-            // }
+                const d_r = rem_data[i + 1];
+                var d_r_f32: f32 = @floatFromInt(d_r);
+                d_r_f32 *= playing_soundtrack.right_current_volume * self.volume;
+                const b_r = rem_buffer[i + 1];
+                var b_r_f32: f32 = @floatFromInt(b_r);
+                b_r_f32 += d_r_f32;
+                b_r_f32 = std.math.clamp(b_r_f32, std.math.minInt(i16), std.math.maxInt(i16));
+                rem_buffer[i + 1] = @intFromFloat(b_r_f32);
+            }
 
             playing_soundtrack.progress_bytes += copy_bytes;
             if (soundtrack.data.len == playing_soundtrack.progress_bytes) {
@@ -332,7 +328,7 @@ pub const Audio = struct {
             }
         }
 
-        _ = sdl.SDL_PutAudioStreamData(stream, buffer_8_i16.ptr, total_len);
+        _ = sdl.SDL_PutAudioStreamData(stream, self.callback_mix_buffer.ptr, total_len);
     }
 
     pub fn init(self: *Self, memory: *Memory, volume: f32) !void {
@@ -362,7 +358,13 @@ pub const Audio = struct {
             ps.* = .{};
         }
 
-        self.callback_buffer = try game_alloc.alignedAlloc(
+        // TODO: give audio device a separate scratch allocator
+        self.callback_mix_buffer = try game_alloc.alignedAlloc(
+            u8,
+            64,
+            @sizeOf(i16) * @as(usize, @intCast(wanted.channels)) * 4096,
+        );
+        self.callback_track_buffer = try game_alloc.alignedAlloc(
             u8,
             64,
             @sizeOf(i16) * @as(usize, @intCast(wanted.channels)) * 4096,
