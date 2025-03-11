@@ -16,7 +16,8 @@ pub const tracing_options = Tracing.Options{
     .enabled = true,
 };
 
-const sdl = stygian.bindings.sdl;
+const platform = stygian.platform;
+const Window = platform.Window;
 
 const _audio = stygian.audio;
 const Audio = _audio.Audio;
@@ -362,24 +363,21 @@ const Runtime = struct {
 
     fn init(
         self: *Self,
-        window: *sdl.SDL_Window,
+        window: *Window,
         memory: *Memory,
-        width: u32,
-        height: u32,
     ) !void {
         try self.texture_store.init(memory);
         self.font = Font.init(memory, &self.texture_store, "assets/Hack-Regular.ttf", 64);
         self.screen_quads = try ScreenQuads.init(memory, 2048);
-        self.soft_renderer = SoftRenderer.init(memory, window, width, height);
+        self.soft_renderer = SoftRenderer.init(memory, window);
     }
 
     fn run(
         self: *Self,
+        window: *Window,
         memory: *Memory,
         dt: f32,
         events: []const Events.Event,
-        width: i32,
-        height: i32,
     ) void {
         self.screen_quads.reset();
         const frame_alloc = memory.frame_alloc();
@@ -403,8 +401,8 @@ const Runtime = struct {
             ) catch unreachable,
             32.0,
             .{
-                .x = @as(f32, @floatFromInt(width)) / 2.0 + 150.0,
-                .y = @as(f32, @floatFromInt(height)) / 2.0 + 300.0,
+                .x = @as(f32, @floatFromInt(window.width)) / 2.0 + 150.0,
+                .y = @as(f32, @floatFromInt(window.height)) / 2.0 + 300.0,
             },
             0.0,
             .{},
@@ -412,7 +410,7 @@ const Runtime = struct {
         );
         text_fps.to_screen_quads(frame_alloc, &self.screen_quads);
 
-        const cascades_needed = Cascade.cascades_needed(@intCast(width), @intCast(height));
+        const cascades_needed = Cascade.cascades_needed(window.width, window.height);
         var cascades: []Cascade = frame_alloc.alloc(Cascade, cascades_needed.n) catch unreachable;
         for (cascades, 0..) |*cascade, level| {
             cascade.* = Cascade.init(
@@ -426,32 +424,32 @@ const Runtime = struct {
         var circles = [_]Circle{
             .{
                 .center = .{
-                    .x = @as(f32, @floatFromInt(width)) / 2.0,
-                    .y = @as(f32, @floatFromInt(height)) / 2.0,
+                    .x = @as(f32, @floatFromInt(window.width)) / 2.0,
+                    .y = @as(f32, @floatFromInt(window.height)) / 2.0,
                 },
                 .radius = 25.0,
                 .color = Color.ORANGE,
             },
             .{
                 .center = .{
-                    .x = @as(f32, @floatFromInt(width)) / 2.0,
-                    .y = @as(f32, @floatFromInt(height)) / 2.0 - 100.0,
+                    .x = @as(f32, @floatFromInt(window.width)) / 2.0,
+                    .y = @as(f32, @floatFromInt(window.height)) / 2.0 - 100.0,
                 },
                 .radius = 50.0,
                 .color = Color.WHITE,
             },
             .{
                 .center = .{
-                    .x = @as(f32, @floatFromInt(width)) / 2.0,
-                    .y = @as(f32, @floatFromInt(height)) / 2.0 + 100.0,
+                    .x = @as(f32, @floatFromInt(window.width)) / 2.0,
+                    .y = @as(f32, @floatFromInt(window.height)) / 2.0 + 100.0,
                 },
                 .radius = 30.0,
                 .color = Color.BLUE,
             },
             .{
                 .center = .{
-                    .x = @as(f32, @floatFromInt(width)) / 2.0 + 100.0,
-                    .y = @as(f32, @floatFromInt(height)) / 2.0,
+                    .x = @as(f32, @floatFromInt(window.width)) / 2.0 + 100.0,
+                    .y = @as(f32, @floatFromInt(window.height)) / 2.0,
                 },
                 .radius = 40.0,
                 .color = Color.NONE,
@@ -483,8 +481,8 @@ const Runtime = struct {
                         },
                         .Motion => |motion| {
                             if (Globals.camera_active) {
-                                Globals.first_circle_offset.x += @as(f32, @floatFromInt(motion.x));
-                                Globals.first_circle_offset.y += @as(f32, @floatFromInt(motion.y));
+                                Globals.first_circle_offset.x += motion.x;
+                                Globals.first_circle_offset.y += motion.y;
                             }
                         },
                         else => {},
@@ -612,7 +610,7 @@ const Runtime = struct {
 };
 
 pub export fn runtime_main(
-    window: *sdl.SDL_Window,
+    window: *Window,
     events_ptr: [*]const Events.Event,
     events_len: usize,
     memory: *Memory,
@@ -626,18 +624,14 @@ pub export fn runtime_main(
     events.len = events_len;
     var runtime_ptr: ?*Runtime = @alignCast(@ptrCast(data));
 
-    var width: i32 = undefined;
-    var height: i32 = undefined;
-    _ = sdl.SDL_GetWindowSize(window, &width, &height);
-
     if (runtime_ptr == null) {
         log.info(@src(), "First time runtime init", .{});
         const game_alloc = memory.game_alloc();
         runtime_ptr = &(game_alloc.alloc(Runtime, 1) catch unreachable)[0];
-        runtime_ptr.?.init(window, memory, @intCast(width), @intCast(height)) catch unreachable;
+        runtime_ptr.?.init(window, memory) catch unreachable;
     } else {
         var runtime = runtime_ptr.?;
-        runtime.run(memory, dt, events, width, height);
+        runtime.run(window, memory, dt, events);
     }
     return @ptrCast(runtime_ptr);
 }
