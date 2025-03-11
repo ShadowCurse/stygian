@@ -1,10 +1,10 @@
 const std = @import("std");
 const build_options = @import("build_options");
-const log = @import("log.zig");
-const sdl = @import("bindings/sdl.zig");
+const log = @import("../log.zig");
+const sdl = @import("../bindings/sdl.zig");
 
-const Tracing = @import("tracing.zig");
-const Memory = @import("memory.zig");
+const Tracing = @import("../tracing.zig");
+const Memory = @import("../memory.zig");
 
 pub const trace = Tracing.Measurements(struct {
     callback: Tracing.Counter,

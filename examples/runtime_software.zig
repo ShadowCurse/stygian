@@ -16,10 +16,8 @@ pub const tracing_options = Tracing.Options{
 
 const platform = stygian.platform;
 const Window = platform.Window;
-
-const _audio = stygian.audio;
-const Audio = _audio.Audio;
-const SoundtrackId = _audio.SoundtrackId;
+const Audio = platform.audio.Audio;
+const SoundtrackId = platform.audio.SoundtrackId;
 
 const _color = stygian.color;
 const Color = _color.Color;
@@ -128,27 +126,17 @@ const Runtime = struct {
         self.screen_quads.reset();
         const frame_alloc = memory.frame_alloc();
 
-        Tracing.prepare_next_frame(struct {
-            SoftRenderer,
-            ScreenQuads,
-            Particles,
-            _objects,
-            _audio,
-        });
+        const TracingTypes =
+            struct { SoftRenderer, ScreenQuads, Particles, _objects };
+        Tracing.prepare_next_frame(TracingTypes);
         Tracing.to_screen_quads(
-            struct { SoftRenderer, ScreenQuads, Particles, _objects, _audio },
+            TracingTypes,
             frame_alloc,
             &self.screen_quads,
             &self.font,
             32.0,
         );
-        Tracing.zero_current(struct {
-            SoftRenderer,
-            ScreenQuads,
-            Particles,
-            _objects,
-            _audio,
-        });
+        Tracing.zero_current(TracingTypes);
 
         for (events) |event| {
             self.camera_controller.process_input(event, dt);

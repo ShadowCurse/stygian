@@ -1,5 +1,6 @@
 const std = @import("std");
 
+pub const audio = @import("audio.zig");
 pub const event = @import("event.zig");
 pub const posix = @import("posix.zig");
 pub const start = @import("start.zig");

@@ -19,10 +19,6 @@ pub const tracing_options = Tracing.Options{
 const platform = stygian.platform;
 const Window = platform.Window;
 
-const _audio = stygian.audio;
-const Audio = _audio.Audio;
-const SoundtrackId = _audio.SoundtrackId;
-
 const _color = stygian.color;
 const Color = _color.Color;
 
