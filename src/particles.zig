@@ -1,6 +1,8 @@
 const std = @import("std");
 const log = @import("log.zig");
 
+const DefaultPrng = std.Random.DefaultPrng;
+
 const Tracing = @import("tracing.zig");
 const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
@@ -31,7 +33,7 @@ pub const UpdateFn = *const fn (
     data: *anyopaque,
     particle_index: u32,
     particle: *Particle,
-    rng: *std.rand.DefaultPrng,
+    rng: *DefaultPrng,
     dt: f32,
 ) void;
 
@@ -39,7 +41,7 @@ active_particles: []Particle = &.{},
 original_particles: []Particle = &.{},
 lifespan_per_second: f32 = 0.0,
 one_shot: bool = false,
-rng: std.rand.DefaultPrng = undefined,
+rng: DefaultPrng = undefined,
 
 const Self = @This();
 
@@ -64,7 +66,7 @@ pub fn init(
         return .{};
     };
 
-    const rng = std.rand.DefaultPrng.init(0);
+    const rng = DefaultPrng.init(0);
 
     for (original_particles, active_particles) |*origina_particle, *active_particle| {
         origina_particle.* = .{

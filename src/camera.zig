@@ -76,10 +76,10 @@ pub const CameraController2d = struct {
         const half_screen = self.screen_size.mul_f32(0.5);
         const position =
             point.xy()
-            .sub(self.position.xy())
-            .sub(half_screen)
-            .mul(.{ .x = scale, .y = scale })
-            .add(half_screen);
+                .sub(self.position.xy())
+                .sub(half_screen)
+                .mul(.{ .x = scale, .y = scale })
+                .add(half_screen);
         return position.extend(scale);
     }
 };

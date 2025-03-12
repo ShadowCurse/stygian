@@ -100,23 +100,23 @@ pub const Audio = struct {
 
             const samples_to_reach_target_volume_left: u32 =
                 if (playing_soundtrack.left_volume_delta_per_sample == 0.0)
-                0
-            else
-                @intFromFloat(
-                    @abs((playing_soundtrack.left_target_volume -
-                        playing_soundtrack.left_current_volume) /
-                        playing_soundtrack.left_volume_delta_per_sample),
-                );
+                    0
+                else
+                    @intFromFloat(
+                        @abs((playing_soundtrack.left_target_volume -
+                            playing_soundtrack.left_current_volume) /
+                            playing_soundtrack.left_volume_delta_per_sample),
+                    );
 
             const samples_to_reach_target_volume_right: u32 =
                 if (playing_soundtrack.right_volume_delta_per_sample == 0.0)
-                0
-            else
-                @intFromFloat(
-                    @abs((playing_soundtrack.right_target_volume -
-                        playing_soundtrack.right_current_volume) /
-                        playing_soundtrack.right_volume_delta_per_sample),
-                );
+                    0
+                else
+                    @intFromFloat(
+                        @abs((playing_soundtrack.right_target_volume -
+                            playing_soundtrack.right_current_volume) /
+                            playing_soundtrack.right_volume_delta_per_sample),
+                    );
 
             const left_pack_volume_reach = samples_to_reach_target_volume_left / 4;
             const left_item_volume_reach = samples_to_reach_target_volume_left -

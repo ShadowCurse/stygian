@@ -1,10 +1,12 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const log = @import("log.zig");
 const platform = @import("platform/root.zig");
 const build_options = @import("build_options");
 
 const Allocator = std.mem.Allocator;
-const GeneralPurposeAllocator = std.heap.GeneralPurposeAllocator(.{
+const Alignment = std.mem.Alignment;
+const DebugAllocator = std.heap.DebugAllocator(.{
     .enable_memory_limit = true,
 });
 const FixedBufferAllocator = std.heap.FixedBufferAllocator;
@@ -13,7 +15,7 @@ const GAME_MEMORY_SIZE = 1024 * 1024 * build_options.game_memory_mb;
 const FRAME_MEMORY_SIZE = 1024 * 1024 * build_options.frame_memory_mb;
 const SCRATCH_MEMORY_SIZE = platform.PAGE_SIZE * build_options.scratch_memory_pages;
 
-game_allocator: GeneralPurposeAllocator,
+game_allocator: DebugAllocator,
 frame_buffer: []u8,
 frame_allocator: FixedBufferAllocator,
 scratch_allocator: ScratchAllocator,
@@ -21,8 +23,8 @@ scratch_allocator: ScratchAllocator,
 const Self = @This();
 
 pub fn init() !Self {
-    var game_allocator = GeneralPurposeAllocator{};
-    game_allocator.setRequestedMemoryLimit(GAME_MEMORY_SIZE);
+    var game_allocator = DebugAllocator{};
+    game_allocator.requested_memory_limit = GAME_MEMORY_SIZE;
 
     const frame_buffer = if (FRAME_MEMORY_SIZE != 0)
         try platform.mmap(FRAME_MEMORY_SIZE)
@@ -81,12 +83,13 @@ const ScratchAllocator = struct {
             .vtable = &.{
                 .alloc = alloc,
                 .resize = resize,
+                .remap = remap,
                 .free = free,
             },
         };
     }
 
-    fn alloc(ctx: *anyopaque, l: usize, ptr_align: u8, ret_addr: usize) ?[*]u8 {
+    fn alloc(ctx: *anyopaque, l: usize, alignment: Alignment, ret_addr: usize) ?[*]u8 {
         _ = ret_addr;
         const self: *ScratchAllocator = @ptrCast(@alignCast(ctx));
 
@@ -94,11 +97,11 @@ const ScratchAllocator = struct {
 
         const len: u32 = @intCast(l);
 
-        const p_align = @as(usize, 1) << @as(Allocator.Log2Align, @intCast(ptr_align));
+        const ptr_align = alignment.toByteUnits();
         const adjust_off: u32 = @intCast(
             std.mem.alignPointerOffset(
                 self.mem.ptr + self.end,
-                p_align,
+                ptr_align,
             ) orelse return null,
         );
         const adjusted_index = self.end + adjust_off;
@@ -107,20 +110,20 @@ const ScratchAllocator = struct {
         self.total_allocated += len;
         if (self.mem.len < new_end) {
             const ret = self.mem.ptr;
-            std.testing.expect(std.mem.isAligned(@intFromPtr(ret), p_align)) catch unreachable;
+            std.testing.expect(std.mem.isAligned(@intFromPtr(ret), ptr_align)) catch unreachable;
             self.end = len;
             return ret;
         } else {
             const ret = self.mem.ptr + adjusted_index;
-            std.testing.expect(std.mem.isAligned(@intFromPtr(ret), p_align)) catch unreachable;
+            std.testing.expect(std.mem.isAligned(@intFromPtr(ret), ptr_align)) catch unreachable;
             self.end = new_end;
             return ret;
         }
     }
 
-    fn resize(ctx: *anyopaque, buf: []u8, buf_align: u8, new_len: usize, ret_addr: usize) bool {
+    fn resize(ctx: *anyopaque, buf: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) bool {
         _ = ctx;
-        _ = buf_align;
+        _ = alignment;
         _ = ret_addr;
 
         if (buf.len < new_len) {
@@ -130,10 +133,22 @@ const ScratchAllocator = struct {
         }
     }
 
-    fn free(ctx: *anyopaque, buf: []u8, buf_align: u8, ret_addr: usize) void {
+    fn remap(ctx: *anyopaque, buf: []u8, alignment: Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
+        _ = ctx;
+        _ = alignment;
+        _ = ret_addr;
+
+        if (buf.len < new_len) {
+            return buf.ptr;
+        } else {
+            return null;
+        }
+    }
+
+    fn free(ctx: *anyopaque, buf: []u8, alignment: Alignment, ret_addr: usize) void {
         _ = ctx;
         _ = buf;
-        _ = buf_align;
+        _ = alignment;
         _ = ret_addr;
     }
 };

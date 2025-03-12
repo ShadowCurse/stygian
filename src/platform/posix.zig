@@ -79,7 +79,7 @@ pub const RuntimeWatch = struct {
 };
 
 pub const FileMem = struct {
-    mem: []align(std.mem.page_size) u8,
+    mem: []align(root.PAGE_SIZE) u8,
 
     const Self = @This();
 

@@ -15,7 +15,7 @@ const RuntimeFn = *fn (
     *Memory,
     f32,
     ?*anyopaque,
-) *anyopaque;
+) callconv(.c) *anyopaque;
 
 const RUNTIME_LIB_PATH: [:0]const u8 = std.fmt.comptimePrint("{s}", .{build_options.lib_path});
 const SDL_CREATE_WINDOW_FLAGS = if (build_options.software_render)
@@ -54,7 +54,7 @@ const RuntimeLoad = struct {
             _ = std.c.dlclose(handle);
             self.runtime_dl_handle = null;
         }
-        if (std.c.dlopen(RUNTIME_LIB_PATH, RTLD_NOW)) |handle| {
+        if (std.c.dlopen(RUNTIME_LIB_PATH, .{ .NOW = true })) |handle| {
             self.runtime_dl_handle = handle;
             if (std.c.dlsym(handle, RUNTIME_LIB_FN)) |rl| {
                 return rl;

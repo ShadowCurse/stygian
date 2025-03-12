@@ -251,7 +251,7 @@ const Runtime = struct {
                 _rotation: *anyopaque,
                 particle_index: u32,
                 particle: *Particles.Particle,
-                rng: *std.rand.DefaultPrng,
+                rng: *std.Random.DefaultPrng,
                 _dt: f32,
             ) void {
                 const r: *f32 = @alignCast(@ptrCast(_rotation));
@@ -268,7 +268,7 @@ const Runtime = struct {
                 const rng_size = random.float(f32) * 2.0 - 1.0;
                 particle.object.size =
                     particle.object.size.add((Vec2{ .x = 5.0, .y = 5.0 })
-                    .mul_f32(rng_size * _dt));
+                        .mul_f32(rng_size * _dt));
 
                 particle.object.transform.rotation += 3.0 * _dt;
                 particle.object.type = .{ .Color = .{ .format = .{

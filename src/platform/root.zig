@@ -8,6 +8,6 @@ pub const vulkan = @import("vulkan.zig");
 
 pub const Window = @import("window.zig");
 
-pub const PAGE_SIZE = std.mem.page_size;
+pub const PAGE_SIZE = std.heap.page_size_min;
 pub const FileMem = posix.FileMem;
 pub const mmap = posix.mmap;

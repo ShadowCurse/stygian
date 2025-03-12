@@ -221,7 +221,7 @@ const Cascade = struct {
                     const cascale_data_point = self.data_point(x, y, i);
                     const angle = std.math.pi / @as(f32, @floatFromInt(self.elements_total)) +
                         @as(f32, @floatFromInt(i)) * std.math.pi /
-                        @as(f32, @floatFromInt(self.elements_total / 2));
+                            @as(f32, @floatFromInt(self.elements_total / 2));
                     const ray_direction = Vec2{ .x = @cos(angle), .y = @sin(angle) };
                     const ray_origin = screen_position.add(ray_direction.mul_f32(self.point_offset));
                     for (circles) |circle| {
@@ -569,7 +569,7 @@ const Runtime = struct {
                         if (cascale_data_point.format.a != 0) {
                             const angle = std.math.pi / @as(f32, @floatFromInt(elements_total)) +
                                 @as(f32, @floatFromInt(i)) * std.math.pi /
-                                @as(f32, @floatFromInt(elements_total / 2));
+                                    @as(f32, @floatFromInt(elements_total / 2));
                             const ray_direction = Vec2{ .x = @cos(angle), .y = @sin(angle) };
                             const ray_origin = screen_position
                                 .add(ray_direction.mul_f32(point_offset));
