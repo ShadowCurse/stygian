@@ -78,18 +78,21 @@ pub fn deinit(self: *Self, memory: *Memory) void {
     self.vk_context.deinit(memory);
 }
 
-pub fn create_texture(self: *Self, width: u32, height: u32, channels: u32) !GpuTexture {
-    const format: vk.VkFormat = switch (channels) {
-        4 => vk.VK_FORMAT_R8G8B8A8_SRGB,
-        1 => vk.VK_FORMAT_R8_SRGB,
-        else => unreachable,
-    };
-    return try self.vk_context.create_texture(
+pub fn create_texture(self: *Self, width: u32, height: u32, format: vk.VkFormat) !GpuTexture {
+    const texture = try self.vk_context.create_texture(
         width,
         height,
         format,
-        vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT | vk.VK_IMAGE_USAGE_SAMPLED_BIT,
+        vk.VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+            vk.VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+            vk.VK_IMAGE_USAGE_SAMPLED_BIT |
+            vk.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
     );
+    log.debug(@src(), "Created texture: image: 0x{x}, view: 0x{x}", .{
+        @as(usize, @intFromPtr(texture.image)),
+        @as(usize, @intFromPtr(texture.view)),
+    });
+    return texture;
 }
 
 pub fn delete_texture(self: *Self, texture: *const GpuTexture) void {
@@ -143,7 +146,7 @@ pub const FrameContext = struct {
     image_index: u32,
 };
 
-pub fn start_rendering(self: *const Self) !FrameContext {
+pub fn start_frame_context(self: *const Self) !FrameContext {
     const command = &self.commands[self.current_framme_idx % self.commands.len];
 
     try self.vk_context.wait_for_fence(command.render_fence);
@@ -158,18 +161,71 @@ pub fn start_rendering(self: *const Self) !FrameContext {
     };
     try vk.check_result(vk.vkBeginCommandBuffer(command.cmd, &begin_info));
 
-    const sc_image = self.vk_context.swap_chain.images[image_index];
-    const sc_view = self.vk_context.swap_chain.image_views[image_index];
+    return .{
+        .command = command,
+        .image_index = image_index,
+    };
+}
+
+pub fn end_frame_context(self: *Self, frame_context: *const FrameContext) !void {
+    self.current_framme_idx +%= 1;
+    try vk.check_result(vk.vkEndCommandBuffer(frame_context.command.cmd));
+}
+
+pub fn queue_frame_context(self: *Self, frame_context: *const FrameContext) !void {
+    // Submit commands
+    const buffer_submit_info = vk.VkCommandBufferSubmitInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = frame_context.command.cmd,
+        .deviceMask = 0,
+    };
+    const wait_semaphore_info = vk.VkSemaphoreSubmitInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = frame_context.command.swap_chain_semaphore,
+        .stageMask = vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+    };
+    const signal_semaphore_info = vk.VkSemaphoreSubmitInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+        .semaphore = frame_context.command.render_semaphore,
+        .stageMask = vk.VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+    };
+    const submit_info = vk.VkSubmitInfo2{
+        .sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .pWaitSemaphoreInfos = &wait_semaphore_info,
+        .waitSemaphoreInfoCount = 1,
+        .pSignalSemaphoreInfos = &signal_semaphore_info,
+        .signalSemaphoreInfoCount = 1,
+        .pCommandBufferInfos = &buffer_submit_info,
+        .commandBufferInfoCount = 1,
+    };
+    try self.vk_context.queue_submit_2(&submit_info, frame_context.command.render_fence);
+}
+
+pub fn present_frame_context(self: *Self, frame_context: *const FrameContext) !void {
+    const present_info = vk.VkPresentInfoKHR{
+        .sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .pSwapchains = &self.vk_context.swap_chain.swap_chain,
+        .swapchainCount = 1,
+        .pWaitSemaphores = &frame_context.command.render_semaphore,
+        .waitSemaphoreCount = 1,
+        .pImageIndices = &frame_context.image_index,
+    };
+    try self.vk_context.queue_present(&present_info);
+}
+
+pub fn start_rendering(self: *const Self, frame_context: *const FrameContext) !void {
+    const sc_image = self.vk_context.swap_chain.images[frame_context.image_index];
+    const sc_view = self.vk_context.swap_chain.image_views[frame_context.image_index];
 
     GpuTexture.transition_image(
-        command.cmd,
+        frame_context.command.cmd,
         sc_image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
     );
 
     GpuTexture.transition_image(
-        command.cmd,
+        frame_context.command.cmd,
         self.depth_texture.image,
         vk.VK_IMAGE_LAYOUT_UNDEFINED,
         vk.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
@@ -200,7 +256,7 @@ pub fn start_rendering(self: *const Self) !FrameContext {
         .renderArea = .{ .extent = self.vk_context.swap_chain.extent },
         .layerCount = 1,
     };
-    vk.vkCmdBeginRendering(command.cmd, &render_info);
+    vk.vkCmdBeginRendering(frame_context.command.cmd, &render_info);
 
     const viewport = vk.VkViewport{
         .x = 0.0,
@@ -210,7 +266,7 @@ pub fn start_rendering(self: *const Self) !FrameContext {
         .minDepth = 0.0,
         .maxDepth = 1.0,
     };
-    vk.vkCmdSetViewport(command.cmd, 0, 1, &viewport);
+    vk.vkCmdSetViewport(frame_context.command.cmd, 0, 1, &viewport);
     const scissor = vk.VkRect2D{
         .offset = .{
             .x = 0.0,
@@ -218,66 +274,91 @@ pub fn start_rendering(self: *const Self) !FrameContext {
         },
         .extent = self.vk_context.swap_chain.extent,
     };
-    vk.vkCmdSetScissor(command.cmd, 0, 1, &scissor);
-
-    return .{
-        .command = command,
-        .image_index = image_index,
-    };
+    vk.vkCmdSetScissor(frame_context.command.cmd, 0, 1, &scissor);
 }
 
-pub fn end_rendering(self: *Self, frame_context: FrameContext) !void {
-    self.current_framme_idx +%= 1;
-
-    const command = frame_context.command;
-    const image_index = frame_context.image_index;
-
-    vk.vkCmdEndRendering(command.cmd);
-
+pub fn transition_swap_chain(self: *Self, frame_context: *const FrameContext) void {
     GpuTexture.transition_image(
-        command.cmd,
-        self.vk_context.swap_chain.images[image_index],
+        frame_context.command.cmd,
+        self.vk_context.swap_chain.images[frame_context.image_index],
         vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
         vk.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
     );
+}
 
-    try vk.check_result(vk.vkEndCommandBuffer(command.cmd));
+pub fn end_rendering(self: *Self, frame_context: *const FrameContext) !void {
+    _ = self;
+    vk.vkCmdEndRendering(frame_context.command.cmd);
+}
 
-    // Submit commands
-    const buffer_submit_info = vk.VkCommandBufferSubmitInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-        .commandBuffer = command.cmd,
-        .deviceMask = 0,
-    };
-    const wait_semaphore_info = vk.VkSemaphoreSubmitInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = command.swap_chain_semaphore,
-        .stageMask = vk.VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-    };
-    const signal_semaphore_info = vk.VkSemaphoreSubmitInfo{
-        .sType = vk.VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-        .semaphore = command.render_semaphore,
-        .stageMask = vk.VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-    };
-    const submit_info = vk.VkSubmitInfo2{
-        .sType = vk.VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-        .pWaitSemaphoreInfos = &wait_semaphore_info,
-        .waitSemaphoreInfoCount = 1,
-        .pSignalSemaphoreInfos = &signal_semaphore_info,
-        .signalSemaphoreInfoCount = 1,
-        .pCommandBufferInfos = &buffer_submit_info,
-        .commandBufferInfoCount = 1,
-    };
-    try self.vk_context.queue_submit_2(&submit_info, command.render_fence);
+pub fn start_rendering_to_target(
+    self: *const Self,
+    frame_context: *const FrameContext,
+    texture: *const GpuTexture,
+    clear: bool,
+) !void {
+    GpuTexture.transition_image(
+        frame_context.command.cmd,
+        texture.image,
+        vk.VK_IMAGE_LAYOUT_UNDEFINED,
+        vk.VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+    );
 
-    // Present image in the screen
-    const present_info = vk.VkPresentInfoKHR{
-        .sType = vk.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .pSwapchains = &self.vk_context.swap_chain.swap_chain,
-        .swapchainCount = 1,
-        .pWaitSemaphores = &command.render_semaphore,
-        .waitSemaphoreCount = 1,
-        .pImageIndices = &image_index,
+    const color_attachment = vk.VkRenderingAttachmentInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = texture.view,
+        .imageLayout = vk.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = if (clear) vk.VK_ATTACHMENT_LOAD_OP_CLEAR else vk.VK_ATTACHMENT_LOAD_OP_LOAD,
+        .clearValue = .{ .color = .{ .float32 = .{ 0.0, 0.0, 0.0, 0.0 } } },
+        .storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
     };
-    try self.vk_context.queue_present(&present_info);
+    const depth_attachment = vk.VkRenderingAttachmentInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = self.depth_texture.view,
+        .imageLayout = vk.VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = vk.VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = vk.VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = .{ .depthStencil = .{ .depth = 0.0 } },
+    };
+
+    const render_info = vk.VkRenderingInfo{
+        .sType = vk.VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .pColorAttachments = &color_attachment,
+        .colorAttachmentCount = 1,
+        .pDepthAttachment = &depth_attachment,
+        .renderArea = .{
+            .extent = .{
+                .width = texture.extent.width,
+                .height = texture.extent.height,
+            },
+        },
+        .layerCount = 1,
+    };
+    vk.vkCmdBeginRendering(frame_context.command.cmd, &render_info);
+
+    const viewport = vk.VkViewport{
+        .x = 0.0,
+        .y = 0.0,
+        .width = @floatFromInt(texture.extent.width),
+        .height = @floatFromInt(texture.extent.height),
+        .minDepth = 0.0,
+        .maxDepth = 1.0,
+    };
+    vk.vkCmdSetViewport(frame_context.command.cmd, 0, 1, &viewport);
+    const scissor = vk.VkRect2D{
+        .offset = .{
+            .x = 0.0,
+            .y = 0.0,
+        },
+        .extent = .{
+            .width = texture.extent.width,
+            .height = texture.extent.height,
+        },
+    };
+    vk.vkCmdSetScissor(frame_context.command.cmd, 0, 1, &scissor);
+}
+
+pub fn end_rendering_to_target(self: *Self, frame_context: *const FrameContext) !void {
+    _ = self;
+    vk.vkCmdEndRendering(frame_context.command.cmd);
 }

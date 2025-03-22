@@ -17,6 +17,8 @@ pub const tracing_options = Tracing.Options{
 const platform = stygian.platform;
 const Window = platform.Window;
 
+const vk = stygian.bindings.vulkan;
+
 const Textures = stygian.textures;
 const GpuTexture = stygian.vk_renderer.gpu_texture;
 
@@ -101,7 +103,7 @@ const Runtime = struct {
         self.gpu_debug_texture = try self.vk_renderer.create_texture(
             debug_texture.width,
             debug_texture.height,
-            debug_texture.channels,
+            vk.VK_FORMAT_R8G8B8A8_SRGB,
         );
         try self.vk_renderer.upload_texture_to_gpu(
             &self.gpu_debug_texture,
@@ -112,7 +114,7 @@ const Runtime = struct {
         self.gpu_letter_a_texture = try self.vk_renderer.create_texture(
             letter_a_texture.width,
             letter_a_texture.height,
-            letter_a_texture.channels,
+            vk.VK_FORMAT_R8G8B8A8_SRGB,
         );
         try self.vk_renderer.upload_texture_to_gpu(
             &self.gpu_letter_a_texture,
@@ -123,7 +125,7 @@ const Runtime = struct {
         self.gpu_font_texture = try self.vk_renderer.create_texture(
             font_texture.width,
             font_texture.height,
-            font_texture.channels,
+            vk.VK_FORMAT_R8_SRGB,
         );
         try self.vk_renderer.upload_texture_to_gpu(
             &self.gpu_font_texture,
@@ -288,7 +290,8 @@ const Runtime = struct {
 
         self.screen_quads_gpu_info.set_instance_infos(self.screen_quads.slice());
 
-        const frame_context = self.vk_renderer.start_rendering() catch unreachable;
+        const frame_context = self.vk_renderer.start_frame_context() catch unreachable;
+        self.vk_renderer.start_rendering(&frame_context) catch unreachable;
         self.mesh_pipeline.render(
             &frame_context,
             &.{.{ &self.cube_meshes, self.cube_meshes.num_instances_used }},
@@ -299,7 +302,12 @@ const Runtime = struct {
                 .{ &self.screen_quads_gpu_info, self.screen_quads.used_quads },
             },
         );
-        self.vk_renderer.end_rendering(frame_context) catch unreachable;
+        self.vk_renderer.end_rendering(&frame_context) catch unreachable;
+
+        self.vk_renderer.transition_swap_chain(&frame_context);
+        self.vk_renderer.end_frame_context(&frame_context) catch unreachable;
+        self.vk_renderer.queue_frame_context(&frame_context) catch unreachable;
+        self.vk_renderer.present_frame_context(&frame_context) catch unreachable;
     }
 };
 
