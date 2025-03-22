@@ -3,7 +3,6 @@ const log = @import("../log.zig");
 
 const vk = @cImport({
     @cInclude("vulkan/vulkan.h");
-    @cInclude("vulkan/vulkan_wayland.h");
     @cInclude("vk_mem_alloc.h");
 });
 
