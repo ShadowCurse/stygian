@@ -18,20 +18,7 @@ const RuntimeFn = *fn (
 ) callconv(.c) *anyopaque;
 
 const RUNTIME_LIB_PATH: [:0]const u8 = std.fmt.comptimePrint("{s}", .{build_options.lib_path});
-const SDL_CREATE_WINDOW_FLAGS = if (build_options.software_render)
-    0
-else if (build_options.vulkan_render)
-    sdl.SDL_WINDOW_VULKAN
-else
-    @panic("No renderer type selected");
-
-// TODO mention that this is needed in the actual main in the platform
-// It has no effect here.
-pub const os = if (builtin.os.tag != .emscripten) std.os else struct {
-    pub const heap = struct {
-        pub const page_allocator = std.heap.c_allocator;
-    };
-};
+const SDL_CREATE_WINDOW_FLAGS = sdl.SDL_WINDOW_VULKAN;
 
 pub const log_options = log.Options{
     .level = .Info,
@@ -66,64 +53,6 @@ const RuntimeLoad = struct {
             log.err(@src(), "Cannot load libruntime.so from {s}", .{RUNTIME_LIB_PATH});
             return error.NoRuntimeLib;
         }
-    }
-};
-
-const EmscriptenPlatform = struct {
-    extern fn runtime_main(
-        *Window,
-        [*]const Events.Event,
-        usize,
-        *Memory,
-        f32,
-        ?*anyopaque,
-    ) *anyopaque;
-
-    pub fn run(window: *Window) !void {
-        const EmscriptenGlobals = struct {
-            var memory: Memory = undefined;
-            var w: *Window = undefined;
-            var stop = false;
-            var t: i128 = undefined;
-            var runtime_data: ?*anyopaque = null;
-            var events: [Events.MAX_EVENTS]Events.Event = undefined;
-
-            const Self = @This();
-
-            fn loop() callconv(.C) void {
-                const new_t = std.time.nanoTimestamp();
-                var dt = @as(f32, @floatFromInt(new_t - t)) / std.time.ns_per_s;
-                Self.t = new_t;
-                if (dt < FRAME_TIME) {
-                    std.time.sleep(@intFromFloat((FRAME_TIME - dt) * std.time.ns_per_s));
-                    dt = FRAME_TIME;
-                }
-
-                const filled_events = Events.get(&events);
-                for (filled_events) |event| {
-                    switch (event) {
-                        Events.Event.Quit => {
-                            stop = true;
-                        },
-                        else => {},
-                    }
-                }
-
-                Self.runtime_data = runtime_main(
-                    Self.w,
-                    filled_events.ptr,
-                    filled_events.len,
-                    &Self.memory,
-                    dt,
-                    Self.runtime_data,
-                );
-            }
-        };
-        EmscriptenGlobals.memory = try Memory.init();
-        EmscriptenGlobals.w = window;
-        EmscriptenGlobals.t = std.time.nanoTimestamp();
-
-        std.os.emscripten.emscripten_set_main_loop(EmscriptenGlobals.loop, 0, 1);
     }
 };
 
@@ -249,9 +178,7 @@ pub fn platform_start() !void {
         .sdl_window = sdl_window,
     };
 
-    if (builtin.os.tag == .emscripten) {
-        try EmscriptenPlatform.run(&window);
-    } else if (build_options.unibuild) {
+    if (build_options.unibuild) {
         try UnibuildPlatform.run(&window);
     } else {
         try DynamicPlatform.run(&window);

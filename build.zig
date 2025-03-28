@@ -4,8 +4,6 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const software_render = b.option(bool, "software_render", "Use software renderer") orelse false;
-    const vulkan_render = b.option(bool, "vulkan_render", "Use Vulkan renderer") orelse false;
     const unibuild = b.option(bool, "unibuild", "Compile as a single binary") orelse false;
 
     const limit_fps = b.option(u32, "limit_fps", "Upper limit of FPS") orelse 60;
@@ -29,24 +27,9 @@ pub fn build(b: *std.Build) !void {
         "examples/platform.zig";
     const runtime_src_path =
         b.option([]const u8, "runtime_src_path", "Path to the runtime.zig file") orelse
-        if (software_render)
-            "examples/runtime_software.zig"
-        else
-            "examples/runtime_vulkan.zig";
-
-    if (software_render and vulkan_render) {
-        @panic("Only one of renderer backeds can be selected.");
-    }
-    if (target.result.os.tag == .emscripten and !unibuild) {
-        @panic("Cannot build platform + runtime bundle for emscripten");
-    }
-    if (target.result.os.tag == .emscripten and !software_render) {
-        @panic("Only software_render is supported for emscripten");
-    }
+        "examples/runtime.zig";
 
     const options = b.addOptions();
-    options.addOption(bool, "software_render", software_render);
-    options.addOption(bool, "vulkan_render", vulkan_render);
     options.addOption(bool, "unibuild", unibuild);
     options.addOption(u32, "limit_fps", limit_fps);
     options.addOption(u32, "window_width", window_width);
@@ -76,21 +59,6 @@ pub fn build(b: *std.Build) !void {
     stygian_platform.addOptions("build_options", options);
     stygian_platform.link_libc = true;
 
-    if (target.result.os.tag == .emscripten) {
-        const cache_include = std.fs.path.join(
-            b.allocator,
-            &.{
-                b.sysroot.?,
-                "cache",
-                "sysroot",
-                "include",
-            },
-        ) catch @panic("Out of memory");
-        defer b.allocator.free(cache_include);
-        const cache_path = std.Build.LazyPath{ .cwd_relative = cache_include };
-        stygian_platform.addIncludePath(cache_path);
-    }
-
     const stygian_runtime = b.addModule("stygian_runtime", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
@@ -102,47 +70,20 @@ pub fn build(b: *std.Build) !void {
     stygian_runtime.linkSystemLibrary("SDL3", .{});
     stygian_runtime.addOptions("build_options", options);
 
-    if (target.result.os.tag == .emscripten) {
-        const cache_include = std.fs.path.join(
-            b.allocator,
-            &.{
-                b.sysroot.?,
-                "cache",
-                "sysroot",
-                "include",
-            },
-        ) catch @panic("Out of memory");
-        defer b.allocator.free(cache_include);
-        const cache_path = std.Build.LazyPath{ .cwd_relative = cache_include };
-        stygian_runtime.addIncludePath(cache_path);
-        stygian_runtime.link_libc = true;
-    } else {
-        if (vulkan_render) {
-            stygian_runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
-            stygian_runtime.addIncludePath(b.path("thirdparty/vma"));
-            stygian_runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
-            stygian_runtime.linkSystemLibrary("vulkan", .{});
-            stygian_runtime.link_libcpp = true;
-        } else {
-            stygian_runtime.link_libc = true;
-        }
-    }
+    stygian_runtime.addIncludePath(.{ .cwd_relative = env_map.get("VULKAN_INCLUDE_PATH").? });
+    stygian_runtime.addIncludePath(b.path("thirdparty/vma"));
+    stygian_runtime.addCSourceFile(.{ .file = b.path("thirdparty/vma/vk_mem_alloc.cpp") });
+    stygian_runtime.linkSystemLibrary("vulkan", .{});
+    stygian_runtime.link_libc = true;
+    stygian_runtime.link_libcpp = true;
 
     const exe = if (unibuild) blk: {
-        const platform = if (target.result.os.tag == .emscripten)
-            b.addStaticLibrary(.{
-                .name = "unibuild_emscripten",
-                .root_source_file = b.path(platform_src_path),
-                .target = target,
-                .optimize = optimize,
-            })
-        else
-            b.addExecutable(.{
-                .name = "unibuild_platform",
-                .root_source_file = b.path(platform_src_path),
-                .target = target,
-                .optimize = optimize,
-            });
+        const platform = b.addExecutable(.{
+            .name = "unibuild_platform",
+            .root_source_file = b.path(platform_src_path),
+            .target = target,
+            .optimize = optimize,
+        });
         platform.root_module.addImport("stygian_platform", stygian_platform);
 
         const runtime = b.addStaticLibrary(.{
@@ -153,13 +94,8 @@ pub fn build(b: *std.Build) !void {
         });
         runtime.root_module.addImport("stygian_runtime", stygian_runtime);
 
-        if (target.result.os.tag != .emscripten) {
-            platform.linkLibrary(runtime);
-            b.installArtifact(platform);
-        } else {
-            b.installArtifact(platform);
-            b.installArtifact(runtime);
-        }
+        platform.linkLibrary(runtime);
+        b.installArtifact(platform);
 
         break :blk platform;
     } else blk: {
@@ -170,7 +106,6 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         });
         platform.root_module.addImport("stygian_platform", stygian_platform);
-        b.installArtifact(platform);
 
         const runtime = b.addSharedLibrary(.{
             .name = "runtime",
@@ -179,6 +114,8 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         });
         runtime.root_module.addImport("stygian_runtime", stygian_runtime);
+
+        b.installArtifact(platform);
         b.installArtifact(runtime);
 
         break :blk platform;
