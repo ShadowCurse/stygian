@@ -7,9 +7,7 @@ layout (location = 1) out vec2 outUV;
 layout (location = 2) out int outInstanceId;
 
 struct QuadInfo {
-    vec3 position;
-    float __reserved0;
-
+    vec2 position;
     vec2 size;
     vec2 rotation_offset;
     vec2 uv_offset;
@@ -18,7 +16,7 @@ struct QuadInfo {
     float rotation;
     uint color;
     uint texture_id;
-    uint __reserved1;
+    uint options;
 };
 
 layout(buffer_reference, std430) readonly buffer QuadInfos { 

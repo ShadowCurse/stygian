@@ -209,6 +209,7 @@ const Runtime = struct {
             },
             0.0,
             .{},
+            null,
             .{},
         );
         text_fps.to_screen_quads(frame_alloc, &self.screen_quads);
@@ -227,6 +228,7 @@ const Runtime = struct {
             },
             @sin(A.a) * 0.25,
             .{},
+            Color.GREEN,
             .{},
         );
         frame_memory_text.to_screen_quads(frame_alloc, &self.screen_quads);

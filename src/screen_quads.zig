@@ -17,20 +17,13 @@ pub const trace = Tracing.Measurements(struct {
 });
 
 pub const Options = packed struct(u32) {
-    clip: bool = true,
-    with_tint: bool = false,
-    no_scale_rotate: bool = false,
-    no_alpha_blend: bool = false,
-    draw_aabb: bool = false,
-    _: u27 = 0,
+    tint: bool = false,
+    _: u31 = 0,
 };
 
 pub const Quad = extern struct {
     // position in pixels
-    position: Vec3 = .{},
-    // padding because Vec3 is treated as Vec4
-    // in GLSL
-    __reserved0: f32 = 0.0,
+    position: Vec2 = .{},
     // size in pixels
     size: Vec2 = .{},
     // rotation_offset in pixels

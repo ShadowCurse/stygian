@@ -6,6 +6,8 @@ const Font = @import("font.zig");
 const Camera = @import("camera.zig");
 const ScreenQuads = @import("screen_quads.zig");
 
+const Color = @import("color.zig").Color;
+
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
@@ -13,15 +15,15 @@ const Vec3 = _math.Vec3;
 pub const MAX_NEW_LINES = 32;
 pub const Options = packed struct {
     center: bool = true,
-    dont_clip: bool = false,
 };
 
 font: *const Font,
 text: []const u8,
 size: f32,
-position: Vec3,
+position: Vec2,
 rotation: f32,
 rotation_offset: Vec2,
+tint: ?Color,
 options: Options,
 
 const Self = @This();
@@ -30,9 +32,10 @@ pub fn init(
     font: *const Font,
     text: []const u8,
     size: f32,
-    position: Vec3,
+    position: Vec2,
     rotation: f32,
     rotation_offset: Vec2,
+    tint: ?Color,
     options: Options,
 ) Self {
     return .{
@@ -42,6 +45,7 @@ pub fn init(
         .position = position,
         .rotation = rotation,
         .rotation_offset = rotation_offset,
+        .tint = tint,
         .options = options,
     };
 }
@@ -81,7 +85,7 @@ pub fn to_screen_quads_raw(
     self: Self,
     allocator: Allocator,
 ) RawTextQuads {
-    return self.to_screen_quads_raw_impl(allocator, self.position.xy().extend(1.0));
+    return self.to_screen_quads_raw_impl(allocator, self.position);
 }
 
 pub fn to_screen_quads_world_space_raw(
@@ -132,12 +136,12 @@ pub fn quad_lines_for_text(allocator: Allocator, text: []const u8) [][]ScreenQua
 pub fn to_screen_quads_raw_impl(
     self: Self,
     allocator: Allocator,
-    position: Vec3,
+    position: Vec2,
 ) RawTextQuads {
-    const scale = self.size / self.font.size * position.z;
+    const scale = self.size / self.font.size;
     const font_scale = scale * self.font.scale();
-    const rotation_center = position.xy().add(self.rotation_offset);
-    var offset: Vec3 = .{};
+    const rotation_center = position.add(self.rotation_offset);
+    var offset: Vec2 = .{};
     var max_width: f32 = 0.0;
 
     const quad_lines = quad_lines_for_text(allocator, self.text);
@@ -164,11 +168,10 @@ pub fn to_screen_quads_raw_impl(
             const char_height = @as(f32, @floatFromInt(char_info.y1 - char_info.y0));
 
             offset.x += char_kern * font_scale;
-            const char_origin: Vec3 = position.add(offset);
-            const char_offset = Vec3{
+            const char_origin = position.add(offset);
+            const char_offset = Vec2{
                 .x = char_info.xoff + char_width * 0.5,
                 .y = char_info.yoff + char_height * 0.5,
-                .z = 0.0,
             };
             const char_position = char_origin.add(char_offset.mul_f32(scale));
             quad.* = .{
@@ -180,7 +183,7 @@ pub fn to_screen_quads_raw_impl(
                     .y = char_height * scale,
                 },
                 .rotation = self.rotation,
-                .rotation_offset = rotation_center.sub(char_origin.xy()),
+                .rotation_offset = rotation_center.sub(char_origin),
                 .uv_offset = .{
                     .x = @as(f32, @floatFromInt(char_info.x0)),
                     .y = @as(f32, @floatFromInt(char_info.y0)),
@@ -189,8 +192,11 @@ pub fn to_screen_quads_raw_impl(
                     .x = char_width,
                     .y = char_height,
                 },
-                .options = .{ .clip = !self.options.dont_clip },
             };
+            if (self.tint) |color| {
+                quad.color = color;
+                quad.options.tint = true;
+            }
             offset.x += char_info.xadvance * scale;
         }
 
