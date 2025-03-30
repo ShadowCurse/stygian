@@ -1,38 +1,24 @@
 # Stygian
 Experimental game engine.
 
-## Build options
-### (Default) Platform + Runtime lib (Vulkan backened)
+## Build
+
+### Platform + Runtime lib
 ```bash
 $ zig build 
-or
-$ zig build -Dvulkan_render
 ```
 
-### Platform + Runtime lib (Software backened)
+### Single binary
 ```bash
-$ zig build -Dsoftware_render
+$ zig build -Dunibuild
 ```
 
-### Single binary (Vulkan backened)
+### Compile specific example
 ```bash
-$ zig build -Dvulkan_render -Dunibuild
+$ zig build -Dcompile_shaders -Druntime_src_path=./examples/runtime_radiance_cascades.zig
 ```
-
-### Single binary (Software backened)
-```bash
-$ zig build -Dsoftware_render -Dunibuild
-```
-
-### Wasm (Software backened only)
-```bash
-$ zig build -Dsoftware_render -Dunibuild -Dtarget=wasm32-emscripten --sysroot "emsdk/upstream/emscripten" -Doptimize=ReleaseFast
-$ bash wasm.sh
-```
-Maybe go over the produced `*.wasm` file with `wasm-opt -O3 *.wasm -o *.wasm` for additional optimization.
-
 
 ## Libraries Used
-- [SDL2](https://wiki.libsdl.org/SDL2/FrontPage): creating a window
+- [SDL3](https://wiki.libsdl.org/SDL3/FrontPage): creating a window
 - [stb](https://github.com/nothings/stb): loading of images and generating font bitmap
 - [vma](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator): Vulkan gpu memory management
