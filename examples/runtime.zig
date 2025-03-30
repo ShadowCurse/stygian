@@ -40,8 +40,6 @@ const MeshPipeline = _render_mesh.MeshPipeline;
 const RenderMeshInfo = _render_mesh.RenderMeshInfo;
 const MeshInfo = _render_mesh.MeshInfo;
 
-const TileMap = stygian.tile_map;
-
 const _color = stygian.color;
 const Color = _color.Color;
 
@@ -61,7 +59,6 @@ const Runtime = struct {
 
     font: Font,
     screen_quads: ScreenQuads,
-    tile_map: TileMap,
 
     vk_renderer: VkRenderer,
     gpu_debug_texture: GpuTexture,
@@ -86,17 +83,6 @@ const Runtime = struct {
         self.texture_letter_a = self.texture_store.load(memory, "assets/a.png");
 
         self.screen_quads = try ScreenQuads.init(memory, 64);
-        self.tile_map = try TileMap.init(memory, 5, 5, 0.2, 0.2);
-        var y: u32 = 0;
-        while (y < 5) : (y += 1) {
-            var x: u32 = 0;
-            while (x < 5) : (x += 1) {
-                if (!(0 < y and y < 4 and 0 < x and x < 4)) {
-                    self.tile_map.set_tile(x, y, .Wall);
-                }
-            }
-        }
-
         self.vk_renderer = try VkRenderer.init(memory, window);
 
         const debug_texture = self.texture_store.get_texture(Textures.Texture.ID_DEBUG);
@@ -198,12 +184,16 @@ const Runtime = struct {
             .transform = Mat4.IDENDITY.translate(.{ .z = 4.0 }),
         }});
 
-        const tile_positions = self.tile_map.get_positions(frame_alloc);
-        const mesh_position = frame_alloc.alloc(MeshInfo, tile_positions.len) catch unreachable;
-        for (tile_positions, mesh_position) |*t, *m| {
-            m.transform = Mat4.IDENDITY.translate(t.extend(0.0));
+        const mesh_positions = frame_alloc.alloc(MeshInfo, 16) catch unreachable;
+        for (mesh_positions, 0..) |*mp, i| {
+            const i_f32: f32 = @floatFromInt(i);
+            const a = Vec2.X.rotate(i_f32 * std.math.pi / 8.0).mul_f32(10.0);
+            mp.transform = Mat4.IDENDITY.translate(
+                .{ .x = a.x, .y = a.y },
+            );
         }
-        self.cube_meshes.add_instance_infos(mesh_position);
+
+        self.cube_meshes.add_instance_infos(mesh_positions);
 
         const text_fps = Text.init(
             &self.font,
