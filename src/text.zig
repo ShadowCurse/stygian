@@ -6,7 +6,7 @@ const Font = @import("font.zig");
 const Camera = @import("camera.zig");
 const ScreenQuads = @import("screen_quads.zig");
 
-const Color = @import("color.zig").Color;
+const ColorU32 = @import("color.zig").ColorU32;
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
@@ -23,7 +23,7 @@ size: f32,
 position: Vec2,
 rotation: f32,
 rotation_offset: Vec2,
-tint: ?Color,
+tint: ?ColorU32,
 options: Options,
 
 const Self = @This();
@@ -35,7 +35,7 @@ pub fn init(
     position: Vec2,
     rotation: f32,
     rotation_offset: Vec2,
-    tint: ?Color,
+    tint: ?ColorU32,
     options: Options,
 ) Self {
     return .{

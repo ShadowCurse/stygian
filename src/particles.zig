@@ -4,7 +4,6 @@ const log = @import("log.zig");
 const DefaultPrng = std.Random.DefaultPrng;
 
 const Tracing = @import("tracing.zig");
-const Color = @import("color.zig").Color;
 const Memory = @import("memory.zig");
 const Objects = @import("objects.zig");
 const Textures = @import("textures.zig");

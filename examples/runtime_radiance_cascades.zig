@@ -30,8 +30,7 @@ const Memory = stygian.memory;
 const Events = stygian.platform.event;
 const VkRenderer = stygian.vk_renderer.renderer;
 
-const _color = stygian.color;
-const Color = _color.Color;
+const ColorU32 = stygian.color.ColorU32;
 
 const _math = stygian.math;
 const Vec2 = _math.Vec2;
@@ -42,7 +41,7 @@ const CubeMesh = _mesh.CubeMesh;
 const Circle = extern struct {
     center: Vec2,
     radius: f32,
-    color: Color,
+    color: ColorU32,
 };
 
 pub const CascadesPushConstant = extern struct {
@@ -465,7 +464,7 @@ const Runtime = struct {
                     .y = @as(f32, @floatFromInt(window.height)) / 2.0,
                 },
                 .radius = 25.0,
-                .color = Color.ORANGE,
+                .color = ColorU32.ORANGE.swap_rgba_bgra(),
             },
             .{
                 .center = .{
@@ -473,7 +472,7 @@ const Runtime = struct {
                     .y = @as(f32, @floatFromInt(window.height)) / 2.0 - 100.0,
                 },
                 .radius = 50.0,
-                .color = Color.WHITE,
+                .color = ColorU32.WHITE.swap_rgba_bgra(),
             },
             .{
                 .center = .{
@@ -481,7 +480,7 @@ const Runtime = struct {
                     .y = @as(f32, @floatFromInt(window.height)) / 2.0 + 100.0,
                 },
                 .radius = 30.0,
-                .color = Color.BLUE,
+                .color = ColorU32.BLUE.swap_rgba_bgra(),
             },
             .{
                 .center = .{
@@ -489,7 +488,7 @@ const Runtime = struct {
                     .y = @as(f32, @floatFromInt(window.height)) / 2.0,
                 },
                 .radius = 40.0,
-                .color = Color.NONE,
+                .color = ColorU32.NONE.swap_rgba_bgra(),
             },
         };
         self.cascades_gpu_info.set_circles_infos(&circles);

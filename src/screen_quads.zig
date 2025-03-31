@@ -4,7 +4,7 @@ const log = @import("log.zig");
 const Tracing = @import("tracing.zig");
 const Textures = @import("textures.zig");
 const Memory = @import("memory.zig");
-const Color = @import("color.zig").Color;
+const ColorU32 = @import("color.zig").ColorU32;
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
@@ -34,7 +34,7 @@ pub const Quad = extern struct {
     uv_size: Vec2 = .{},
 
     rotation: f32 = 0.0,
-    color: Color = Color.WHITE,
+    color: ColorU32 = .WHITE,
     texture_id: Textures.Texture.Id = Textures.Texture.ID_DEBUG,
     options: Options = .{},
 };

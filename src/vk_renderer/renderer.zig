@@ -8,7 +8,7 @@ const Window = platform.Window;
 
 const Memory = @import("../memory.zig");
 const Textures = @import("../textures.zig");
-const Color = @import("../color.zig").Color;
+const ColorU32 = @import("../color.zig").ColorU32;
 
 const VkContext = @import("context.zig");
 const RenderCommand = VkContext.RenderCommand;

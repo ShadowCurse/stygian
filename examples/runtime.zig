@@ -40,9 +40,6 @@ const MeshPipeline = _render_mesh.MeshPipeline;
 const RenderMeshInfo = _render_mesh.RenderMeshInfo;
 const MeshInfo = _render_mesh.MeshInfo;
 
-const _color = stygian.color;
-const Color = _color.Color;
-
 const _math = stygian.math;
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
@@ -228,7 +225,7 @@ const Runtime = struct {
             },
             @sin(A.a) * 0.25,
             .{},
-            Color.GREEN,
+            .GREEN,
             .{},
         );
         frame_memory_text.to_screen_quads(frame_alloc, &self.screen_quads);
@@ -245,7 +242,7 @@ const Runtime = struct {
             },
         });
         self.screen_quads.add_quad(.{
-            .color = Color.MAGENTA,
+            .color = .MAGENTA,
             .texture_id = Textures.Texture.ID_SOLID_COLOR,
             .position = .{
                 .x = 100.0,

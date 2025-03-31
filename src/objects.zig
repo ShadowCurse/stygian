@@ -4,7 +4,7 @@ const CameraController2d = _camera.CameraController2d;
 const Tracing = @import("tracing.zig");
 const ScreenQuads = @import("screen_quads.zig");
 const Textures = @import("textures.zig");
-const Color = @import("color.zig").Color;
+const ColorU32 = @import("color.zig").ColorU32;
 
 const _math = @import("math.zig");
 const Vec2 = _math.Vec2;
@@ -23,13 +23,13 @@ pub const Transform2d = struct {
 };
 
 pub const Object2dType = union(enum) {
-    Color: Color,
+    Color: ColorU32,
     TextureId: Textures.Texture.Id,
 };
 
 pub const Object2d = struct {
     type: Object2dType,
-    tint: Color = Color.WHITE,
+    tint: ColorU32 = .WHITE,
     transform: Transform2d,
     size: Vec2 = .{},
     options: ScreenQuads.Options = .{},

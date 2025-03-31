@@ -5,7 +5,7 @@ const log = @import("log.zig");
 const stb = @import("bindings/stb.zig");
 
 const platform = @import("platform/root.zig");
-const Color = @import("color.zig").Color;
+const ColorU32 = @import("color.zig").ColorU32;
 const Memory = @import("memory.zig");
 
 pub const Texture = struct {
@@ -22,14 +22,14 @@ pub const Texture = struct {
 
     const Self = @This();
 
-    pub fn as_color_slice(self: Self) []Color {
+    pub fn as_color_slice(self: Self) []ColorU32 {
         log.assert(
             @src(),
             self.channels == 4 and self.data.len % 4 == 0,
             "Trying to convert texture with {} channels and {} bytes to a slice of Color",
             .{ self.channels, self.data.len },
         );
-        var slice: []Color = undefined;
+        var slice: []ColorU32 = undefined;
         slice.ptr = @alignCast(@ptrCast(self.data.ptr));
         slice.len = self.data.len / 4;
         return slice;
@@ -44,14 +44,14 @@ pub const Palette = struct {
 
     const Self = @This();
 
-    pub fn as_color_slice(self: Self) []Color {
+    pub fn as_color_slice(self: Self) []ColorU32 {
         log.assert(
             @src(),
             self.data.len % 4 == 0,
             "Trying to convert color palette with {} bytes to a slice of Color",
             .{self.data.len},
         );
-        var slice: []Color = undefined;
+        var slice: []ColorU32 = undefined;
         slice.ptr = @alignCast(@ptrCast(self.data.ptr));
         slice.len = self.data.len / 4;
         return slice;
@@ -79,13 +79,13 @@ pub const Store = struct {
         const game_alloc = memory.game_alloc();
 
         self.textures = try game_alloc.alloc(Texture, MAX_TEXTURES);
-        var debug_texture_data = try game_alloc.alignedAlloc(Color, 4, DEBUG_WIDTH * DEBUG_HEIGHT);
+        var debug_texture_data = try game_alloc.alignedAlloc(ColorU32, 4, DEBUG_WIDTH * DEBUG_HEIGHT);
         for (0..DEBUG_HEIGHT) |y| {
             for (0..DEBUG_WIDTH) |x| {
                 debug_texture_data[y * DEBUG_WIDTH + x] = if ((x % 2) ^ (y % 2) != 0)
-                    Color.MAGENTA
+                    .MAGENTA
                 else
-                    Color.GREY;
+                    .GREY;
             }
         }
         var data_u8: []align(4) u8 = undefined;
@@ -104,7 +104,7 @@ pub const Store = struct {
         self.paletts[0].data = try game_alloc.alignedAlloc(u8, 4, 4 * 256);
         const debug_palette_colors = self.paletts[0].as_color_slice();
         for (debug_palette_colors) |*c| {
-            c.* = Color.WHITE;
+            c.* = .WHITE;
         }
         self.paletts_num = 1;
     }
@@ -210,11 +210,11 @@ pub const Store = struct {
 
             // Convert ABGR -> ARGB
             if (builtin.os.tag != .emscripten and channels == 4) {
-                var colors: []Color = undefined;
+                var colors: []ColorU32 = undefined;
                 colors.ptr = @alignCast(@ptrCast(image));
                 colors.len = width * height;
                 for (colors) |*color| {
-                    color.abgr_to_argb();
+                    color.* = color.swap_rgba_bgra();
                 }
             }
             @memcpy(bytes, data);
@@ -372,7 +372,7 @@ pub const Store = struct {
 
         const palette_colors = self.paletts[palette_id].as_color_slice();
         for (0..colors_used) |i| {
-            const color: Color = .{
+            const color: ColorU32 = .{
                 .format = .{
                     .r = fm.mem[palette_offset + i * 4 + 2],
                     .g = fm.mem[palette_offset + i * 4 + 1],
