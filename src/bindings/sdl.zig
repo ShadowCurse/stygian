@@ -1,14 +1,9 @@
 const builtin = @import("builtin");
 
-const sdl = if (builtin.os.tag == .emscripten)
-    @cImport({
-        @cInclude("SDL/SDL.h");
-    })
-else
-    @cImport({
-        @cInclude("SDL3/SDL.h");
-        @cInclude("SDL3/SDL_vulkan.h");
-    });
+const sdl = @cImport({
+    @cInclude("SDL3/SDL.h");
+    @cInclude("SDL3/SDL_vulkan.h");
+});
 
 pub const SDL_WINDOW_VULKAN = sdl.SDL_WINDOW_VULKAN;
 pub const SDL_Vulkan_CreateSurface = sdl.SDL_Vulkan_CreateSurface;
@@ -40,15 +35,6 @@ pub const SDL_EVENT_MOUSE_MOTION = sdl.SDL_EVENT_MOUSE_MOTION;
 pub const SDL_EVENT_MOUSE_BUTTON_DOWN = sdl.SDL_EVENT_MOUSE_BUTTON_DOWN;
 pub const SDL_EVENT_MOUSE_BUTTON_UP = sdl.SDL_EVENT_MOUSE_BUTTON_UP;
 pub const SDL_EVENT_MOUSE_WHEEL = sdl.SDL_EVENT_MOUSE_WHEEL;
-
-pub const SDL_TEXTUREACCESS_STREAMING = sdl.SDL_TEXTUREACCESS_STREAMING;
-pub const SDL_Renderer = sdl.SDL_Renderer;
-pub const SDL_Texture = sdl.SDL_Texture;
-pub const SDL_CreateRenderer = sdl.SDL_CreateRenderer;
-pub const SDL_CreateTexture = sdl.SDL_CreateTexture;
-pub const SDL_UpdateTexture = sdl.SDL_UpdateTexture;
-pub const SDL_RenderTexture = sdl.SDL_RenderTexture;
-pub const SDL_RenderPresent = sdl.SDL_RenderPresent;
 
 pub const SDL_AudioDeviceID = sdl.SDL_AudioDeviceID;
 pub const SDL_AudioSpec = sdl.SDL_AudioSpec;
