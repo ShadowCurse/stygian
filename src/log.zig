@@ -14,7 +14,7 @@ pub const LogLevel = enum {
     Debug,
 };
 pub const Options = struct {
-    colors: bool = builtin.os.tag != .emscripten,
+    colors: bool = true,
     level: LogLevel = .Info,
     asserts: bool = true,
 

@@ -209,7 +209,7 @@ pub const Store = struct {
             data.len = width * height * channels;
 
             // Convert ABGR -> ARGB
-            if (builtin.os.tag != .emscripten and channels == 4) {
+            if (channels == 4) {
                 var colors: []ColorU32 = undefined;
                 colors.ptr = @alignCast(@ptrCast(image));
                 colors.len = width * height;

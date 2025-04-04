@@ -13,13 +13,7 @@ pub fn get(events: []Event) []Event {
     );
 
     var sdl_events: [MAX_EVENTS]sdl.SDL_Event = undefined;
-    const filled_sdl_events = if (builtin.os.tag == .emscripten) blk: {
-        var n: u32 = 0;
-        while (sdl.SDL_PollEvent(&sdl_events[n]) and
-            n < sdl_events.len) : (n += 1)
-        {}
-        break :blk sdl_events[0..n];
-    } else blk: {
+    const filled_sdl_events = blk: {
         sdl.SDL_FlushEvents(
             sdl.SDL_EVENT_FIRST,
             sdl.SDL_EVENT_LAST,
@@ -49,48 +43,25 @@ pub fn get(events: []Event) []Event {
             // Skip this as it is triggered on key presses
             sdl.SDL_EVENT_TEXT_INPUT => {},
             sdl.SDL_EVENT_KEY_DOWN => {
-                if (builtin.os.tag == .emscripten) {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
-                    log.debug(@src(), "Got KEYDOWN event for key: {}", .{key});
-                    events[filled_events_num] = .{
-                        .Keyboard = .{
-                            .type = .Pressed,
-                            .key = key,
-                        },
-                    };
-                    filled_events_num += 1;
-                } else {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
-                    log.debug(@src(), "Got KEYDOWN event for key: {}", .{key});
-                    events[filled_events_num] = .{
-                        .Keyboard = .{
-                            .type = .Pressed,
-                            .key = key,
-                        },
-                    };
-                    filled_events_num += 1;
-                }
+                const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
+                log.debug(@src(), "Got KEYDOWN event for key: {}", .{key});
+                events[filled_events_num] = .{
+                    .Keyboard = .{
+                        .type = .Pressed,
+                        .key = key,
+                    },
+                };
+                filled_events_num += 1;
             },
             sdl.SDL_EVENT_KEY_UP => {
-                if (builtin.os.tag == .emscripten) {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
-                    log.debug(@src(), "Got KEYUP event for key: {}", .{key});
-                    events[filled_events_num] = .{
-                        .Keyboard = .{
-                            .type = .Released,
-                            .key = @enumFromInt(sdl_event.key.scancode),
-                        },
-                    };
-                } else {
-                    const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
-                    log.debug(@src(), "Got KEYUP event for key: {}", .{key});
-                    events[filled_events_num] = .{
-                        .Keyboard = .{
-                            .type = .Released,
-                            .key = key,
-                        },
-                    };
-                }
+                const key: KeybordKeyScancode = @enumFromInt(sdl_event.key.scancode);
+                log.debug(@src(), "Got KEYUP event for key: {}", .{key});
+                events[filled_events_num] = .{
+                    .Keyboard = .{
+                        .type = .Released,
+                        .key = key,
+                    },
+                };
                 filled_events_num += 1;
             },
             sdl.SDL_EVENT_MOUSE_MOTION => {
@@ -142,33 +113,18 @@ pub fn get(events: []Event) []Event {
                 filled_events_num += 1;
             },
             sdl.SDL_EVENT_MOUSE_WHEEL => {
-                if (builtin.os.tag == .emscripten) {
-                    log.debug(
-                        @src(),
-                        "Got MOUSEWHEEL event with value: {}",
-                        .{sdl_event.wheel.y},
-                    );
-                    events[filled_events_num] = .{
-                        .Mouse = .{
-                            .Wheel = .{
-                                .amount = sdl_event.wheel.y,
-                            },
+                log.debug(
+                    @src(),
+                    "Got MOUSEWHEEL event with value: {}",
+                    .{sdl_event.wheel.y},
+                );
+                events[filled_events_num] = .{
+                    .Mouse = .{
+                        .Wheel = .{
+                            .amount = sdl_event.wheel.y,
                         },
-                    };
-                } else {
-                    log.debug(
-                        @src(),
-                        "Got MOUSEWHEEL event with value: {}",
-                        .{sdl_event.wheel.y},
-                    );
-                    events[filled_events_num] = .{
-                        .Mouse = .{
-                            .Wheel = .{
-                                .amount = sdl_event.wheel.y,
-                            },
-                        },
-                    };
-                }
+                    },
+                };
                 filled_events_num += 1;
             },
             else => {
