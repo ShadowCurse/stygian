@@ -12,9 +12,9 @@ const Pipeline = @import("pipeline.zig").Pipeline;
 const BlendingType = @import("pipeline.zig").BlendingType;
 
 pub const TIMEOUT = std.math.maxInt(u64);
-const VK_VALIDATION_LAYERS_NAMES = [_][]const u8{"VK_LAYER_KHRONOS_validation"};
-const VK_ADDITIONAL_EXTENSIONS_NAMES = [_][]const u8{"VK_EXT_debug_utils"};
-const VK_PHYSICAL_DEVICE_EXTENSION_NAMES = [_][]const u8{"VK_KHR_swapchain"};
+const VK_VALIDATION_LAYERS_NAMES = [_][*c]const u8{"VK_LAYER_KHRONOS_validation"};
+const VK_ADDITIONAL_EXTENSIONS_NAMES = [_][*c]const u8{"VK_EXT_debug_utils"};
+const VK_PHYSICAL_DEVICE_EXTENSION_NAMES = [_][*c]const u8{"VK_KHR_swapchain"};
 
 const Self = @This();
 surface: vk.VkSurfaceKHR,
@@ -284,7 +284,11 @@ const Instance = struct {
                     [*c]const u8,
                     @ptrCast(&e.extensionName),
                 ));
-                if (std.mem.eql(u8, extension_name_span, ae)) {
+                const additional_extension_name_span = std.mem.span(@as(
+                    [*c]const u8,
+                    ae,
+                ));
+                if (std.mem.eql(u8, extension_name_span, additional_extension_name_span)) {
                     found_additional_extensions += 1;
                     required = "required";
                 }
@@ -302,15 +306,22 @@ const Instance = struct {
             return error.AdditionalExtensionsNotFound;
         }
 
-        var total_extensions = try std.ArrayListUnmanaged([*c]const u8).initCapacity(
-            scratch_alloc,
-            platform_extensions.len + VK_ADDITIONAL_EXTENSIONS_NAMES.len,
+        const total_extensions_count: u32 =
+            @as(u32, @intCast(platform_extensions.len + VK_ADDITIONAL_EXTENSIONS_NAMES.len));
+        var total_extensions = try scratch_alloc.alloc(
+            [*c]const u8,
+            total_extensions_count,
         );
-        for (platform_extensions) |e| {
-            try total_extensions.append(scratch_alloc, e);
-        }
-        for (VK_ADDITIONAL_EXTENSIONS_NAMES) |e| {
-            try total_extensions.append(scratch_alloc, e.ptr);
+        {
+            var i: u32 = 0;
+            for (platform_extensions) |e| {
+                total_extensions[i] = e;
+                i += 1;
+            }
+            for (VK_ADDITIONAL_EXTENSIONS_NAMES) |e| {
+                total_extensions[i] = e;
+                i += 1;
+            }
         }
 
         var layer_property_count: u32 = 0;
@@ -326,7 +337,8 @@ const Instance = struct {
             var required = "--------";
             for (VK_VALIDATION_LAYERS_NAMES) |vln| {
                 const layer_name_span = std.mem.span(@as([*c]const u8, @ptrCast(&l.layerName)));
-                if (std.mem.eql(u8, layer_name_span, vln)) {
+                const validataion_layer_name_span = std.mem.span(@as([*c]const u8, vln));
+                if (std.mem.eql(u8, layer_name_span, validataion_layer_name_span)) {
                     found_validation_layers += 1;
                     required = "required";
                 }
@@ -354,8 +366,8 @@ const Instance = struct {
         const instance_create_info = vk.VkInstanceCreateInfo{
             .sType = vk.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pApplicationInfo = &app_info,
-            .ppEnabledExtensionNames = total_extensions.items.ptr,
-            .enabledExtensionCount = @as(u32, @intCast(total_extensions.items.len)),
+            .ppEnabledExtensionNames = total_extensions.ptr,
+            .enabledExtensionCount = total_extensions_count,
             .ppEnabledLayerNames = @ptrCast(&VK_VALIDATION_LAYERS_NAMES),
             .enabledLayerCount = @as(u32, @intCast(VK_VALIDATION_LAYERS_NAMES.len)),
         };
@@ -506,7 +518,11 @@ const PhysicalDevice = struct {
                         [*c]const u8,
                         @ptrCast(&e.extensionName),
                     ));
-                    if (std.mem.eql(u8, extension_name_span, re)) {
+                    const physical_extension_name_span = std.mem.span(@as(
+                        [*c]const u8,
+                        re,
+                    ));
+                    if (std.mem.eql(u8, extension_name_span, physical_extension_name_span)) {
                         found_extensions += 1;
                         required = "required";
                     }
