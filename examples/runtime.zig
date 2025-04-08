@@ -40,6 +40,10 @@ const MeshPipeline = _render_mesh.MeshPipeline;
 const RenderMeshInfo = _render_mesh.RenderMeshInfo;
 const MeshInfo = _render_mesh.MeshInfo;
 
+const _render_grid = stygian.vk_renderer.grid;
+const GridPipeline = _render_grid.GridPipeline;
+const GridPushConstant = _render_grid.GridPushConstant;
+
 const _math = stygian.math;
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
@@ -65,6 +69,7 @@ const Runtime = struct {
     screen_quads_gpu_info: ScreenQuadsGpuInfo,
     mesh_pipeline: MeshPipeline,
     cube_meshes: RenderMeshInfo,
+    grid_pipeline: GridPipeline,
 
     const Self = @This();
 
@@ -139,6 +144,8 @@ const Runtime = struct {
             &CubeMesh.vertices,
             32,
         );
+
+        self.grid_pipeline = try GridPipeline.init(memory, &self.vk_renderer);
     }
 
     fn run(
@@ -279,6 +286,13 @@ const Runtime = struct {
 
         self.screen_quads_gpu_info.set_instance_infos(self.screen_quads.slice());
 
+        const grid_push_constant = GridPushConstant{
+            .view = camera_transform.inverse(),
+            .proj = projection,
+            .position = .{},
+            .color = .RED,
+        };
+
         const frame_context = self.vk_renderer.start_frame_context() catch unreachable;
         self.vk_renderer.start_rendering(&frame_context) catch unreachable;
         self.mesh_pipeline.render(
@@ -291,6 +305,7 @@ const Runtime = struct {
                 .{ &self.screen_quads_gpu_info, self.screen_quads.used_quads },
             },
         );
+        self.grid_pipeline.render(&frame_context, &grid_push_constant);
         self.vk_renderer.end_rendering(&frame_context) catch unreachable;
 
         self.vk_renderer.transition_swap_chain(&frame_context);
