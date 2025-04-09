@@ -6,8 +6,6 @@ layout (location = 2) out vec3 out_far;
 layout(push_constant) uniform constants {
     mat4 view;
     mat4 proj;
-    vec3 position;
-    uint color;
 } PushConstants;
 
 vec3 grid_planes[6] = vec3[](

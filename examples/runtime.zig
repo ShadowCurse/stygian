@@ -164,14 +164,14 @@ const Runtime = struct {
         }
         self.camera_controller.update(dt);
 
-        const camera_transform = self.camera_controller.transform();
-        const projection = Mat4.perspective(
+        const camera_transform = self.camera_controller.transform().inverse();
+        const camera_projection = Mat4.perspective(
             std.math.degreesToRadians(70.0),
             @as(f32, @floatFromInt(window.width)) / @as(f32, @floatFromInt(window.height)),
             0.1,
             10000.0,
         );
-        self.cube_meshes.push_constants.view_proj = projection.mul(camera_transform.inverse());
+        self.cube_meshes.push_constants.view_proj = camera_projection.mul(camera_transform);
         self.screen_quads_gpu_info.set_screen_size(
             .{ .x = @floatFromInt(window.width), .y = @floatFromInt(window.height) },
         );
@@ -287,10 +287,8 @@ const Runtime = struct {
         self.screen_quads_gpu_info.set_instance_infos(self.screen_quads.slice());
 
         const grid_push_constant = GridPushConstant{
-            .view = camera_transform.inverse(),
-            .proj = projection,
-            .position = .{},
-            .color = .RED,
+            .view = camera_transform,
+            .proj = camera_projection,
         };
 
         const frame_context = self.vk_renderer.start_frame_context() catch unreachable;

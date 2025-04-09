@@ -21,8 +21,6 @@ const ColorU32 = @import("../color.zig").ColorU32;
 pub const GridPushConstant = extern struct {
     view: Mat4,
     proj: Mat4,
-    position: Vec3,
-    color: ColorU32,
 };
 
 pub const GridPipeline = struct {
