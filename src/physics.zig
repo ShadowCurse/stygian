@@ -37,10 +37,50 @@ pub const Rectangle = struct {
     rotation: f32 = 0.0,
 };
 
+pub const Line = struct {
+    a: Vec2,
+    b: Vec2,
+
+    const Self = @This();
+
+    pub fn a_to_b(self: *const Self) Vec2 {
+        return self.b.sub(self.a);
+    }
+};
+
 pub const CollisionPoint = struct {
     position: Vec2,
     normal: Vec2,
 };
+
+// Calculate lines intersection
+pub fn line_line_intersection(
+    line_1: Line,
+    line_2: Line,
+) ?Vec2 {
+    // line_1: a, b
+    // line_2: c, d
+    const ab = line_1.a_to_b();
+    const cd = line_2.a_to_b();
+    const perp_dot = ab.x * cd.y - ab.y * cd.x;
+
+    if (perp_dot == 0) {
+        return null;
+    }
+
+    const ac = line_2.a.sub(line_1.a);
+    const t = (ac.x * cd.y - ac.y * cd.x) / perp_dot;
+    if (t < 0 or t > 1) {
+        return null;
+    }
+
+    const u = (ac.x * ab.y - ac.y * ab.x) / perp_dot;
+    if (u < 0 or u > 1) {
+        return null;
+    }
+
+    return line_1.a.add(ab.mul_f32(t));
+}
 
 pub fn apply_collision_impulse(
     noalias body_1: *Body,
@@ -369,6 +409,34 @@ pub fn circle_rectangle_collision(
 }
 
 const expect = std.testing.expect;
+
+test "test_line_line_intersection" {
+    {
+        const line_1 = Line{
+            .a = .{ .x = -1.0, .y = 0.0 },
+            .b = .{ .x = 1.0, .y = 0.0 },
+        };
+        const line_2 = Line{
+            .a = .{ .x = -1.0, .y = 1.0 },
+            .b = .{ .x = 1.0, .y = 1.0 },
+        };
+        const int = line_line_intersection(line_1, line_2);
+        try expect(int == null);
+    }
+    {
+        const line_1 = Line{
+            .a = .{ .x = -1.0, .y = 0.0 },
+            .b = .{ .x = 1.0, .y = 0.0 },
+        };
+        const line_2 = Line{
+            .a = .{ .x = 0.0, .y = -1.0 },
+            .b = .{ .x = 0.0, .y = 1.0 },
+        };
+        const int = line_line_intersection(line_1, line_2).?;
+        try expect(int.eq(.{ .x = 0.0, .y = 0.0 }));
+    }
+}
+
 test "test_circle_circle_collision" {
     {
         const c1: Circle = .{ .radius = 1.0 };

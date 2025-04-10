@@ -117,35 +117,6 @@ pub const Vec2 = extern struct {
     }
 };
 
-// Calculate lines a-b and c-d intersection if any
-pub fn line_intersection(
-    point_a: Vec2,
-    point_b: Vec2,
-    point_c: Vec2,
-    point_d: Vec2,
-) ?Vec2 {
-    const ab = point_b.sub(point_a);
-    const cd = point_d.sub(point_c);
-    const perp_dot = ab.x * cd.y - ab.y * cd.x;
-
-    if (perp_dot == 0) {
-        return null;
-    }
-
-    const ac = point_c.sub(point_a);
-    const t = (ac.x * cd.y - ac.y * cd.x) / perp_dot;
-    if (t < 0 or t > 1) {
-        return null;
-    }
-
-    const u = (ac.x * ab.y - ac.y * ab.x) / perp_dot;
-    if (u < 0 or u > 1) {
-        return null;
-    }
-
-    return point_a.add(ab.mul_f32(t));
-}
-
 pub const Vec3 = extern struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
