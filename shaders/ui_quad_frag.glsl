@@ -32,6 +32,7 @@ layout(buffer_reference, std430) readonly buffer QuadInfos {
 
 layout(push_constant) uniform constants {
     QuadInfos instance_infos;
+    vec2 screen_size;
 } PushConstants;
 
 // 1 << 32 - 1;
