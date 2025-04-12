@@ -44,6 +44,9 @@ const _render_grid = stygian.vk_renderer.grid;
 const GridPipeline = _render_grid.GridPipeline;
 const GridPushConstant = _render_grid.GridPushConstant;
 
+const _scene = stygian.vk_renderer.scene;
+const SceneInfo = _scene.SceneInfo;
+
 const _math = stygian.math;
 const Vec2 = _math.Vec2;
 const Vec3 = _math.Vec3;
@@ -69,6 +72,7 @@ const Runtime = struct {
     screen_quads_gpu_info: ScreenQuadsGpuInfo,
     mesh_pipeline: MeshPipeline,
     cube_meshes: RenderMeshInfo,
+    scene_info: SceneInfo,
     grid_pipeline: GridPipeline,
 
     const Self = @This();
@@ -144,6 +148,7 @@ const Runtime = struct {
             &CubeMesh.vertices,
             32,
         );
+        self.scene_info = try SceneInfo.init(&self.vk_renderer, 10);
 
         self.grid_pipeline = try GridPipeline.init(memory, &self.vk_renderer);
     }
@@ -158,20 +163,56 @@ const Runtime = struct {
         const frame_alloc = memory.frame_alloc();
         self.screen_quads.reset();
         self.cube_meshes.reset();
+        self.scene_info.reset();
 
         for (events) |event| {
             self.camera_controller.process_input(event, dt);
         }
         self.camera_controller.update(dt);
 
-        const camera_transform = self.camera_controller.transform().inverse();
+        const camera_view = self.camera_controller.transform().inverse();
         const camera_projection = Mat4.perspective(
             std.math.degreesToRadians(70.0),
             @as(f32, @floatFromInt(window.width)) / @as(f32, @floatFromInt(window.height)),
             0.1,
             10000.0,
         );
-        self.cube_meshes.push_constants.view_proj = camera_projection.mul(camera_transform);
+        self.scene_info.set_camera_info(&.{
+            .view = camera_view,
+            .projection = camera_projection,
+            .position = self.camera_controller.position,
+        });
+        self.scene_info.add_lights(&.{
+            .{
+                .position = .{ .x = 1.0, .z = 4.0 },
+                .color = .RED,
+                .constant = 1.0,
+                .linear = 0.1,
+                .quadratic = 0.032,
+            },
+            .{
+                .position = .{ .x = -1.0, .z = 4.0 },
+                .color = .GREEN,
+                .constant = 1.0,
+                .linear = 0.1,
+                .quadratic = 0.032,
+            },
+            .{
+                .position = .{ .y = 1.0, .z = 4.0 },
+                .color = .BLUE,
+                .constant = 1.0,
+                .linear = 0.1,
+                .quadratic = 0.032,
+            },
+            .{
+                .position = .{ .y = -1.0, .z = 4.0 },
+                .color = .WHITE,
+                .constant = 1.0,
+                .linear = 0.1,
+                .quadratic = 0.032,
+            },
+        });
+
         self.screen_quads_gpu_info.set_screen_size(
             .{ .x = @floatFromInt(window.width), .y = @floatFromInt(window.height) },
         );
@@ -187,6 +228,7 @@ const Runtime = struct {
         self.cube_meshes.add_instance_infos(&.{.{
             .transform = Mat4.IDENDITY.translate(.{ .z = 4.0 }),
         }});
+        self.cube_meshes.set_scene_push_constants(&self.scene_info.push_constants);
 
         const mesh_positions = frame_alloc.alloc(MeshInfo, 16) catch unreachable;
         for (mesh_positions, 0..) |*mp, i| {
@@ -287,7 +329,7 @@ const Runtime = struct {
         self.screen_quads_gpu_info.set_instance_infos(self.screen_quads.slice());
 
         const grid_push_constant = GridPushConstant{
-            .view = camera_transform,
+            .view = camera_view,
             .proj = camera_projection,
         };
 

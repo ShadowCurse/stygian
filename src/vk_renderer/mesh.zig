@@ -12,13 +12,17 @@ const Pipeline = @import("pipeline.zig").Pipeline;
 const _mesh = @import("../mesh.zig");
 const DefaultVertex = _mesh.DefaultVertex;
 
+const _scene = @import("scene.zig");
+const SceneInfo = _scene.SceneInfo;
+const ScenePushConstant = _scene.ScenePushConstant;
+
 const _math = @import("../math.zig");
 const Mat4 = _math.Mat4;
 
 pub const MeshPushConstant = extern struct {
-    view_proj: Mat4,
     vertex_buffer_address: vk.VkDeviceAddress,
     instance_info_buffer_address: vk.VkDeviceAddress,
+    scene_push_constants: ScenePushConstant,
 };
 pub const MeshInfo = extern struct {
     transform: Mat4,
@@ -68,13 +72,13 @@ pub const RenderMeshInfo = struct {
         );
 
         const push_constants: MeshPushConstant = .{
-            .view_proj = undefined,
             .vertex_buffer_address = vertex_buffer.get_device_address(
                 renderer.vk_context.logical_device.device,
             ),
             .instance_info_buffer_address = instance_info_buffer.get_device_address(
                 renderer.vk_context.logical_device.device,
             ),
+            .scene_push_constants = undefined,
         };
 
         return .{
@@ -118,6 +122,10 @@ pub const RenderMeshInfo = struct {
         );
         self.num_instances_used += @intCast(infos.len);
     }
+
+    pub fn set_scene_push_constants(self: *RenderMeshInfo, spc: *const ScenePushConstant) void {
+        self.push_constants.scene_push_constants = spc.*;
+    }
 };
 
 pub const MeshPipeline = struct {
@@ -140,7 +148,7 @@ pub const MeshPipeline = struct {
                 vk.VkPushConstantRange{
                     .offset = 0,
                     .size = @sizeOf(MeshPushConstant),
-                    .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT,
+                    .stageFlags = vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
                 },
             },
             "mesh_vert.spv",
@@ -213,7 +221,7 @@ pub const MeshPipeline = struct {
             vk.vkCmdPushConstants(
                 frame_context.command.cmd,
                 self.pipeline.pipeline_layout,
-                vk.VK_SHADER_STAGE_VERTEX_BIT,
+                vk.VK_SHADER_STAGE_VERTEX_BIT | vk.VK_SHADER_STAGE_FRAGMENT_BIT,
                 0,
                 @sizeOf(MeshPushConstant),
                 &bundle[0].push_constants,

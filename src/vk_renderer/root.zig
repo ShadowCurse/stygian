@@ -5,4 +5,5 @@ pub const grid = @import("grid.zig");
 pub const mesh = @import("mesh.zig");
 pub const pipeline = @import("pipeline.zig");
 pub const renderer = @import("renderer.zig");
+pub const scene = @import("scene.zig");
 pub const screen_quads = @import("screen_quads.zig");
