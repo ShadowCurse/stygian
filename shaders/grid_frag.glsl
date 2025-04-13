@@ -1,13 +1,16 @@
 #version 450
 
+#extension GL_EXT_buffer_reference : require
+
+#include "types.glsl"
+
 layout (location = 1) in vec3 in_near;
 layout (location = 2) in vec3 in_far;
 
 layout (location = 0) out vec4 out_color;
 
 layout(push_constant) uniform constants {
-    mat4 view;
-    mat4 proj;
+    CameraInfo camera_info;
 } PushConstants;
 
 #define AXIS_LINE_WIDTH 1.0
@@ -38,7 +41,8 @@ vec4 grid_point_color(vec3 world_pos, float scale) {
 }
 
 float depth(vec3 world_pos) {
-  vec4 clip = PushConstants.proj * PushConstants.view * vec4(world_pos, 1.0);
+  vec4 clip = PushConstants.camera_info.projection *
+              PushConstants.camera_info.view * vec4(world_pos, 1.0);
   return clip.z / clip.w;
 }
 

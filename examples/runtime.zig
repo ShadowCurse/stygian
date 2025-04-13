@@ -329,8 +329,7 @@ const Runtime = struct {
         self.screen_quads_gpu_info.set_instance_infos(self.screen_quads.slice());
 
         const grid_push_constant = GridPushConstant{
-            .view = camera_view,
-            .proj = camera_projection,
+            .camera_info_buffer_address = self.scene_info.push_constants.camera_buffer_address,
         };
 
         const frame_context = self.vk_renderer.start_frame_context() catch unreachable;

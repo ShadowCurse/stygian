@@ -19,8 +19,7 @@ const Mat4 = _math.Mat4;
 const ColorU32 = @import("../color.zig").ColorU32;
 
 pub const GridPushConstant = extern struct {
-    view: Mat4,
-    proj: Mat4,
+    camera_info_buffer_address: vk.VkDeviceAddress,
 };
 
 pub const GridPipeline = struct {
