@@ -2,6 +2,8 @@
 
 #extension GL_EXT_buffer_reference : require
 
+#include "types.glsl"
+
 //shader input
 layout (location = 0) in vec3 inColor;
 layout (location = 1) in vec2 inUV;
@@ -11,24 +13,6 @@ layout (location = 2) flat in int inInstanceId;
 layout (location = 0) out vec4 outFragColor;
 
 layout(set = 0, binding = 0) uniform sampler2D textures[3];
-
-#define QUAD_OPTIONS_TINT 1 << 0
-struct QuadInfo {
-    vec2 position;
-    vec2 size;
-    vec2 rotation_offset;
-    vec2 uv_offset;
-    vec2 uv_size;
-
-    float rotation;
-    uint color;
-    uint texture_id;
-    uint options;
-};
-
-layout(buffer_reference, std430) readonly buffer QuadInfos { 
-    QuadInfo infos[];
-};
 
 layout(push_constant) uniform constants {
     QuadInfos instance_infos;

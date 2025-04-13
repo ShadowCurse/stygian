@@ -154,7 +154,7 @@ fn compile_shaders(b: *std.Build) *std.Build.Step {
                 else if (std.mem.endsWith(u8, name, "vert"))
                     "-fshader-stage=vertex"
                 else
-                    unreachable;
+                    continue;
 
                 const source_file_path =
                     std.fmt.allocPrint(b.allocator, "shaders/{s}.glsl", .{name}) catch unreachable;

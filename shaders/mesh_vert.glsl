@@ -2,47 +2,11 @@
 
 #extension GL_EXT_buffer_reference : require
 
+#include "types.glsl"
+
 layout (location = 1) out vec3 out_world_pos;
 layout (location = 2) out vec3 out_normal;
 layout (location = 3) out vec2 out_uv;
-
-struct Light {
-  vec3 position;
-  uint color;
-  float constant;
-  float linear;
-  float quadratic;
-};
-
-layout(buffer_reference, std430) readonly buffer Lights { 
-    Light lights[];
-};
-
-struct Vertex {
-    vec3 position;
-    float uv_x;
-    vec3 normal;
-    float uv_y;
-    vec4 color;
-}; 
-
-layout(buffer_reference, std430) readonly buffer Vertices { 
-    Vertex vertices[];
-};
-
-struct MeshInfo {
-  mat4 transform;
-};
-
-layout(buffer_reference, std430) readonly buffer MeshInfos { 
-    MeshInfo infos[];
-};
-
-layout(buffer_reference, std430) readonly buffer CameraInfo { 
-  mat4 view;
-  mat4 projection;
-  vec3 position;
-};
 
 struct ScenePushConstants {
     CameraInfo camera_info;

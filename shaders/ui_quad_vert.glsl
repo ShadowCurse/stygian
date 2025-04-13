@@ -2,39 +2,24 @@
 
 #extension GL_EXT_buffer_reference : require
 
+#include "types.glsl"
+
 layout (location = 0) out vec3 outColor;
 layout (location = 1) out vec2 outUV;
 layout (location = 2) out int outInstanceId;
-
-struct QuadInfo {
-    vec2 position;
-    vec2 size;
-    vec2 rotation_offset;
-    vec2 uv_offset;
-    vec2 uv_size;
-
-    float rotation;
-    uint color;
-    uint texture_id;
-    uint options;
-};
-
-layout(buffer_reference, std430) readonly buffer QuadInfos { 
-    QuadInfo infos[];
-};
 
 layout(push_constant) uniform constants {
     QuadInfos instance_infos;
     vec2 screen_size;
 } PushConstants;
 
-struct Vertex {
+struct SimpleVertex {
     vec2 position;
     vec2 uv;
     vec4 color;
 }; 
 
-Vertex[] vertices = {
+SimpleVertex[] vertices = {
   // Top
   {
     vec2(1.0, 1.0),
@@ -70,7 +55,7 @@ Vertex[] vertices = {
 };
 
 void main() {
-    Vertex v = vertices[gl_VertexIndex];
+    SimpleVertex v = vertices[gl_VertexIndex];
     QuadInfo qi = PushConstants.instance_infos.infos[gl_InstanceIndex];
     vec2 screen_size = PushConstants.screen_size;
 
