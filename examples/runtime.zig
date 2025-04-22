@@ -88,7 +88,7 @@ const Runtime = struct {
         self.font = Font.init(memory, &self.texture_store, "assets/Hack-Regular.ttf", 64);
         self.texture_letter_a = self.texture_store.load(memory, "assets/a.png");
 
-        self.screen_quads = try ScreenQuads.init(memory, 64);
+        self.screen_quads = try ScreenQuads.init(memory, 128);
         self.vk_renderer = try VkRenderer.init(memory, window);
 
         const debug_texture = self.texture_store.get_texture(Textures.Texture.ID_DEBUG);
@@ -160,10 +160,22 @@ const Runtime = struct {
         dt: f32,
         events: []const Events.Event,
     ) void {
-        const frame_alloc = memory.frame_alloc();
         self.screen_quads.reset();
         self.cube_meshes.reset();
         self.scene_info.reset();
+        const frame_alloc = memory.frame_alloc();
+
+        const TracingTypes =
+            struct { ScreenQuads };
+        Tracing.prepare_next_frame(TracingTypes);
+        Tracing.to_screen_quads(
+            TracingTypes,
+            frame_alloc,
+            &self.screen_quads,
+            &self.font,
+            32.0,
+        );
+        Tracing.zero_current(TracingTypes);
 
         for (events) |event| {
             self.camera_controller.process_input(event, dt);
