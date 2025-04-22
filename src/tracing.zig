@@ -176,11 +176,11 @@ pub fn to_screen_quads(
                 .{
                     .x = x,
                     .y = y,
-                    .z = std.math.floatMax(f32),
                 },
                 0.0,
                 .{},
-                .{ .dont_clip = true, .center = false },
+                null,
+                .{ .center = false },
             );
             text.to_screen_quads(allocator, screen_quads);
             y += y_advance;
