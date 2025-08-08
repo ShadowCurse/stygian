@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) !void {
     const unibuild = b.option(bool, "unibuild", "Compile as a single binary") orelse false;
     const fossilize = b.option(bool, "fossilize", "Add a fossilize layer") orelse false;
 
-    const limit_fps = b.option(u32, "limit_fps", "Upper limit of FPS") orelse 60;
+    const limit_fps = b.option(u32, "limit_fps", "Upper limit of FPS") orelse 240;
     const window_width = b.option(u32, "window_width", "Default window width") orelse 1280;
     const window_height = b.option(u32, "window_height", "Default window height") orelse 720;
 
