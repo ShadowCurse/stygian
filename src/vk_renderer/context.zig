@@ -742,6 +742,23 @@ const Swapchain = struct {
             surface,
             &surface_capabilities,
         ));
+        log.debug(@src(),
+            \\ Surface capabilities:
+            \\   Min image count: {d}
+            \\   Max image count: {d}
+            \\   Current extent: w: {d} h: {d}
+            \\   Min extent: w: {d} h: {d}
+            \\   Max extent: w: {d} h: {d}
+        , .{
+            surface_capabilities.minImageCount,
+            surface_capabilities.maxImageCount,
+            surface_capabilities.currentExtent.width,
+            surface_capabilities.currentExtent.height,
+            surface_capabilities.minImageExtent.width,
+            surface_capabilities.minImageExtent.height,
+            surface_capabilities.maxImageExtent.width,
+            surface_capabilities.maxImageExtent.height,
+        });
 
         var device_surface_format_count: u32 = 0;
         try vk.check_result(vk.vkGetPhysicalDeviceSurfaceFormatsKHR(
@@ -789,7 +806,7 @@ const Swapchain = struct {
         const create_info = vk.VkSwapchainCreateInfoKHR{
             .sType = vk.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
             .surface = surface,
-            .minImageCount = surface_capabilities.minImageCount + 1,
+            .minImageCount = surface_capabilities.minImageCount,
             .imageFormat = surface_format.format,
             .imageColorSpace = surface_format.colorSpace,
             .imageExtent = swap_chain_extent,
@@ -860,6 +877,11 @@ const Swapchain = struct {
                 ),
             );
         }
+        log.debug(
+            @src(),
+            "Created swapchain: images: {d} extent: w: {d} h: {d}",
+            .{ swap_chain_images_count, swap_chain_extent.width, swap_chain_extent.height },
+        );
         return swap_chain;
     }
 
