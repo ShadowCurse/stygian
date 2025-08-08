@@ -397,8 +397,14 @@ pub fn circle_rectangle_collision(
 
     const px_to_circle_v2 = circle_v2.sub(px);
     if (px_to_circle_v2.len_squared() < circle.radius * circle.radius) {
-        const collision_position = rectangle_position.add(px);
-        const collision_normal = circle_position.sub(collision_position).normalize();
+        const collision_position = rectangle_position
+            .add(rectangle_x_axis.mul_f32(px.x))
+            .add(rectangle_y_axis.mul_f32(px.y));
+        const to_circle = circle_position.sub(collision_position);
+        const collision_normal = if (to_circle.len_squared() != 0.0)
+            to_circle.normalize()
+        else
+            Vec2{};
         return .{
             .position = collision_position,
             .normal = collision_normal,
@@ -589,5 +595,21 @@ test "test_circle_rectangle_collision" {
         const collision = circle_rectangle_collision(c, c_position, r, r_position).?;
         try expect(collision.position.eq(Vec2{ .x = 2.0, .y = 3.0 }));
         try expect(collision.normal.eq(Vec2{ .x = 0.0, .y = 1.0 }));
+    }
+
+    // collision with rotation
+    // top left
+    {
+        const c: Circle = .{ .radius = 1.0 };
+        const c_position: Vec2 = .{
+            .x = -2.0 * @cos(std.math.pi / 4.0),
+            .y = 2.0 * @cos(std.math.pi / 4.0),
+        };
+        const r: Rectangle = .{ .size = .{ .x = 2.0, .y = 2.0 }, .rotation = std.math.pi / 2.0 };
+        const r_position: Vec2 = .{};
+        const collision = circle_rectangle_collision(c, c_position, r, r_position).?;
+        const expected_postion: Vec2 = .{ .x = -1.0, .y = 0.99999994 };
+        // cannot compare normals
+        try expect(collision.position.eq(expected_postion));
     }
 }
