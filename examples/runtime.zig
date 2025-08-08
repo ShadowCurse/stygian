@@ -88,7 +88,7 @@ const Runtime = struct {
         self.font = Font.init(memory, &self.texture_store, "assets/Hack-Regular.ttf", 64);
         self.texture_letter_a = self.texture_store.load(memory, "assets/a.png");
 
-        self.screen_quads = try ScreenQuads.init(memory, 128);
+        self.screen_quads = try ScreenQuads.init(memory, 1024);
         self.vk_renderer = try VkRenderer.init(memory, window);
 
         const debug_texture = self.texture_store.get_texture(Textures.Texture.ID_DEBUG);
@@ -134,7 +134,7 @@ const Runtime = struct {
             self.gpu_letter_a_texture.view,
             self.vk_renderer.debug_sampler,
         );
-        self.screen_quads_gpu_info = try ScreenQuadsGpuInfo.init(&self.vk_renderer, 64);
+        self.screen_quads_gpu_info = try ScreenQuadsGpuInfo.init(&self.vk_renderer, 1024);
 
         self.mesh_pipeline = try MeshPipeline.init(memory, &self.vk_renderer);
         self.mesh_pipeline.set_texture(
