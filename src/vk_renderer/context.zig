@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_options = @import("build_options");
 const log = @import("../log.zig");
 const vk = @import("../bindings/vulkan.zig");
 
@@ -12,7 +13,13 @@ const Pipeline = @import("pipeline.zig").Pipeline;
 const BlendingType = @import("pipeline.zig").BlendingType;
 
 pub const TIMEOUT = std.math.maxInt(u64);
-const VK_VALIDATION_LAYERS_NAMES = [_][*c]const u8{"VK_LAYER_KHRONOS_validation"};
+const VK_VALIDATION_LAYERS_NAMES = if (build_options.fossilize) [_][*c]const u8{
+    "VK_LAYER_KHRONOS_validation",
+    "VK_LAYER_fossilize",
+} else [_][*c]const u8{
+    "VK_LAYER_KHRONOS_validation",
+};
+
 const VK_ADDITIONAL_EXTENSIONS_NAMES = [_][*c]const u8{"VK_EXT_debug_utils"};
 const VK_PHYSICAL_DEVICE_EXTENSION_NAMES = [_][*c]const u8{"VK_KHR_swapchain"};
 
