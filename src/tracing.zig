@@ -37,11 +37,11 @@ pub fn calculate_total_time(comptime all_perf_types: type) i128 {
     if (!options.enabled) return;
 
     var total: i128 = 0;
-    const fields = comptime @typeInfo(all_perf_types).@"struct".fields;
+    const fields = @typeInfo(all_perf_types).@"struct".fields;
     inline for (fields) |field| {
         const trace = field.type.trace;
         const data = trace.previous();
-        const data_fields = comptime @typeInfo(@TypeOf(data.*)).@"struct".fields;
+        const data_fields = @typeInfo(@TypeOf(data.*)).@"struct".fields;
         inline for (data_fields) |df| {
             total += @field(data.*, df.name).ns;
         }
@@ -51,7 +51,7 @@ pub fn calculate_total_time(comptime all_perf_types: type) i128 {
 pub fn zero_current(comptime all_perf_types: type) void {
     if (!options.enabled) return;
 
-    const fields = comptime @typeInfo(all_perf_types).@"struct".fields;
+    const fields = @typeInfo(all_perf_types).@"struct".fields;
     inline for (fields) |field| {
         const trace = field.type.trace;
         trace.zero_current();
@@ -103,7 +103,7 @@ pub fn Measurements(comptime T: type) type {
 
             pub fn zero_current() void {
                 const m = &measurements[current_measurement];
-                const fields = comptime @typeInfo(T).@"struct".fields;
+                const fields = @typeInfo(T).@"struct".fields;
                 inline for (fields) |field| {
                     @field(m, field.name) = .{};
                 }
@@ -111,7 +111,7 @@ pub fn Measurements(comptime T: type) type {
 
             pub fn sum_all() T {
                 var sum: T = std.mem.zeroes(T);
-                const fields = comptime @typeInfo(T).@"struct".fields;
+                const fields = @typeInfo(T).@"struct".fields;
                 for (&measurements) |*m| {
                     inline for (fields) |field| {
                         @field(sum, field.name).ns += @field(m.*, field.name).ns;
@@ -148,13 +148,13 @@ pub fn to_screen_quads(
     const y_advance: f32 = size;
     const x: f32 = size;
 
-    const pt_fields = comptime @typeInfo(all_traced_types).@"struct".fields;
+    const pt_fields = @typeInfo(all_traced_types).@"struct".fields;
     inline for (pt_fields) |ptf| {
         const trace = ptf.type.trace;
         const measurement = trace.previous();
         const sum = trace.sum_all();
 
-        const m_fields = comptime @typeInfo(@TypeOf(measurement.*)).@"struct".fields;
+        const m_fields = @typeInfo(@TypeOf(measurement.*)).@"struct".fields;
         inline for (m_fields) |mf| {
             const field_avg = @field(sum, mf.name).avg();
             const m = @field(measurement.*, mf.name);
