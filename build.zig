@@ -141,6 +141,9 @@ fn compile_shaders(b: *std.Build) *std.Build.Step {
     const shaders_dir = b.build_root.handle.openDir("shaders", .{ .iterate = true }) catch
         @panic("cannot open shader dir");
 
+    _ = b.build_root.handle.makeDir("shaders_compiled") catch |e|
+        if (e != std.fs.Dir.MakeError.PathAlreadyExists) @panic("cannot create shader_compiled dir");
+
     var file_it = shaders_dir.iterate();
     while (file_it.next() catch @panic("cannot iterate shader dir")) |entry| {
         if (entry.kind == .file) {
@@ -149,7 +152,7 @@ fn compile_shaders(b: *std.Build) *std.Build.Step {
                 const basename = std.fs.path.basename(entry.name);
                 const name = basename[0 .. basename.len - ext.len];
 
-                std.debug.print("build: compiling shader: {s}\n", .{name});
+                std.debug.print("Compiling shader: {s}\n", .{name});
 
                 const shader_type = if (std.mem.endsWith(u8, name, "frag"))
                     "-fshader-stage=fragment"
@@ -161,7 +164,7 @@ fn compile_shaders(b: *std.Build) *std.Build.Step {
                 const source_file_path =
                     std.fmt.allocPrint(b.allocator, "shaders/{s}.glsl", .{name}) catch unreachable;
                 const output_file_path =
-                    std.fmt.allocPrint(b.allocator, "{s}.spv", .{name}) catch unreachable;
+                    std.fmt.allocPrint(b.allocator, "shaders_compiled/{s}.spv", .{name}) catch unreachable;
 
                 const command = b.addSystemCommand(&.{
                     "glslc",
