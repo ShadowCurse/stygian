@@ -1,14 +1,88 @@
 const std = @import("std");
 const log = @import("log.zig");
 
+pub inline fn lerp(start: f32, end: f32, t: f32) f32 {
+    return start + (end - start) * t;
+}
+
+pub inline fn exp_decay(start: f32, end: f32, decay: f32, dt: f32) f32 {
+    return end + (start - end) * std.math.exp(-decay * dt);
+}
+
+pub const Ray = struct {
+    origin: Vec3,
+    direction: Vec3,
+
+    pub fn at_t(self: *const Ray, t: f32) Vec3 {
+        return self.origin.add(self.direction.mul_f32(t));
+    }
+};
+
+pub const Triangle = struct {
+    v0: Vec3,
+    v1: Vec3,
+    v2: Vec3,
+
+    pub fn translate(self: *const Triangle, m: *const Mat4) Triangle {
+        return .{
+            .v0 = m.mul_vec4(self.v0.extend(1.0)).shrink(),
+            .v1 = m.mul_vec4(self.v1.extend(1.0)).shrink(),
+            .v2 = m.mul_vec4(self.v2.extend(1.0)).shrink(),
+        };
+    }
+};
+
+pub const TriangleIntersectionResult = struct {
+    t: f32,
+    u: f32,
+    v: f32,
+    n: Vec3,
+};
+pub fn triangle_ray_intersect(
+    ray: *const Ray,
+    triangle: *const Triangle,
+) ?TriangleIntersectionResult {
+    const e1 = triangle.v1.sub(triangle.v0);
+    const e2 = triangle.v2.sub(triangle.v0);
+    const n = e1.cross(e2);
+    const det = -ray.direction.dot(n);
+    const invdet = 1.0 / det;
+    const ao = ray.origin.sub(triangle.v0);
+    const dao = ao.cross(ray.direction);
+    const u = e2.dot(dao) * invdet;
+    const v = -e1.dot(dao) * invdet;
+    const t = ao.dot(n) * invdet;
+    if (1e-6 <= det and 0.0 <= t and 0.0 <= u and 0.0 <= v and (u + v) <= 1.0)
+        return .{
+            .t = t,
+            .u = u,
+            .v = v,
+            .n = n,
+        }
+    else
+        return null;
+}
+
+pub fn triangle_ccw(ray_direction: Vec3, triangle: *const Triangle) bool {
+    const v0_v1 = triangle.v1.sub(triangle.v0);
+    const v0_v2 = triangle.v2.sub(triangle.v0);
+    const c = v0_v2.cross(v0_v1);
+    const d = c.dot(ray_direction);
+    return 0.0 < d;
+}
+
+pub fn vec2(x: f32, y: f32) Vec2 {
+    return .{ .x = x, .y = y };
+}
 pub const Vec2 = extern struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
 
-    pub const X: Vec2 = .{ .x = 1.0, .y = 0.0 };
-    pub const NEG_X: Vec2 = .{ .x = -1.0, .y = 0.0 };
-    pub const Y: Vec2 = .{ .x = 0.0, .y = 1.0 };
-    pub const NEG_Y: Vec2 = .{ .x = 0.0, .y = -1.0 };
+    pub const ONE: Vec2 = .{ .x = 1.0, .y = 1.0 };
+    pub const X: Vec2 = .{ .x = 1.0 };
+    pub const NEG_X: Vec2 = .{ .x = -1.0 };
+    pub const Y: Vec2 = .{ .y = 1.0 };
+    pub const NEG_Y: Vec2 = .{ .y = -1.0 };
 
     pub inline fn eq(self: Vec2, other: Vec2) bool {
         return self.x == other.x and
@@ -115,13 +189,22 @@ pub const Vec2 = extern struct {
     pub inline fn lerp(start: Vec2, end: Vec2, t: f32) Vec2 {
         return start.add(end.sub(start).mul_f32(t));
     }
+
+    // lower decay => slower movement
+    pub inline fn exp_decay(start: Vec2, end: Vec2, decay: f32, dt: f32) Vec2 {
+        return end.add(start.sub(end).mul_f32(std.math.exp(-decay * dt)));
+    }
 };
 
+pub fn vec3(x: f32, y: f32, z: f32) Vec3 {
+    return .{ .x = x, .y = y, .z = z };
+}
 pub const Vec3 = extern struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
     z: f32 = 0.0,
 
+    pub const ONE: Vec3 = .{ .x = 1.0, .y = 1.0, .z = 1.0 };
     pub const X: Vec3 = .{ .x = 1.0 };
     pub const NEG_X: Vec3 = .{ .x = -1.0 };
     pub const Y: Vec3 = .{ .y = 1.0 };
@@ -137,6 +220,10 @@ pub const Vec3 = extern struct {
 
     pub inline fn xy(self: Vec3) Vec2 {
         return .{ .x = self.x, .y = self.y };
+    }
+
+    pub inline fn neg(self: Vec3) Vec3 {
+        return .{ .x = -self.x, .y = -self.y, .z = -self.z };
     }
 
     pub inline fn extend(self: Vec3, w: f32) Vec4 {
@@ -159,10 +246,6 @@ pub const Vec3 = extern struct {
         };
     }
 
-    pub inline fn len_squared(self: Vec3) f32 {
-        return self.dot(self);
-    }
-
     pub inline fn mul_f32(self: Vec3, n: f32) Vec3 {
         return .{
             .x = self.x * n,
@@ -177,6 +260,26 @@ pub const Vec3 = extern struct {
             .y = self.y / n,
             .z = self.z / n,
         };
+    }
+
+    pub inline fn div_f32(self: Vec3, n: f32) Vec3 {
+        return .{
+            .x = self.x / n,
+            .y = self.y / n,
+            .z = self.z / n,
+        };
+    }
+
+    pub inline fn len_squared(self: Vec3) f32 {
+        return self.dot(self);
+    }
+
+    pub inline fn len(self: Vec3) f32 {
+        return @sqrt(self.dot(self));
+    }
+
+    pub inline fn normalize(self: Vec3) Vec3 {
+        return self.div_f32(self.len());
     }
 
     pub inline fn dot(self: Vec3, other: Vec3) f32 {
@@ -194,13 +297,29 @@ pub const Vec3 = extern struct {
     pub inline fn lerp(start: Vec3, end: Vec3, t: f32) Vec3 {
         return start.add(end.sub(start).mul_f32(t));
     }
+
+    // lower decay => slower movement
+    pub inline fn exp_decay(start: Vec3, end: Vec3, decay: f32, dt: f32) Vec3 {
+        return end.add(start.sub(end).mul_f32(std.math.exp(-decay * dt)));
+    }
 };
 
+pub fn vec4(x: f32, y: f32, z: f32, w: f32) Vec4 {
+    return .{ .x = x, .y = y, .z = z, .w = w };
+}
 pub const Vec4 = extern struct {
     x: f32 = 0.0,
     y: f32 = 0.0,
     z: f32 = 0.0,
     w: f32 = 0.0,
+
+    pub const ONE: Vec4 = .{ .x = 1.0, .y = 1.0, .z = 1.0, .w = 1.0 };
+    pub const X: Vec4 = .{ .x = 1.0 };
+    pub const NEG_X: Vec4 = .{ .x = -1.0 };
+    pub const Y: Vec4 = .{ .y = 1.0 };
+    pub const NEG_Y: Vec4 = .{ .y = -1.0 };
+    pub const Z: Vec4 = .{ .z = 1.0 };
+    pub const NEG_Z: Vec4 = .{ .z = -1.0 };
 
     pub inline fn eq(self: Vec4, other: Vec4) bool {
         return self.x == other.x and
@@ -241,6 +360,15 @@ pub const Vec4 = extern struct {
             .y = self.y * v,
             .z = self.z * v,
             .w = self.w * v,
+        };
+    }
+
+    pub inline fn div_f32(self: Vec4, v: f32) Vec4 {
+        return .{
+            .x = self.x / v,
+            .y = self.y / v,
+            .z = self.z / v,
+            .w = self.w / v,
         };
     }
 
@@ -389,7 +517,7 @@ pub const Quat = struct {
         const self_v3_len_sq = self_v3.len_squared();
         return v3.mul_f32(self.w * self.w - self_v3_len_sq)
             .add(self_v3.mul_f32(2.0 * v3.dot(self_v3)))
-            .add(2.0 * self.w * self_v3.cross(v3));
+            .add(self_v3.cross(v3).mul_f32(2.0 * self.w));
     }
 
     pub inline fn to_mat4(self: Quat) Mat4 {
@@ -443,6 +571,27 @@ pub const Mat4 = extern struct {
         return tmp;
     }
 
+    pub inline fn scale(self: Mat4, s: Vec3) Mat4 {
+        var tmp = self;
+        tmp.i.x = tmp.i.x * s.x;
+        tmp.j.y = tmp.j.y * s.y;
+        tmp.k.z = tmp.k.z * s.z;
+        return tmp;
+    }
+
+    pub fn look_at(position: Vec3, target: Vec3, up: Vec3) Mat4 {
+        const forward = target.sub(position).normalize();
+        const right = forward.cross(up).normalize();
+        const new_up = right.cross(forward);
+
+        return .{
+            .i = right.extend(0.0),
+            .j = forward.extend(0.0),
+            .k = new_up.extend(0.0),
+            .t = .{ .w = 1.0 },
+        };
+    }
+
     pub fn perspective(fovy: f32, aspect: f32, near: f32, far: f32) Mat4 {
         const g = 1.0 / @tan(fovy / 2.0);
         const k = near / (near - far);
@@ -451,6 +600,16 @@ pub const Mat4 = extern struct {
             .j = .{ .y = g },
             .k = .{ .z = k, .w = 1.0 },
             .t = .{ .z = -far * k },
+        };
+    }
+
+    // Assuming the camera is in the center of the near plane
+    pub fn orthographic(width: f32, height: f32, depth: f32) Mat4 {
+        return .{
+            .i = .{ .x = 2.0 / width },
+            .j = .{ .y = 2.0 / height },
+            .k = .{ .z = 1.0 / depth },
+            .t = .{ .w = 1.0 },
         };
     }
 
